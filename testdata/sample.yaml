@@ -1,0 +1,21 @@
+title: Code Quality Report
+score: 85
+threshold: 75
+description: Overall code quality assessment for the project.
+factors:
+  - name: Test Coverage
+    score: 92
+    weight: 30
+    description: Percentage of code covered by tests
+  - name: Code Complexity
+    score: 78
+    weight: 25
+    description: Cyclomatic complexity within acceptable range
+  - name: Documentation
+    score: 88
+    weight: 20
+    description: API documentation completeness
+  - name: Security Scan
+    score: 80
+    weight: 25
+    description: No critical vulnerabilities detected

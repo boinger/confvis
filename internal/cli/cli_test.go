@@ -894,3 +894,81 @@ func TestGauge_BadgeTypeInvalid(t *testing.T) {
 		t.Fatal("expected error for invalid badge-type")
 	}
 }
+
+func TestGauge_YAMLInput(t *testing.T) {
+	bin := buildBinary(t)
+
+	// Auto-detect YAML from extension
+	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample.yaml", "-o", "-", "-f", "json")
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("gauge with YAML input failed: %v\n%s", err, output)
+	}
+
+	outputStr := string(output)
+	if !strings.Contains(outputStr, `"score": 85`) {
+		t.Error("YAML input should produce same score as JSON")
+	}
+	if !strings.Contains(outputStr, `"passed": true`) {
+		t.Error("YAML input should produce same passed status as JSON")
+	}
+}
+
+func TestGauge_YAMLInput_Stdin(t *testing.T) {
+	bin := buildBinary(t)
+
+	// Read sample YAML
+	sampleYAML, err := os.ReadFile("../../testdata/sample.yaml")
+	if err != nil {
+		t.Fatalf("reading sample.yaml: %v", err)
+	}
+
+	cmd := exec.Command(bin, "gauge", "-c", "-", "--input-format", "yaml", "-o", "-", "-f", "text")
+	cmd.Stdin = bytes.NewReader(sampleYAML)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("gauge with YAML stdin failed: %v\n%s", err, output)
+	}
+
+	if strings.TrimSpace(string(output)) != "85" {
+		t.Errorf("expected score 85, got: %s", string(output))
+	}
+}
+
+func TestGauge_InputFormatInvalid(t *testing.T) {
+	bin := buildBinary(t)
+
+	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample.json", "-o", "-", "--input-format", "invalid")
+
+	err := cmd.Run()
+	if err == nil {
+		t.Fatal("expected error for invalid input-format")
+	}
+}
+
+func TestGenerate_YAMLInput(t *testing.T) {
+	bin := buildBinary(t)
+
+	outputDir := t.TempDir()
+
+	cmd := exec.Command(bin, "generate", "-c", "../../testdata/sample.yaml", "-o", outputDir)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("generate with YAML input failed: %v\n%s", err, output)
+	}
+
+	// Verify badge.svg was created
+	badgePath := filepath.Join(outputDir, "badge.svg")
+	if _, err := os.Stat(badgePath); os.IsNotExist(err) {
+		t.Error("badge.svg was not created")
+	}
+
+	// Verify dashboard was created
+	dashboardPath := filepath.Join(outputDir, "dashboard", "index.html")
+	if _, err := os.Stat(dashboardPath); os.IsNotExist(err) {
+		t.Error("dashboard/index.html was not created")
+	}
+}

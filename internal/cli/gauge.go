@@ -27,17 +27,19 @@ var (
 	gaugeFailOnRegression bool
 	gaugeBadgeType        string
 	gaugeLabel            string
+	gaugeInputFormat      string
 )
 
 var gaugeCmd = &cobra.Command{
 	Use:   "gauge",
 	Short: "Generate an SVG gauge badge",
-	Long:  `Generate an SVG gauge badge from a confidence report JSON file.`,
+	Long:  `Generate an SVG gauge badge from a confidence report (JSON or YAML).`,
 	RunE:  runGauge,
 }
 
 func init() {
-	gaugeCmd.Flags().StringVarP(&gaugeConfig, "config", "c", "", "path to confidence report JSON, or - for stdin (required)")
+	gaugeCmd.Flags().StringVarP(&gaugeConfig, "config", "c", "", "path to confidence report (JSON/YAML), or - for stdin (required)")
+	gaugeCmd.Flags().StringVar(&gaugeInputFormat, "input-format", "auto", "input format: auto, json, or yaml (auto-detects from extension)")
 	gaugeCmd.Flags().StringVarP(&gaugeOutput, "output", "o", "", "output file path, or - for stdout (required)")
 	gaugeCmd.Flags().StringVarP(&gaugeFormat, "format", "f", "svg", "output format: svg, json, text, or markdown")
 	gaugeCmd.Flags().IntVar(&gaugeWidth, "width", 200, "gauge width in pixels (svg only)")
@@ -79,13 +81,30 @@ func runGauge(_ *cobra.Command, _ []string) error {
 		return fmt.Errorf("invalid badge-type %q: must be gauge or flat", gaugeBadgeType)
 	}
 
+	// Validate and convert input format
+	var inputFormat confidence.Format
+	switch gaugeInputFormat {
+	case "auto":
+		inputFormat = confidence.FormatAuto
+	case "json":
+		inputFormat = confidence.FormatJSON
+	case "yaml":
+		inputFormat = confidence.FormatYAML
+	default:
+		return fmt.Errorf("invalid input-format %q: must be auto, json, or yaml", gaugeInputFormat)
+	}
+
 	var report *confidence.Report
 	var err error
 
 	if gaugeConfig == "-" {
-		report, err = confidence.Parse(os.Stdin)
+		// For stdin, use JSON by default unless explicitly specified
+		if inputFormat == confidence.FormatAuto {
+			inputFormat = confidence.FormatJSON
+		}
+		report, err = confidence.ParseWithFormat(os.Stdin, inputFormat)
 	} else {
-		report, err = confidence.ParseFile(gaugeConfig)
+		report, err = confidence.ParseFileWithFormat(gaugeConfig, inputFormat)
 	}
 	if err != nil {
 		return fmt.Errorf("parsing config: %w", err)

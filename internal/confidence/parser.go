@@ -5,29 +5,82 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"strings"
+
+	"gopkg.in/yaml.v3"
+)
+
+// Format represents the input file format.
+type Format string
+
+const (
+	FormatJSON Format = "json"
+	FormatYAML Format = "yaml"
+	FormatAuto Format = "auto"
 )
 
 // ParseFile reads and parses a confidence report from a file path.
+// The format is auto-detected from the file extension (.yaml, .yml for YAML, otherwise JSON).
 func ParseFile(path string) (*Report, error) {
+	return ParseFileWithFormat(path, FormatAuto)
+}
+
+// ParseFileWithFormat reads and parses a confidence report from a file path
+// using the specified format. If format is FormatAuto, it's detected from the extension.
+func ParseFileWithFormat(path string, format Format) (*Report, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("opening file: %w", err)
 	}
 
-	report, err := Parse(f)
+	// Auto-detect format from extension
+	if format == FormatAuto {
+		format = detectFormat(path)
+	}
+
+	report, err := ParseWithFormat(f, format)
 	if closeErr := f.Close(); closeErr != nil && err == nil {
 		return nil, fmt.Errorf("closing file: %w", closeErr)
 	}
 	return report, err
 }
 
-// Parse reads and parses a confidence report from an io.Reader.
+// detectFormat returns the format based on file extension.
+func detectFormat(path string) Format {
+	ext := strings.ToLower(filepath.Ext(path))
+	switch ext {
+	case ".yaml", ".yml":
+		return FormatYAML
+	default:
+		return FormatJSON
+	}
+}
+
+// Parse reads and parses a confidence report from an io.Reader as JSON.
 // If score is omitted (0) but factors exist, the score is automatically
 // calculated as a weighted average of factor scores.
 func Parse(r io.Reader) (*Report, error) {
+	return ParseWithFormat(r, FormatJSON)
+}
+
+// ParseWithFormat reads and parses a confidence report from an io.Reader
+// using the specified format.
+func ParseWithFormat(r io.Reader, format Format) (*Report, error) {
 	var report Report
-	if err := json.NewDecoder(r).Decode(&report); err != nil {
-		return nil, fmt.Errorf("decoding JSON: %w", err)
+	var err error
+
+	switch format {
+	case FormatYAML:
+		err = yaml.NewDecoder(r).Decode(&report)
+		if err != nil {
+			return nil, fmt.Errorf("decoding YAML: %w", err)
+		}
+	default: // JSON
+		err = json.NewDecoder(r).Decode(&report)
+		if err != nil {
+			return nil, fmt.Errorf("decoding JSON: %w", err)
+		}
 	}
 
 	// Auto-calculate score from factors if score is omitted

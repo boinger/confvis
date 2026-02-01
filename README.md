@@ -20,7 +20,7 @@ go build -o confvis ./cmd/confvis
 
 ## Quick Start
 
-1. Create a confidence report JSON file:
+1. Create a confidence report (JSON or YAML):
 
 ```json
 {
@@ -36,11 +36,27 @@ go build -o confvis ./cmd/confvis
 }
 ```
 
+Or in YAML:
+
+```yaml
+title: Code Quality
+score: 85
+threshold: 75
+factors:
+  - name: Test Coverage
+    score: 92
+    weight: 30
+  - name: Code Complexity
+    score: 78
+    weight: 25
+```
+
 2. Generate visualizations:
 
 ```bash
 # Generate both badge and dashboard
 confvis generate -c confidence.json -o ./output
+confvis generate -c confidence.yaml -o ./output  # YAML works too
 
 # Generate just the gauge badge
 confvis gauge -c confidence.json -o badge.svg

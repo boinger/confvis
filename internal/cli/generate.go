@@ -13,16 +13,17 @@ import (
 )
 
 var (
-	genConfig    string
-	genOutput    string
-	genDark      bool
-	genFailUnder int
+	genConfig      string
+	genOutput      string
+	genDark        bool
+	genFailUnder   int
+	genInputFormat string
 )
 
 var generateCmd = &cobra.Command{
 	Use:   "generate",
 	Short: "Generate badge and dashboard",
-	Long: `Generate both an SVG badge and HTML dashboard from a confidence report.
+	Long: `Generate both an SVG badge and HTML dashboard from a confidence report (JSON or YAML).
 
 Creates:
   <output>/badge.svg         - SVG gauge badge
@@ -31,7 +32,8 @@ Creates:
 }
 
 func init() {
-	generateCmd.Flags().StringVarP(&genConfig, "config", "c", "", "path to confidence report JSON, or - for stdin (required)")
+	generateCmd.Flags().StringVarP(&genConfig, "config", "c", "", "path to confidence report (JSON/YAML), or - for stdin (required)")
+	generateCmd.Flags().StringVar(&genInputFormat, "input-format", "auto", "input format: auto, json, or yaml (auto-detects from extension)")
 	generateCmd.Flags().StringVarP(&genOutput, "output", "o", "", "output directory (required)")
 	generateCmd.Flags().BoolVar(&genDark, "dark", false, "use dark mode colors")
 	generateCmd.Flags().IntVar(&genFailUnder, "fail-under", 0, "exit non-zero if score is below this value")
@@ -47,13 +49,30 @@ func init() {
 }
 
 func runGenerate(_ *cobra.Command, _ []string) error {
+	// Validate and convert input format
+	var inputFormat confidence.Format
+	switch genInputFormat {
+	case "auto":
+		inputFormat = confidence.FormatAuto
+	case "json":
+		inputFormat = confidence.FormatJSON
+	case "yaml":
+		inputFormat = confidence.FormatYAML
+	default:
+		return fmt.Errorf("invalid input-format %q: must be auto, json, or yaml", genInputFormat)
+	}
+
 	var report *confidence.Report
 	var err error
 
 	if genConfig == "-" {
-		report, err = confidence.Parse(os.Stdin)
+		// For stdin, use JSON by default unless explicitly specified
+		if inputFormat == confidence.FormatAuto {
+			inputFormat = confidence.FormatJSON
+		}
+		report, err = confidence.ParseWithFormat(os.Stdin, inputFormat)
 	} else {
-		report, err = confidence.ParseFile(genConfig)
+		report, err = confidence.ParseFileWithFormat(genConfig, inputFormat)
 	}
 	if err != nil {
 		return fmt.Errorf("parsing config: %w", err)

@@ -22,7 +22,8 @@ confvis generate -c <config> -o <output-dir> [flags]
 
 | Flag | Short | Description |
 |------|-------|-------------|
-| `--config` | `-c` | Path to confidence report JSON file, or `-` for stdin |
+| `--config` | `-c` | Path to confidence report (JSON/YAML), or `-` for stdin |
+| `--input-format` | | Input format: `auto`, `json`, or `yaml` (auto-detects from extension) |
 | `--output` | `-o` | Output directory path |
 
 #### Optional Flags
@@ -74,13 +75,14 @@ confvis gauge -c <config> -o <output-file> [flags]
 
 | Flag | Short | Description |
 |------|-------|-------------|
-| `--config` | `-c` | Path to confidence report JSON file, or `-` for stdin |
+| `--config` | `-c` | Path to confidence report (JSON/YAML), or `-` for stdin |
 | `--output` | `-o` | Output SVG file path, or `-` for stdout |
 
 #### Optional Flags
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
+| `--input-format` | | auto | Input format: `auto`, `json`, or `yaml` (auto-detects from extension) |
 | `--format` | `-f` | svg | Output format: `svg`, `json`, `text`, or `markdown` |
 | `--badge-type` | | gauge | Badge type: `gauge` (semi-circle) or `flat` (shields.io style) |
 | `--label` | | | Custom label for flat badge (defaults to report title) |
@@ -188,6 +190,12 @@ confvis gauge -c confidence.json --compare baseline.json -o - -f json
 
 # Fail if score regressed from baseline (CI/CD)
 confvis gauge -c confidence.json --compare baseline.json -o badge.svg --fail-on-regression
+
+# Use YAML input (auto-detected from extension)
+confvis gauge -c confidence.yaml -o badge.svg
+
+# YAML from stdin (requires explicit format)
+cat confidence.yaml | confvis gauge -c - --input-format yaml -o badge.svg
 ```
 
 ---

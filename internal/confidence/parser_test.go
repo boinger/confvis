@@ -411,3 +411,91 @@ func TestReport_EffectiveLabels(t *testing.T) {
 		t.Errorf("EffectiveFailLabel() = %q, want NOT OK", r.EffectiveFailLabel())
 	}
 }
+
+func TestParseWithFormat_YAML(t *testing.T) {
+	input := `title: Test Report
+score: 85
+threshold: 75
+description: A test report
+factors:
+  - name: Factor 1
+    score: 90
+    weight: 50
+  - name: Factor 2
+    score: 80
+    weight: 50
+`
+
+	report, err := ParseWithFormat(strings.NewReader(input), FormatYAML)
+	if err != nil {
+		t.Fatalf("ParseWithFormat(YAML) error = %v", err)
+	}
+
+	if report.Title != "Test Report" {
+		t.Errorf("Title = %q, want %q", report.Title, "Test Report")
+	}
+	if report.Score != 85 {
+		t.Errorf("Score = %d, want %d", report.Score, 85)
+	}
+	if report.Threshold != 75 {
+		t.Errorf("Threshold = %d, want %d", report.Threshold, 75)
+	}
+	if len(report.Factors) != 2 {
+		t.Errorf("len(Factors) = %d, want %d", len(report.Factors), 2)
+	}
+}
+
+func TestParseWithFormat_YAML_Invalid(t *testing.T) {
+	_, err := ParseWithFormat(strings.NewReader("not: [valid: yaml"), FormatYAML)
+	if err == nil {
+		t.Fatal("ParseWithFormat(YAML) expected error for invalid YAML")
+	}
+	if !strings.Contains(err.Error(), "decoding YAML") {
+		t.Errorf("error = %q, want to contain 'decoding YAML'", err.Error())
+	}
+}
+
+func TestParseWithFormat_YAML_AutoCalculateScore(t *testing.T) {
+	input := `title: Auto Test
+threshold: 75
+factors:
+  - name: A
+    score: 80
+    weight: 50
+  - name: B
+    score: 60
+    weight: 50
+`
+
+	report, err := ParseWithFormat(strings.NewReader(input), FormatYAML)
+	if err != nil {
+		t.Fatalf("ParseWithFormat(YAML) error = %v", err)
+	}
+
+	// (80*50 + 60*50) / 100 = 70
+	if report.Score != 70 {
+		t.Errorf("Auto-calculated score = %d, want 70", report.Score)
+	}
+}
+
+func TestDetectFormat(t *testing.T) {
+	tests := []struct {
+		path string
+		want Format
+	}{
+		{"config.json", FormatJSON},
+		{"config.yaml", FormatYAML},
+		{"config.yml", FormatYAML},
+		{"config.YAML", FormatYAML},
+		{"config.YML", FormatYAML},
+		{"config.txt", FormatJSON}, // default to JSON
+		{"config", FormatJSON},     // no extension defaults to JSON
+	}
+
+	for _, tt := range tests {
+		got := detectFormat(tt.path)
+		if got != tt.want {
+			t.Errorf("detectFormat(%q) = %q, want %q", tt.path, got, tt.want)
+		}
+	}
+}
