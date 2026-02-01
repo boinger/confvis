@@ -54,11 +54,14 @@ confvis gauge -c confidence.json -o badge.svg
 
 ## CI/CD Integration
 
-Use `--fail-under` to enforce minimum scores in your pipeline:
+Use `--fail-under` to enforce minimum scores, or `--fail-on-regression` to detect quality degradation:
 
 ```bash
 # Fail the build if score drops below 75
 confvis gauge -c confidence.json -o badge.svg --fail-under 75
+
+# Fail if score regressed from baseline
+confvis gauge -c confidence.json --compare baseline.json --fail-on-regression -o badge.svg
 
 # Quiet mode for clean CI logs
 confvis generate -c confidence.json -o ./output --fail-under 75 -q
@@ -93,13 +96,18 @@ Creates:
 Generate a gauge badge in various formats.
 
 ```bash
-confvis gauge -c confidence.json -o badge.svg [--format svg|json|text] [--style github|minimal|corporate|high-contrast] [--dark]
+confvis gauge -c confidence.json -o badge.svg [--format svg|json|text|markdown] [--badge-type gauge|flat] [--style github|minimal|corporate|high-contrast] [--dark]
 ```
 
 Output formats:
 - `svg` (default): SVG gauge badge image
 - `json`: Score metadata as JSON
 - `text`: Just the score number (for scripting)
+- `markdown`: Markdown table for PR comments
+
+Badge types:
+- `gauge` (default): Semi-circular gauge
+- `flat`: Shields.io-compatible rectangular badge
 
 Color styles: `github` (default), `minimal`, `corporate`, `high-contrast`
 

@@ -583,3 +583,314 @@ func TestGauge_MetadataInJSONOutput(t *testing.T) {
 		t.Error("JSON output should contain source")
 	}
 }
+
+func TestGauge_FormatMarkdown(t *testing.T) {
+	bin := buildBinary(t)
+
+	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample.json", "-o", "-", "-f", "markdown")
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("gauge with --format markdown failed: %v\n%s", err, output)
+	}
+
+	outputStr := string(output)
+	// Should contain header with title, score, and PASS
+	if !strings.Contains(outputStr, "## Code Quality Report: 85% (PASS)") {
+		t.Error("markdown should contain header with title, score, and status")
+	}
+	// Should contain table headers
+	if !strings.Contains(outputStr, "| Factor | Score | Weight |") {
+		t.Error("markdown should contain factor table header")
+	}
+	// Should contain factor data
+	if !strings.Contains(outputStr, "| Test Coverage | 92% | 30% |") {
+		t.Error("markdown should contain factor rows")
+	}
+}
+
+func TestGauge_FormatMarkdown_WithURLs(t *testing.T) {
+	bin := buildBinary(t)
+
+	jsonWithURLs := `{
+		"title": "Test",
+		"score": 85,
+		"threshold": 75,
+		"factors": [
+			{"name": "Coverage", "score": 90, "weight": 50, "url": "https://example.com/coverage"},
+			{"name": "Lint", "score": 80, "weight": 50}
+		]
+	}`
+
+	cmd := exec.Command(bin, "gauge", "-c", "-", "-o", "-", "-f", "markdown")
+	cmd.Stdin = strings.NewReader(jsonWithURLs)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("gauge markdown with URLs failed: %v\n%s", err, output)
+	}
+
+	outputStr := string(output)
+	// Factor with URL should be a markdown link
+	if !strings.Contains(outputStr, "[Coverage](https://example.com/coverage)") {
+		t.Error("markdown should contain URL as markdown link")
+	}
+	// Factor without URL should be plain text
+	if !strings.Contains(outputStr, "| Lint |") {
+		t.Error("factor without URL should be plain text")
+	}
+}
+
+func TestGauge_FormatMarkdown_Failing(t *testing.T) {
+	bin := buildBinary(t)
+
+	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample_failing.json", "-o", "-", "-f", "markdown")
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("gauge markdown with failing report failed: %v\n%s", err, output)
+	}
+
+	outputStr := string(output)
+	// Should show FAIL status
+	if !strings.Contains(outputStr, "(FAIL)") {
+		t.Error("markdown should show FAIL status for failing report")
+	}
+}
+
+func TestGauge_FormatMarkdown_CustomLabels(t *testing.T) {
+	bin := buildBinary(t)
+
+	jsonCustomLabels := `{
+		"title": "Test",
+		"score": 85,
+		"threshold": 75,
+		"passLabel": "APPROVED"
+	}`
+
+	cmd := exec.Command(bin, "gauge", "-c", "-", "-o", "-", "-f", "markdown")
+	cmd.Stdin = strings.NewReader(jsonCustomLabels)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("gauge markdown with custom labels failed: %v\n%s", err, output)
+	}
+
+	outputStr := string(output)
+	// Should use custom pass label
+	if !strings.Contains(outputStr, "(APPROVED)") {
+		t.Error("markdown should use custom pass label")
+	}
+}
+
+func TestGauge_Compare_JSON(t *testing.T) {
+	bin := buildBinary(t)
+
+	// sample.json has score 85, sample_failing.json has score 62
+	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample.json", "--compare", "../../testdata/sample_failing.json", "-o", "-", "-f", "json")
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("gauge compare JSON failed: %v\n%s", err, output)
+	}
+
+	outputStr := string(output)
+	if !strings.Contains(outputStr, `"baseline": 62`) {
+		t.Error("JSON output should contain baseline score")
+	}
+	if !strings.Contains(outputStr, `"delta": 23`) {
+		t.Error("JSON output should contain delta")
+	}
+}
+
+func TestGauge_Compare_Text(t *testing.T) {
+	bin := buildBinary(t)
+
+	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample.json", "--compare", "../../testdata/sample_failing.json", "-o", "-", "-f", "text")
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("gauge compare text failed: %v\n%s", err, output)
+	}
+
+	if strings.TrimSpace(string(output)) != "85 (+23)" {
+		t.Errorf("text output should be '85 (+23)', got: %s", string(output))
+	}
+}
+
+func TestGauge_Compare_Text_Negative(t *testing.T) {
+	bin := buildBinary(t)
+
+	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample_failing.json", "--compare", "../../testdata/sample.json", "-o", "-", "-f", "text")
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("gauge compare text failed: %v\n%s", err, output)
+	}
+
+	if strings.TrimSpace(string(output)) != "62 (-23)" {
+		t.Errorf("text output should be '62 (-23)', got: %s", string(output))
+	}
+}
+
+func TestGauge_Compare_Markdown(t *testing.T) {
+	bin := buildBinary(t)
+
+	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample.json", "--compare", "../../testdata/sample_failing.json", "-o", "-", "-f", "markdown")
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("gauge compare markdown failed: %v\n%s", err, output)
+	}
+
+	outputStr := string(output)
+	if !strings.Contains(outputStr, "[+23 from 62%]") {
+		t.Error("markdown output should contain delta from baseline")
+	}
+}
+
+func TestGauge_FailOnRegression_Pass(t *testing.T) {
+	bin := buildBinary(t)
+
+	// Score improved: 85 > 62, no regression
+	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample.json", "--compare", "../../testdata/sample_failing.json", "-o", "-", "-f", "text", "--fail-on-regression")
+
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("expected exit 0 when score improved, got error: %v", err)
+	}
+}
+
+func TestGauge_FailOnRegression_Fail(t *testing.T) {
+	bin := buildBinary(t)
+
+	// Score regressed: 62 < 85
+	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample_failing.json", "--compare", "../../testdata/sample.json", "-o", "-", "-f", "text", "--fail-on-regression")
+
+	err := cmd.Run()
+	if err == nil {
+		t.Fatal("expected exit 1 when score regressed, got exit 0")
+	}
+
+	exitErr, ok := err.(*exec.ExitError)
+	if !ok {
+		t.Fatalf("expected *exec.ExitError, got %T", err)
+	}
+
+	if exitErr.ExitCode() != 1 {
+		t.Errorf("expected exit code 1, got %d", exitErr.ExitCode())
+	}
+}
+
+func TestGauge_FailOnRegression_Message(t *testing.T) {
+	bin := buildBinary(t)
+
+	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample_failing.json", "--compare", "../../testdata/sample.json", "-o", "-", "-f", "text", "--fail-on-regression")
+
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+
+	_ = cmd.Run() // Expected to fail
+
+	if !strings.Contains(stderr.String(), "Score regressed from 85 to 62 (-23)") {
+		t.Errorf("expected regression message in stderr, got: %s", stderr.String())
+	}
+}
+
+func TestGauge_FlatBadge(t *testing.T) {
+	bin := buildBinary(t)
+
+	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample.json", "-o", "-", "--badge-type", "flat")
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("gauge with --badge-type flat failed: %v\n%s", err, output)
+	}
+
+	outputStr := string(output)
+	// Should be an SVG with different structure than gauge
+	if !strings.Contains(outputStr, "<svg") {
+		t.Error("flat badge should be an SVG")
+	}
+	// Should contain the title as label
+	if !strings.Contains(outputStr, "Code Quality Report") {
+		t.Error("flat badge should contain report title as label")
+	}
+	// Should contain PASS status
+	if !strings.Contains(outputStr, "PASS") {
+		t.Error("flat badge should contain PASS status")
+	}
+	// Should contain score percentage
+	if !strings.Contains(outputStr, "85%") {
+		t.Error("flat badge should contain score percentage")
+	}
+}
+
+func TestGauge_FlatBadge_CustomLabel(t *testing.T) {
+	bin := buildBinary(t)
+
+	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample.json", "-o", "-", "--badge-type", "flat", "--label", "Quality")
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("gauge with --badge-type flat --label failed: %v\n%s", err, output)
+	}
+
+	outputStr := string(output)
+	// Should contain custom label
+	if !strings.Contains(outputStr, "Quality") {
+		t.Error("flat badge should contain custom label")
+	}
+	// Should NOT contain the report title
+	if strings.Contains(outputStr, "Code Quality Report") {
+		t.Error("flat badge should not contain report title when custom label is used")
+	}
+}
+
+func TestGauge_FlatBadge_Failing(t *testing.T) {
+	bin := buildBinary(t)
+
+	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample_failing.json", "-o", "-", "--badge-type", "flat")
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("gauge flat badge with failing report failed: %v\n%s", err, output)
+	}
+
+	outputStr := string(output)
+	// Should contain FAIL status
+	if !strings.Contains(outputStr, "FAIL") {
+		t.Error("flat badge should contain FAIL status for failing report")
+	}
+	// Should contain score percentage
+	if !strings.Contains(outputStr, "62%") {
+		t.Error("flat badge should contain score percentage")
+	}
+}
+
+func TestGauge_FlatBadge_DarkMode(t *testing.T) {
+	bin := buildBinary(t)
+
+	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample.json", "-o", "-", "--badge-type", "flat", "--dark")
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("gauge flat badge with dark mode failed: %v\n%s", err, output)
+	}
+
+	outputStr := string(output)
+	// Dark mode should use darker label background (#333 instead of #555)
+	if !strings.Contains(outputStr, "#333") {
+		t.Error("flat badge dark mode should use darker label background")
+	}
+}
+
+func TestGauge_BadgeTypeInvalid(t *testing.T) {
+	bin := buildBinary(t)
+
+	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample.json", "-o", "-", "--badge-type", "invalid")
+
+	err := cmd.Run()
+	if err == nil {
+		t.Fatal("expected error for invalid badge-type")
+	}
+}

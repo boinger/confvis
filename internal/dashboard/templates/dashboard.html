@@ -168,6 +168,16 @@
             margin-top: 4px;
         }
 
+        .factor-link {
+            color: var(--text-primary);
+            text-decoration: none;
+        }
+
+        .factor-link:hover {
+            text-decoration: underline;
+            color: var(--success-color);
+        }
+
         .theme-toggle {
             position: fixed;
             top: 16px;
@@ -213,7 +223,7 @@
             {{range .Report.Factors}}
             <div class="factor">
                 <div class="factor-header">
-                    <span class="factor-name">{{.Name}}</span>
+                    <span class="factor-name">{{if .URL}}<a href="{{.URL}}" class="factor-link" target="_blank" rel="noopener noreferrer">{{.Name}}</a>{{else}}{{.Name}}{{end}}</span>
                     <span class="factor-score">{{.Score}}%{{if .Weight}} (weight: {{.Weight}}%){{end}}</span>
                 </div>
                 <div class="factor-bar">

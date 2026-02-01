@@ -68,7 +68,7 @@ Note: `greenAbove` must be >= `yellowAbove`. Scores below `yellowAbove` display 
 | `score` | integer | Yes | Factor score (0-100) |
 | `weight` | integer | Yes | Relative weight in calculations |
 | `description` | string | No | Explanation of this factor |
-| `url` | string | No | Link to detailed report or documentation |
+| `url` | string | No | Link to detailed report (clickable in dashboard and markdown output) |
 
 ## Examples
 

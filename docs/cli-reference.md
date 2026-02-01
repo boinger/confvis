@@ -81,14 +81,18 @@ confvis gauge -c <config> -o <output-file> [flags]
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
-| `--format` | `-f` | svg | Output format: `svg`, `json`, or `text` |
-| `--width` | | 200 | Gauge width in pixels (svg only) |
-| `--height` | | 120 | Gauge height in pixels (svg only) |
+| `--format` | `-f` | svg | Output format: `svg`, `json`, `text`, or `markdown` |
+| `--badge-type` | | gauge | Badge type: `gauge` (semi-circle) or `flat` (shields.io style) |
+| `--label` | | | Custom label for flat badge (defaults to report title) |
+| `--width` | | 200 | Gauge width in pixels (gauge badge only) |
+| `--height` | | 120 | Gauge height in pixels (gauge badge only) |
 | `--style` | | github | Color scheme style (svg only) |
 | `--dark` | | false | Use dark mode colors (svg only) |
 | `--fail-under` | | 0 | Exit with code 1 if score is below this value |
 | `--green-above` | | 75 | Score threshold for green color (overrides JSON) |
 | `--yellow-above` | | 50 | Score threshold for yellow color (overrides JSON) |
+| `--compare` | | | Path to baseline report JSON for comparison |
+| `--fail-on-regression` | | false | Exit with code 1 if score decreased from baseline |
 
 #### Output Formats
 
@@ -102,10 +106,21 @@ confvis gauge -c <config> -o <output-file> [flags]
     "passed": true,
     "version": "string (if present)",
     "generatedAt": "string (if present)",
-    "source": "string (if present)"
+    "source": "string (if present)",
+    "baseline": 80,
+    "delta": 5
   }
   ```
-- **text**: Plain text score number (useful for scripting)
+  Note: `baseline` and `delta` fields are only present when using `--compare`.
+- **text**: Plain text score number (useful for scripting). With `--compare`, shows delta: `85 (+5)`
+- **markdown**: Markdown-formatted report for PR comments or wiki pages:
+  ```markdown
+  ## Code Quality: 85% (PASS)
+
+  | Factor | Score | Weight |
+  |--------|------:|-------:|
+  | Test Coverage | 92% | 30% |
+  ```
 
 #### Color Styles
 
@@ -160,6 +175,19 @@ confvis gauge -c confidence.json -o badge.svg --green-above 90 --yellow-above 70
 confvis gauge -c confidence.json -o badge.svg --style minimal
 confvis gauge -c confidence.json -o badge.svg --style corporate --dark
 confvis gauge -c confidence.json -o badge.svg --style high-contrast
+
+# Shields.io-style flat badge
+confvis gauge -c confidence.json -o badge.svg --badge-type flat
+confvis gauge -c confidence.json -o badge.svg --badge-type flat --label "Quality"
+
+# Output as markdown (for PR comments)
+confvis gauge -c confidence.json -o - -f markdown
+
+# Compare against baseline
+confvis gauge -c confidence.json --compare baseline.json -o - -f json
+
+# Fail if score regressed from baseline (CI/CD)
+confvis gauge -c confidence.json --compare baseline.json -o badge.svg --fail-on-regression
 ```
 
 ---
@@ -169,7 +197,7 @@ confvis gauge -c confidence.json -o badge.svg --style high-contrast
 | Code | Meaning |
 |------|---------|
 | 0 | Success |
-| 1 | Error (invalid config, file not found, or score below `--fail-under` threshold) |
+| 1 | Error (invalid config, file not found, score below `--fail-under`, or regression with `--fail-on-regression`) |
 
 ## Examples
 
@@ -182,11 +210,20 @@ confvis gauge -c confidence.json -o badge.svg || exit 1
 # Fail if score drops below 75
 confvis gauge -c confidence.json -o badge.svg --fail-under 75
 
+# Fail if score regressed from main branch baseline
+confvis gauge -c confidence.json --compare main-baseline.json --fail-on-regression -o badge.svg
+
 # Quiet mode for clean CI logs
 confvis generate -c confidence.json -o ./output --fail-under 75 -q
 
 # Pipe from another tool
 metrics-tool export | confvis gauge -c - -o badge.svg --fail-under 80
+
+# Generate markdown for PR comment
+confvis gauge -c confidence.json --compare main-baseline.json -o - -f markdown >> pr-comment.md
+
+# Generate shields.io-compatible badge for README
+confvis gauge -c confidence.json -o badge.svg --badge-type flat --label "Quality"
 ```
 
 ### Verbose Debugging

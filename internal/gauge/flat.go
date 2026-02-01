@@ -1,0 +1,108 @@
+package gauge
+
+import (
+	"fmt"
+	"io"
+
+	svg "github.com/ajstarks/svgo"
+
+	"github.com/boinger/confvis/internal/confidence"
+)
+
+// FlatOptions configures flat badge generation.
+type FlatOptions struct {
+	Label       string // Label text (left side), defaults to report title
+	DarkMode    bool
+	Style       string // Color scheme style
+	GreenAbove  int    // Score threshold for green color
+	YellowAbove int    // Score threshold for yellow color
+}
+
+// GenerateFlat creates a shields.io-style flat badge for the given report.
+func GenerateFlat(w io.Writer, report *confidence.Report, opts FlatOptions) error {
+	scheme := GetColorScheme(opts.Style, opts.DarkMode)
+
+	// Determine color thresholds
+	thresholds := report.EffectiveColorThresholds()
+	if opts.GreenAbove > 0 {
+		thresholds.GreenAbove = opts.GreenAbove
+	}
+	if opts.YellowAbove > 0 {
+		thresholds.YellowAbove = opts.YellowAbove
+	}
+
+	// Use custom label or default to report title
+	label := opts.Label
+	if label == "" {
+		label = report.Title
+	}
+
+	// Score and status text
+	scoreText := fmt.Sprintf("%d%%", report.Score)
+	statusText := report.EffectivePassLabel()
+	if !report.Passed() {
+		statusText = report.EffectiveFailLabel()
+	}
+
+	// Calculate widths based on text length
+	// Approximate: 7px per character + padding
+	labelWidth := len(label)*7 + 12
+	scoreWidth := len(scoreText)*7 + 12
+	statusWidth := len(statusText)*7 + 12
+	totalWidth := labelWidth + scoreWidth + statusWidth
+
+	height := 20
+	radius := 3
+
+	scoreColor := scheme.ScoreColor(report.Score, thresholds.GreenAbove, thresholds.YellowAbove)
+
+	canvas := svg.New(w)
+	canvas.Start(totalWidth, height)
+
+	// Define clip path for rounded corners
+	canvas.Def()
+	canvas.ClipPath(`id="clip"`)
+	canvas.Roundrect(0, 0, totalWidth, height, radius, radius)
+	canvas.ClipEnd()
+	canvas.DefEnd()
+
+	// Apply clip path
+	canvas.Group(`clip-path="url(#clip)"`)
+
+	// Label section (left) - dark background
+	labelBg := "#555"
+	if opts.DarkMode {
+		labelBg = "#333"
+	}
+	canvas.Rect(0, 0, labelWidth, height, fmt.Sprintf("fill:%s", labelBg))
+
+	// Score section (middle) - colored by score
+	canvas.Rect(labelWidth, 0, scoreWidth, height, fmt.Sprintf("fill:%s", scoreColor))
+
+	// Status section (right) - same color as score
+	canvas.Rect(labelWidth+scoreWidth, 0, statusWidth, height, fmt.Sprintf("fill:%s", scoreColor))
+
+	canvas.Gend()
+
+	// Text styling
+	textStyle := "font-family:Verdana,Geneva,DejaVu Sans,sans-serif;font-size:11px;fill:#fff"
+
+	// Label text (with shadow for readability)
+	labelX := labelWidth / 2
+	textY := 14
+	canvas.Text(labelX+1, textY+1, label, textStyle+";fill:#010101;fill-opacity:0.3;text-anchor:middle")
+	canvas.Text(labelX, textY, label, textStyle+";text-anchor:middle")
+
+	// Score text
+	scoreX := labelWidth + scoreWidth/2
+	canvas.Text(scoreX+1, textY+1, scoreText, textStyle+";fill:#010101;fill-opacity:0.3;text-anchor:middle")
+	canvas.Text(scoreX, textY, scoreText, textStyle+";text-anchor:middle")
+
+	// Status text
+	statusX := labelWidth + scoreWidth + statusWidth/2
+	canvas.Text(statusX+1, textY+1, statusText, textStyle+";fill:#010101;fill-opacity:0.3;text-anchor:middle")
+	canvas.Text(statusX, textY, statusText, textStyle+";text-anchor:middle")
+
+	canvas.End()
+	return nil
+}
