@@ -19,9 +19,15 @@ confvis reads confidence reports in JSON format. This document describes the sch
       "name": "string (required)",
       "score": "integer (required, 0-100)",
       "weight": "integer (required)",
-      "description": "string (optional)"
+      "description": "string (optional)",
+      "url": "string (optional)"
     }
-  ]
+  ],
+  "version": "string (optional)",
+  "generatedAt": "string (optional, ISO 8601 timestamp)",
+  "source": "string (optional)",
+  "passLabel": "string (optional, default 'PASS')",
+  "failLabel": "string (optional, default 'FAIL')"
 }
 ```
 
@@ -37,6 +43,11 @@ confvis reads confidence reports in JSON format. This document describes the sch
 | `description` | string | No | Detailed report description |
 | `thresholds` | object | No | Custom color thresholds (see below) |
 | `factors` | array | No | Contributing factors breakdown |
+| `version` | string | No | Report version identifier |
+| `generatedAt` | string | No | ISO 8601 timestamp when report was generated |
+| `source` | string | No | Origin of the report (e.g., "ci-pipeline", "manual") |
+| `passLabel` | string | No | Custom label for passing status (default: "PASS") |
+| `failLabel` | string | No | Custom label for failing status (default: "FAIL") |
 
 *Score is auto-calculated as a weighted average if omitted and factors are present.
 
@@ -57,6 +68,7 @@ Note: `greenAbove` must be >= `yellowAbove`. Scores below `yellowAbove` display 
 | `score` | integer | Yes | Factor score (0-100) |
 | `weight` | integer | Yes | Relative weight in calculations |
 | `description` | string | No | Explanation of this factor |
+| `url` | string | No | Link to detailed report or documentation |
 
 ## Examples
 
@@ -140,6 +152,63 @@ This calculates to: (80×50 + 60×50) / 100 = **70**
 ```
 
 With these thresholds, score 85 displays in yellow (warning) instead of green.
+
+### Report with Metadata
+
+```json
+{
+  "title": "CI Pipeline Report",
+  "score": 92,
+  "threshold": 80,
+  "version": "1.2.0",
+  "generatedAt": "2024-01-15T10:30:00Z",
+  "source": "github-actions"
+}
+```
+
+Metadata fields are included in JSON output format (`--format json`).
+
+### Report with Custom Labels
+
+```json
+{
+  "title": "Security Audit",
+  "score": 95,
+  "threshold": 90,
+  "passLabel": "COMPLIANT",
+  "failLabel": "NON-COMPLIANT"
+}
+```
+
+Custom labels replace the default "PASS"/"FAIL" text in the gauge.
+
+### Factor with URL
+
+```json
+{
+  "title": "Code Quality",
+  "score": 88,
+  "threshold": 75,
+  "factors": [
+    {
+      "name": "Test Coverage",
+      "score": 92,
+      "weight": 50,
+      "description": "Unit and integration test coverage",
+      "url": "https://codecov.io/gh/org/repo"
+    },
+    {
+      "name": "Static Analysis",
+      "score": 84,
+      "weight": 50,
+      "description": "SonarQube quality gate results",
+      "url": "https://sonarcloud.io/project/overview?id=org_repo"
+    }
+  ]
+}
+```
+
+Factor URLs can link to detailed reports or external tools.
 
 ## Score Thresholds
 

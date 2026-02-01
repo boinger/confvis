@@ -319,3 +319,95 @@ func TestParse_ExplicitScoreNotOverridden(t *testing.T) {
 		t.Errorf("Score = %d, want 50 (explicit value)", report.Score)
 	}
 }
+
+func TestParse_MetadataFields(t *testing.T) {
+	input := `{
+		"title": "Test",
+		"score": 85,
+		"threshold": 75,
+		"version": "1.0",
+		"generatedAt": "2024-01-15T10:00:00Z",
+		"source": "ci-pipeline"
+	}`
+
+	report, err := Parse(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	if report.Version != "1.0" {
+		t.Errorf("Version = %q, want %q", report.Version, "1.0")
+	}
+	if report.GeneratedAt != "2024-01-15T10:00:00Z" {
+		t.Errorf("GeneratedAt = %q, want %q", report.GeneratedAt, "2024-01-15T10:00:00Z")
+	}
+	if report.Source != "ci-pipeline" {
+		t.Errorf("Source = %q, want %q", report.Source, "ci-pipeline")
+	}
+}
+
+func TestParse_FactorURL(t *testing.T) {
+	input := `{
+		"title": "Test",
+		"score": 85,
+		"threshold": 75,
+		"factors": [
+			{"name": "Coverage", "score": 90, "weight": 100, "url": "https://codecov.io/report"}
+		]
+	}`
+
+	report, err := Parse(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	if len(report.Factors) != 1 {
+		t.Fatalf("len(Factors) = %d, want 1", len(report.Factors))
+	}
+	if report.Factors[0].URL != "https://codecov.io/report" {
+		t.Errorf("Factor URL = %q, want %q", report.Factors[0].URL, "https://codecov.io/report")
+	}
+}
+
+func TestParse_CustomLabels(t *testing.T) {
+	input := `{
+		"title": "Test",
+		"score": 85,
+		"threshold": 75,
+		"passLabel": "OK",
+		"failLabel": "NEEDS WORK"
+	}`
+
+	report, err := Parse(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	if report.PassLabel != "OK" {
+		t.Errorf("PassLabel = %q, want %q", report.PassLabel, "OK")
+	}
+	if report.FailLabel != "NEEDS WORK" {
+		t.Errorf("FailLabel = %q, want %q", report.FailLabel, "NEEDS WORK")
+	}
+}
+
+func TestReport_EffectiveLabels(t *testing.T) {
+	// Default labels
+	r := &Report{Title: "Test", Score: 85, Threshold: 75}
+	if r.EffectivePassLabel() != "PASS" {
+		t.Errorf("EffectivePassLabel() = %q, want PASS", r.EffectivePassLabel())
+	}
+	if r.EffectiveFailLabel() != "FAIL" {
+		t.Errorf("EffectiveFailLabel() = %q, want FAIL", r.EffectiveFailLabel())
+	}
+
+	// Custom labels
+	r.PassLabel = "OK"
+	r.FailLabel = "NOT OK"
+	if r.EffectivePassLabel() != "OK" {
+		t.Errorf("EffectivePassLabel() = %q, want OK", r.EffectivePassLabel())
+	}
+	if r.EffectiveFailLabel() != "NOT OK" {
+		t.Errorf("EffectiveFailLabel() = %q, want NOT OK", r.EffectiveFailLabel())
+	}
+}

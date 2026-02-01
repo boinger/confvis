@@ -7,6 +7,7 @@ type Factor struct {
 	Score       int    `json:"score"`
 	Weight      int    `json:"weight"`
 	Description string `json:"description,omitempty"`
+	URL         string `json:"url,omitempty"`
 }
 
 // ColorThresholds defines score boundaries for color coding.
@@ -34,11 +35,36 @@ type Report struct {
 	Description string           `json:"description,omitempty"`
 	Factors     []Factor         `json:"factors,omitempty"`
 	Thresholds  *ColorThresholds `json:"thresholds,omitempty"`
+
+	// Metadata fields
+	Version     string `json:"version,omitempty"`
+	GeneratedAt string `json:"generatedAt,omitempty"`
+	Source      string `json:"source,omitempty"`
+
+	// Custom labels
+	PassLabel string `json:"passLabel,omitempty"`
+	FailLabel string `json:"failLabel,omitempty"`
 }
 
 // Passed returns true if the score meets or exceeds the threshold.
 func (r *Report) Passed() bool {
 	return r.Score >= r.Threshold
+}
+
+// EffectivePassLabel returns the custom pass label or "PASS" if not specified.
+func (r *Report) EffectivePassLabel() string {
+	if r.PassLabel != "" {
+		return r.PassLabel
+	}
+	return "PASS"
+}
+
+// EffectiveFailLabel returns the custom fail label or "FAIL" if not specified.
+func (r *Report) EffectiveFailLabel() string {
+	if r.FailLabel != "" {
+		return r.FailLabel
+	}
+	return "FAIL"
 }
 
 // EffectiveColorThresholds returns the report's thresholds or defaults if not specified.

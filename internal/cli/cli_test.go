@@ -505,3 +505,81 @@ func TestGauge_AutoCalculate_FailUnder(t *testing.T) {
 		t.Errorf("expected exit code 1, got %d", exitErr.ExitCode())
 	}
 }
+
+func TestGauge_CustomPassLabel(t *testing.T) {
+	bin := buildBinary(t)
+
+	jsonCustomLabel := `{
+		"title": "Test",
+		"score": 85,
+		"threshold": 75,
+		"passLabel": "APPROVED"
+	}`
+
+	cmd := exec.Command(bin, "gauge", "-c", "-", "-o", "-")
+	cmd.Stdin = strings.NewReader(jsonCustomLabel)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("gauge with custom pass label failed: %v\n%s", err, output)
+	}
+
+	if !strings.Contains(string(output), ">APPROVED<") {
+		t.Error("output should contain custom pass label APPROVED")
+	}
+}
+
+func TestGauge_CustomFailLabel(t *testing.T) {
+	bin := buildBinary(t)
+
+	jsonCustomLabel := `{
+		"title": "Test",
+		"score": 60,
+		"threshold": 75,
+		"failLabel": "NEEDS WORK"
+	}`
+
+	cmd := exec.Command(bin, "gauge", "-c", "-", "-o", "-")
+	cmd.Stdin = strings.NewReader(jsonCustomLabel)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("gauge with custom fail label failed: %v\n%s", err, output)
+	}
+
+	if !strings.Contains(string(output), ">NEEDS WORK<") {
+		t.Error("output should contain custom fail label NEEDS WORK")
+	}
+}
+
+func TestGauge_MetadataInJSONOutput(t *testing.T) {
+	bin := buildBinary(t)
+
+	jsonWithMetadata := `{
+		"title": "Test",
+		"score": 85,
+		"threshold": 75,
+		"version": "2.0",
+		"generatedAt": "2024-01-15T12:00:00Z",
+		"source": "test-suite"
+	}`
+
+	cmd := exec.Command(bin, "gauge", "-c", "-", "-o", "-", "-f", "json")
+	cmd.Stdin = strings.NewReader(jsonWithMetadata)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("gauge with metadata failed: %v\n%s", err, output)
+	}
+
+	outputStr := string(output)
+	if !strings.Contains(outputStr, `"version": "2.0"`) {
+		t.Error("JSON output should contain version")
+	}
+	if !strings.Contains(outputStr, `"generatedAt": "2024-01-15T12:00:00Z"`) {
+		t.Error("JSON output should contain generatedAt")
+	}
+	if !strings.Contains(outputStr, `"source": "test-suite"`) {
+		t.Error("JSON output should contain source")
+	}
+}

@@ -116,15 +116,21 @@ func runGauge(_ *cobra.Command, _ []string) error {
 
 	case "json":
 		output := struct {
-			Title     string `json:"title"`
-			Score     int    `json:"score"`
-			Threshold int    `json:"threshold"`
-			Passed    bool   `json:"passed"`
+			Title       string `json:"title"`
+			Score       int    `json:"score"`
+			Threshold   int    `json:"threshold"`
+			Passed      bool   `json:"passed"`
+			Version     string `json:"version,omitempty"`
+			GeneratedAt string `json:"generatedAt,omitempty"`
+			Source      string `json:"source,omitempty"`
 		}{
-			Title:     report.Title,
-			Score:     report.Score,
-			Threshold: report.Threshold,
-			Passed:    report.Passed(),
+			Title:       report.Title,
+			Score:       report.Score,
+			Threshold:   report.Threshold,
+			Passed:      report.Passed(),
+			Version:     report.Version,
+			GeneratedAt: report.GeneratedAt,
+			Source:      report.Source,
 		}
 		enc := json.NewEncoder(w)
 		enc.SetIndent("", "  ")

@@ -93,7 +93,18 @@ confvis gauge -c <config> -o <output-file> [flags]
 #### Output Formats
 
 - **svg** (default): SVG gauge badge image
-- **json**: JSON object with score metadata: `{"title", "score", "threshold", "passed"}`
+- **json**: JSON object with score data and metadata:
+  ```json
+  {
+    "title": "string",
+    "score": 85,
+    "threshold": 75,
+    "passed": true,
+    "version": "string (if present)",
+    "generatedAt": "string (if present)",
+    "source": "string (if present)"
+  }
+  ```
 - **text**: Plain text score number (useful for scripting)
 
 #### Color Styles

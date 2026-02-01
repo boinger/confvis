@@ -94,11 +94,11 @@ func Generate(w io.Writer, report *confidence.Report, opts Options) error {
 		fmt.Sprintf("text-anchor:middle;font-family:system-ui,-apple-system,sans-serif;font-size:%dpx;font-weight:bold;fill:%s",
 			radius/2, scheme.TextPrimary))
 
-	// Pass/fail indicator
-	statusText := "PASS"
+	// Pass/fail indicator with custom labels
+	statusText := report.EffectivePassLabel()
 	statusColor := scheme.Success
 	if !report.Passed() {
-		statusText = "FAIL"
+		statusText = report.EffectiveFailLabel()
 		statusColor = scheme.Danger
 	}
 	canvas.Text(centerX, centerY-5, statusText,
