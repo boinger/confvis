@@ -41,12 +41,12 @@ func GitHubDark() ColorScheme {
 	}
 }
 
-// ScoreColor returns the appropriate color for a given score.
-func (cs ColorScheme) ScoreColor(score int) string {
+// ScoreColor returns the appropriate color for a given score using the specified thresholds.
+func (cs ColorScheme) ScoreColor(score, greenAbove, yellowAbove int) string {
 	switch {
-	case score >= 75:
+	case score >= greenAbove:
 		return cs.Success
-	case score >= 50:
+	case score >= yellowAbove:
 		return cs.Warning
 	default:
 		return cs.Danger

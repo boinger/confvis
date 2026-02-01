@@ -134,3 +134,82 @@ func TestReport_Passed(t *testing.T) {
 		}
 	}
 }
+
+func TestParse_ColorThresholds_Valid(t *testing.T) {
+	input := `{
+		"title": "Test",
+		"score": 85,
+		"threshold": 75,
+		"thresholds": {
+			"greenAbove": 80,
+			"yellowAbove": 50
+		}
+	}`
+
+	report, err := Parse(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	if report.Thresholds == nil {
+		t.Fatal("Thresholds should not be nil")
+	}
+	if report.Thresholds.GreenAbove != 80 {
+		t.Errorf("GreenAbove = %d, want 80", report.Thresholds.GreenAbove)
+	}
+	if report.Thresholds.YellowAbove != 50 {
+		t.Errorf("YellowAbove = %d, want 50", report.Thresholds.YellowAbove)
+	}
+}
+
+func TestParse_ColorThresholds_Invalid(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "greenAbove too high",
+			input: `{"title": "Test", "score": 85, "threshold": 75, "thresholds": {"greenAbove": 150, "yellowAbove": 50}}`,
+			want:  "thresholds.greenAbove must be between 0 and 100",
+		},
+		{
+			name:  "yellowAbove negative",
+			input: `{"title": "Test", "score": 85, "threshold": 75, "thresholds": {"greenAbove": 75, "yellowAbove": -10}}`,
+			want:  "thresholds.yellowAbove must be between 0 and 100",
+		},
+		{
+			name:  "greenAbove less than yellowAbove",
+			input: `{"title": "Test", "score": 85, "threshold": 75, "thresholds": {"greenAbove": 40, "yellowAbove": 60}}`,
+			want:  "thresholds.greenAbove (40) must be >= thresholds.yellowAbove (60)",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := Parse(strings.NewReader(tt.input))
+			if err == nil {
+				t.Fatal("Parse() expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.want) {
+				t.Errorf("error = %q, want to contain %q", err.Error(), tt.want)
+			}
+		})
+	}
+}
+
+func TestReport_EffectiveColorThresholds(t *testing.T) {
+	// Without thresholds, should return defaults
+	r := &Report{Title: "Test", Score: 85, Threshold: 75}
+	thresholds := r.EffectiveColorThresholds()
+	if thresholds.GreenAbove != 75 || thresholds.YellowAbove != 50 {
+		t.Errorf("Expected defaults (75, 50), got (%d, %d)", thresholds.GreenAbove, thresholds.YellowAbove)
+	}
+
+	// With thresholds, should return them
+	r.Thresholds = &ColorThresholds{GreenAbove: 90, YellowAbove: 70}
+	thresholds = r.EffectiveColorThresholds()
+	if thresholds.GreenAbove != 90 || thresholds.YellowAbove != 70 {
+		t.Errorf("Expected (90, 70), got (%d, %d)", thresholds.GreenAbove, thresholds.YellowAbove)
+	}
+}

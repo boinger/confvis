@@ -262,3 +262,132 @@ func TestGenerate_Quiet(t *testing.T) {
 		t.Errorf("expected no stdout with --quiet, got: %s", stdout.String())
 	}
 }
+
+func TestGauge_FormatJSON(t *testing.T) {
+	bin := buildBinary(t)
+
+	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample.json", "-o", "-", "-f", "json")
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("gauge with --format json failed: %v\n%s", err, output)
+	}
+
+	// Should contain JSON fields
+	outputStr := string(output)
+	if !strings.Contains(outputStr, `"score": 85`) {
+		t.Error("JSON output should contain score")
+	}
+	if !strings.Contains(outputStr, `"passed": true`) {
+		t.Error("JSON output should contain passed status")
+	}
+	if !strings.Contains(outputStr, `"threshold": 75`) {
+		t.Error("JSON output should contain threshold")
+	}
+}
+
+func TestGauge_FormatText(t *testing.T) {
+	bin := buildBinary(t)
+
+	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample.json", "-o", "-", "-f", "text")
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("gauge with --format text failed: %v\n%s", err, output)
+	}
+
+	// Should output just the score
+	if strings.TrimSpace(string(output)) != "85" {
+		t.Errorf("text output should be '85', got: %s", string(output))
+	}
+}
+
+func TestGauge_FormatInvalid(t *testing.T) {
+	bin := buildBinary(t)
+
+	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample.json", "-o", "-", "-f", "invalid")
+
+	err := cmd.Run()
+	if err == nil {
+		t.Fatal("expected error for invalid format")
+	}
+}
+
+func TestGauge_CustomThresholds_CLI(t *testing.T) {
+	bin := buildBinary(t)
+
+	// With default thresholds (75, 50), score 85 is green (#1a7f37) for the arc
+	// With --green-above 90, score 85 should be yellow (#9a6700) for the arc
+	// Note: PASS/FAIL indicator color is separate from arc color
+	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample.json", "-o", "-", "--green-above", "90", "--yellow-above", "70")
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("gauge with custom thresholds failed: %v\n%s", err, output)
+	}
+
+	// The arc stroke should use warning color (yellow)
+	outputStr := string(output)
+	if !strings.Contains(outputStr, "stroke:#9a6700") {
+		t.Error("arc should use warning color #9a6700 for score 85 with --green-above 90")
+	}
+}
+
+func TestGauge_CustomThresholds_JSON(t *testing.T) {
+	bin := buildBinary(t)
+
+	// Create a sample with custom thresholds in JSON
+	jsonWithThresholds := `{
+		"title": "Test",
+		"score": 85,
+		"threshold": 75,
+		"thresholds": {
+			"greenAbove": 90,
+			"yellowAbove": 70
+		}
+	}`
+
+	cmd := exec.Command(bin, "gauge", "-c", "-", "-o", "-")
+	cmd.Stdin = strings.NewReader(jsonWithThresholds)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("gauge with JSON thresholds failed: %v\n%s", err, output)
+	}
+
+	// Arc should use warning color (yellow) since 85 < 90
+	outputStr := string(output)
+	if !strings.Contains(outputStr, "stroke:#9a6700") {
+		t.Error("arc should use warning color for score 85 with greenAbove 90")
+	}
+}
+
+func TestGauge_CustomThresholds_CLIOverridesJSON(t *testing.T) {
+	bin := buildBinary(t)
+
+	// JSON has thresholds that would make score 85 yellow
+	jsonWithThresholds := `{
+		"title": "Test",
+		"score": 85,
+		"threshold": 75,
+		"thresholds": {
+			"greenAbove": 90,
+			"yellowAbove": 70
+		}
+	}`
+
+	// CLI overrides to make score 85 green
+	cmd := exec.Command(bin, "gauge", "-c", "-", "-o", "-", "--green-above", "80", "--yellow-above", "50")
+	cmd.Stdin = strings.NewReader(jsonWithThresholds)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("gauge with CLI override thresholds failed: %v\n%s", err, output)
+	}
+
+	// Arc should use success color (green) since CLI says green-above is 80
+	outputStr := string(output)
+	if !strings.Contains(outputStr, "stroke:#1a7f37") {
+		t.Error("arc should use success color when CLI overrides JSON thresholds")
+	}
+}

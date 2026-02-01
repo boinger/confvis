@@ -90,11 +90,16 @@ Creates:
 
 ### `confvis gauge`
 
-Generate just the SVG gauge badge.
+Generate a gauge badge in various formats.
 
 ```bash
-confvis gauge -c confidence.json -o badge.svg [--width 200] [--height 120] [--dark]
+confvis gauge -c confidence.json -o badge.svg [--format svg|json|text] [--width 200] [--height 120] [--dark]
 ```
+
+Output formats:
+- `svg` (default): SVG gauge badge image
+- `json`: Score metadata as JSON
+- `text`: Just the score number (for scripting)
 
 ## JSON Schema
 
@@ -104,6 +109,7 @@ confvis gauge -c confidence.json -o badge.svg [--width 200] [--height 120] [--da
 | `score` | int | Yes | Overall score (0-100) |
 | `threshold` | int | Yes | Minimum passing score |
 | `description` | string | No | Report description |
+| `thresholds` | object | No | Custom color thresholds (`greenAbove`, `yellowAbove`) |
 | `factors` | array | No | Breakdown of contributing factors |
 
 Each factor:

@@ -13,9 +13,11 @@ import (
 
 // Options configures gauge generation.
 type Options struct {
-	Width    int
-	Height   int
-	DarkMode bool
+	Width       int
+	Height      int
+	DarkMode    bool
+	GreenAbove  int // Score threshold for green color (0 = use report default or 75)
+	YellowAbove int // Score threshold for yellow color (0 = use report default or 50)
 }
 
 // DefaultOptions returns sensible defaults for gauge rendering.
@@ -39,6 +41,15 @@ func Generate(w io.Writer, report *confidence.Report, opts Options) error {
 	scheme := GitHubLight()
 	if opts.DarkMode {
 		scheme = GitHubDark()
+	}
+
+	// Determine color thresholds: CLI overrides > report config > defaults
+	thresholds := report.EffectiveColorThresholds()
+	if opts.GreenAbove > 0 {
+		thresholds.GreenAbove = opts.GreenAbove
+	}
+	if opts.YellowAbove > 0 {
+		thresholds.YellowAbove = opts.YellowAbove
 	}
 
 	canvas := svg.New(w)
@@ -67,7 +78,7 @@ func Generate(w io.Writer, report *confidence.Report, opts Options) error {
 		scheme.TrackColor))
 
 	// Draw filled arc
-	scoreColor := scheme.ScoreColor(report.Score)
+	scoreColor := scheme.ScoreColor(report.Score, thresholds.GreenAbove, thresholds.YellowAbove)
 	canvas.Path(trackPath, fmt.Sprintf(
 		"fill:none;stroke:%s;stroke-width:12;stroke-linecap:round;stroke-dasharray:%.2f %.2f",
 		scoreColor, filledLength, arcLength))

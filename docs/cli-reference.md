@@ -79,12 +79,21 @@ confvis gauge -c <config> -o <output-file> [flags]
 
 #### Optional Flags
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--width` | 200 | Gauge width in pixels |
-| `--height` | 120 | Gauge height in pixels |
-| `--dark` | false | Use dark mode colors |
-| `--fail-under` | 0 | Exit with code 1 if score is below this value |
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--format` | `-f` | svg | Output format: `svg`, `json`, or `text` |
+| `--width` | | 200 | Gauge width in pixels (svg only) |
+| `--height` | | 120 | Gauge height in pixels (svg only) |
+| `--dark` | | false | Use dark mode colors (svg only) |
+| `--fail-under` | | 0 | Exit with code 1 if score is below this value |
+| `--green-above` | | 75 | Score threshold for green color (overrides JSON) |
+| `--yellow-above` | | 50 | Score threshold for yellow color (overrides JSON) |
+
+#### Output Formats
+
+- **svg** (default): SVG gauge badge image
+- **json**: JSON object with score metadata: `{"title", "score", "threshold", "passed"}`
+- **text**: Plain text score number (useful for scripting)
 
 #### Examples
 
@@ -112,6 +121,15 @@ confvis gauge -c confidence.json -o badge.svg --fail-under 75
 
 # Quiet mode (no output on success)
 confvis gauge -c confidence.json -o badge.svg -q
+
+# Output as JSON
+confvis gauge -c confidence.json -o - -f json
+
+# Output just the score (for scripting)
+SCORE=$(confvis gauge -c confidence.json -o - -f text)
+
+# Custom color thresholds (stricter)
+confvis gauge -c confidence.json -o badge.svg --green-above 90 --yellow-above 70
 ```
 
 ---

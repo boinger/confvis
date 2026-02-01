@@ -9,16 +9,42 @@ type Factor struct {
 	Description string `json:"description,omitempty"`
 }
 
+// ColorThresholds defines score boundaries for color coding.
+// GreenAbove is the minimum score for green (success) color.
+// YellowAbove is the minimum score for yellow (warning) color.
+// Scores below YellowAbove are shown in red (danger).
+type ColorThresholds struct {
+	GreenAbove  int `json:"greenAbove"`
+	YellowAbove int `json:"yellowAbove"`
+}
+
+// DefaultColorThresholds returns the default color thresholds.
+func DefaultColorThresholds() ColorThresholds {
+	return ColorThresholds{
+		GreenAbove:  75,
+		YellowAbove: 50,
+	}
+}
+
 // Report represents a complete confidence report with overall score and breakdown.
 type Report struct {
-	Title       string   `json:"title"`
-	Score       int      `json:"score"`
-	Threshold   int      `json:"threshold"`
-	Description string   `json:"description,omitempty"`
-	Factors     []Factor `json:"factors,omitempty"`
+	Title       string           `json:"title"`
+	Score       int              `json:"score"`
+	Threshold   int              `json:"threshold"`
+	Description string           `json:"description,omitempty"`
+	Factors     []Factor         `json:"factors,omitempty"`
+	Thresholds  *ColorThresholds `json:"thresholds,omitempty"`
 }
 
 // Passed returns true if the score meets or exceeds the threshold.
 func (r *Report) Passed() bool {
 	return r.Score >= r.Threshold
+}
+
+// EffectiveColorThresholds returns the report's thresholds or defaults if not specified.
+func (r *Report) EffectiveColorThresholds() ColorThresholds {
+	if r.Thresholds != nil {
+		return *r.Thresholds
+	}
+	return DefaultColorThresholds()
 }

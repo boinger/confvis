@@ -61,5 +61,18 @@ func Validate(r *Report) error {
 		}
 	}
 
+	if r.Thresholds != nil {
+		if r.Thresholds.GreenAbove < 0 || r.Thresholds.GreenAbove > 100 {
+			return fmt.Errorf("validation: thresholds.greenAbove must be between 0 and 100, got %d", r.Thresholds.GreenAbove)
+		}
+		if r.Thresholds.YellowAbove < 0 || r.Thresholds.YellowAbove > 100 {
+			return fmt.Errorf("validation: thresholds.yellowAbove must be between 0 and 100, got %d", r.Thresholds.YellowAbove)
+		}
+		if r.Thresholds.GreenAbove < r.Thresholds.YellowAbove {
+			return fmt.Errorf("validation: thresholds.greenAbove (%d) must be >= thresholds.yellowAbove (%d)",
+				r.Thresholds.GreenAbove, r.Thresholds.YellowAbove)
+		}
+	}
+
 	return nil
 }

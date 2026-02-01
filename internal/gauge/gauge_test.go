@@ -120,6 +120,7 @@ func TestGenerate_CustomDimensions(t *testing.T) {
 func TestScoreColor(t *testing.T) {
 	scheme := GitHubLight()
 
+	// Test with default thresholds (75, 50)
 	tests := []struct {
 		score int
 		want  string
@@ -133,9 +134,33 @@ func TestScoreColor(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		got := scheme.ScoreColor(tt.score)
+		got := scheme.ScoreColor(tt.score, 75, 50)
 		if got != tt.want {
-			t.Errorf("ScoreColor(%d) = %q, want %q", tt.score, got, tt.want)
+			t.Errorf("ScoreColor(%d, 75, 50) = %q, want %q", tt.score, got, tt.want)
+		}
+	}
+}
+
+func TestScoreColor_CustomThresholds(t *testing.T) {
+	scheme := GitHubLight()
+
+	// Test with custom thresholds (90, 70)
+	tests := []struct {
+		score int
+		want  string
+	}{
+		{100, scheme.Success},
+		{90, scheme.Success},
+		{89, scheme.Warning},
+		{70, scheme.Warning},
+		{69, scheme.Danger},
+		{0, scheme.Danger},
+	}
+
+	for _, tt := range tests {
+		got := scheme.ScoreColor(tt.score, 90, 70)
+		if got != tt.want {
+			t.Errorf("ScoreColor(%d, 90, 70) = %q, want %q", tt.score, got, tt.want)
 		}
 	}
 }
