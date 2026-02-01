@@ -52,6 +52,28 @@ confvis gauge -c confidence.json -o badge.svg
 ![Confidence](./output/badge.svg)
 ```
 
+## CI/CD Integration
+
+Use `--fail-under` to enforce minimum scores in your pipeline:
+
+```bash
+# Fail the build if score drops below 75
+confvis gauge -c confidence.json -o badge.svg --fail-under 75
+
+# Quiet mode for clean CI logs
+confvis generate -c confidence.json -o ./output --fail-under 75 -q
+```
+
+Supports stdin/stdout for pipeline workflows:
+
+```bash
+# Pipe from another tool
+metrics-tool export | confvis gauge -c - -o badge.svg
+
+# Write directly to stdout
+confvis gauge -c confidence.json -o - > badge.svg
+```
+
 ## Commands
 
 ### `confvis generate`

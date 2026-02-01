@@ -13,9 +13,10 @@ import (
 )
 
 var (
-	genConfig string
-	genOutput string
-	genDark   bool
+	genConfig    string
+	genOutput    string
+	genDark      bool
+	genFailUnder int
 )
 
 var generateCmd = &cobra.Command{
@@ -30,9 +31,10 @@ Creates:
 }
 
 func init() {
-	generateCmd.Flags().StringVarP(&genConfig, "config", "c", "", "path to confidence report JSON (required)")
+	generateCmd.Flags().StringVarP(&genConfig, "config", "c", "", "path to confidence report JSON, or - for stdin (required)")
 	generateCmd.Flags().StringVarP(&genOutput, "output", "o", "", "output directory (required)")
 	generateCmd.Flags().BoolVar(&genDark, "dark", false, "use dark mode colors")
+	generateCmd.Flags().IntVar(&genFailUnder, "fail-under", 0, "exit non-zero if score is below this value")
 
 	if err := generateCmd.MarkFlagRequired("config"); err != nil {
 		panic(err)
@@ -45,12 +47,21 @@ func init() {
 }
 
 func runGenerate(_ *cobra.Command, _ []string) error {
-	report, err := confidence.ParseFile(genConfig)
+	var report *confidence.Report
+	var err error
+
+	if genConfig == "-" {
+		report, err = confidence.Parse(os.Stdin)
+	} else {
+		report, err = confidence.ParseFile(genConfig)
+	}
 	if err != nil {
 		return fmt.Errorf("parsing config: %w", err)
 	}
 
-	if verbose {
+	showVerbose := verbose && !quiet
+
+	if showVerbose {
 		fmt.Printf("Generating output for %q (score: %d, threshold: %d)\n",
 			report.Title, report.Score, report.Threshold)
 	}
@@ -63,14 +74,21 @@ func runGenerate(_ *cobra.Command, _ []string) error {
 
 	// Generate badge.svg
 	badgePath := filepath.Join(genOutput, "badge.svg")
-	if err := generateBadge(badgePath, report, genDark, verbose); err != nil {
+	if err := generateBadge(badgePath, report, genDark, showVerbose); err != nil {
 		return err
 	}
 
 	// Generate dashboard/index.html
 	dashboardPath := filepath.Join(dashboardDir, "index.html")
-	if err := generateDashboard(dashboardPath, report, genDark, verbose); err != nil {
+	if err := generateDashboard(dashboardPath, report, genDark, showVerbose); err != nil {
 		return err
+	}
+
+	if genFailUnder > 0 && report.Score < genFailUnder {
+		if !quiet {
+			fmt.Fprintf(os.Stderr, "Score %d is below threshold %d\n", report.Score, genFailUnder)
+		}
+		os.Exit(1)
 	}
 
 	return nil

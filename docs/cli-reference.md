@@ -5,6 +5,7 @@
 | Flag | Short | Description |
 |------|-------|-------------|
 | `--verbose` | `-v` | Enable verbose output |
+| `--quiet` | `-q` | Suppress non-error output (overrides `-v`) |
 | `--help` | `-h` | Show help |
 
 ## Commands
@@ -21,14 +22,15 @@ confvis generate -c <config> -o <output-dir> [flags]
 
 | Flag | Short | Description |
 |------|-------|-------------|
-| `--config` | `-c` | Path to confidence report JSON file |
+| `--config` | `-c` | Path to confidence report JSON file, or `-` for stdin |
 | `--output` | `-o` | Output directory path |
 
 #### Optional Flags
 
-| Flag | Description |
-|------|-------------|
-| `--dark` | Use dark mode colors |
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--dark` | false | Use dark mode colors |
+| `--fail-under` | 0 | Exit with code 1 if score is below this value |
 
 #### Output
 
@@ -47,6 +49,15 @@ confvis generate -c confidence.json -o ./output --dark
 
 # Verbose output
 confvis generate -c confidence.json -o ./output -v
+
+# Read from stdin
+cat confidence.json | confvis generate -c - -o ./output
+
+# Fail if score below threshold (CI/CD)
+confvis generate -c confidence.json -o ./output --fail-under 75
+
+# Quiet mode (no output on success)
+confvis generate -c confidence.json -o ./output -q
 ```
 
 ---
@@ -63,8 +74,8 @@ confvis gauge -c <config> -o <output-file> [flags]
 
 | Flag | Short | Description |
 |------|-------|-------------|
-| `--config` | `-c` | Path to confidence report JSON file |
-| `--output` | `-o` | Output SVG file path |
+| `--config` | `-c` | Path to confidence report JSON file, or `-` for stdin |
+| `--output` | `-o` | Output SVG file path, or `-` for stdout |
 
 #### Optional Flags
 
@@ -73,6 +84,7 @@ confvis gauge -c <config> -o <output-file> [flags]
 | `--width` | 200 | Gauge width in pixels |
 | `--height` | 120 | Gauge height in pixels |
 | `--dark` | false | Use dark mode colors |
+| `--fail-under` | 0 | Exit with code 1 if score is below this value |
 
 #### Examples
 
@@ -85,6 +97,21 @@ confvis gauge -c confidence.json -o badge.svg --width 300 --height 180
 
 # Dark mode
 confvis gauge -c confidence.json -o badge.svg --dark
+
+# Read from stdin
+cat confidence.json | confvis gauge -c - -o badge.svg
+
+# Write to stdout
+confvis gauge -c confidence.json -o -
+
+# Pipe through (stdin to stdout)
+cat confidence.json | confvis gauge -c - -o - > badge.svg
+
+# Fail if score below threshold (CI/CD)
+confvis gauge -c confidence.json -o badge.svg --fail-under 75
+
+# Quiet mode (no output on success)
+confvis gauge -c confidence.json -o badge.svg -q
 ```
 
 ---
@@ -94,7 +121,7 @@ confvis gauge -c confidence.json -o badge.svg --dark
 | Code | Meaning |
 |------|---------|
 | 0 | Success |
-| 1 | Error (invalid config, file not found, etc.) |
+| 1 | Error (invalid config, file not found, or score below `--fail-under` threshold) |
 
 ## Examples
 
@@ -103,6 +130,15 @@ confvis gauge -c confidence.json -o badge.svg --dark
 ```bash
 # Generate badge, fail build if config is invalid
 confvis gauge -c confidence.json -o badge.svg || exit 1
+
+# Fail if score drops below 75
+confvis gauge -c confidence.json -o badge.svg --fail-under 75
+
+# Quiet mode for clean CI logs
+confvis generate -c confidence.json -o ./output --fail-under 75 -q
+
+# Pipe from another tool
+metrics-tool export | confvis gauge -c - -o badge.svg --fail-under 80
 ```
 
 ### Verbose Debugging

@@ -27,7 +27,7 @@ jobs:
         run: go install github.com/boinger/confvis/cmd/confvis@latest
 
       - name: Generate badge
-        run: confvis generate -c confidence.json -o ./badges
+        run: confvis generate -c confidence.json -o ./badges --fail-under 75 -q
 
       - name: Commit badge
         uses: stefanzweifel/git-auto-commit-action@v5
@@ -41,7 +41,7 @@ jobs:
 Add targets to your Makefile:
 
 ```makefile
-.PHONY: confidence confidence-check
+.PHONY: confidence confidence-check confidence-ci
 
 # Generate badge and dashboard
 confidence:
@@ -51,6 +51,10 @@ confidence:
 confidence-check:
 	confvis gauge -c confidence.json -o /dev/null
 	@echo "Confidence check passed"
+
+# CI gate: fail if score drops below threshold
+confidence-ci:
+	confvis generate -c confidence.json -o ./badges --fail-under 75 -q
 ```
 
 ## Aggregating Multiple Sources
@@ -112,8 +116,9 @@ Validate the confidence report before committing:
 # .git/hooks/pre-commit
 
 if [ -f confidence.json ]; then
-    confvis gauge -c confidence.json -o /dev/null || {
-        echo "Error: confidence.json is invalid"
+    # Validate JSON and optionally enforce minimum score
+    confvis gauge -c confidence.json -o /dev/null --fail-under 70 -q || {
+        echo "Error: confidence.json is invalid or score too low"
         exit 1
     }
 fi
