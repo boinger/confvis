@@ -93,7 +93,33 @@ metrics-tool export | confvis gauge -c - -o badge.svg
 confvis gauge -c confidence.json -o - > badge.svg
 ```
 
+## External Sources
+
+confvis can fetch metrics directly from external systems like SonarQube:
+
+```bash
+# Fetch from SonarQube
+export SONARQUBE_URL=https://sonar.example.com
+export SONARQUBE_TOKEN=squ_xxx
+confvis fetch sonarqube -p myproject -o confidence.json
+
+# Pipe directly to badge generation
+confvis fetch sonarqube -p myproject -o - | confvis gauge -c - -o badge.svg
+```
+
+See [Sources Documentation](docs/sources.md) for details on available sources and their configuration.
+
 ## Commands
+
+### `confvis fetch`
+
+Fetch metrics from an external source.
+
+```bash
+confvis fetch sonarqube -p myproject -o confidence.json [--url URL] [--token TOKEN]
+```
+
+Supported sources: `sonarqube`
 
 ### `confvis generate`
 
@@ -177,6 +203,7 @@ Each factor:
 - [CLI Reference](docs/cli-reference.md)
 - [JSON Schema](docs/json-schema.md)
 - [Integration Guide](docs/integration.md)
+- [External Sources](docs/sources.md)
 - [Architecture](docs/architecture.md)
 
 ## Examples

@@ -208,6 +208,82 @@ confvis gauge -c confidence.json -o sparkline.svg --badge-type sparkline --histo
 
 ---
 
+### `confvis fetch`
+
+Fetch metrics from an external source and generate a confidence report.
+
+```bash
+confvis fetch <source> -p <project> -o <output> [flags]
+```
+
+#### Available Sources
+
+| Source | Description |
+|--------|-------------|
+| `sonarqube` | Fetch code quality metrics from SonarQube |
+
+#### Required Flags
+
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--project` | `-p` | Project key/identifier |
+| `--output` | `-o` | Output file path, or `-` for stdout |
+
+#### Optional Flags
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--url` | `-u` | | Source server URL (or use environment variable) |
+| `--token` | `-t` | | API token (or use environment variable) |
+| `--branch` | `-b` | | Branch to query |
+| `--title` | | | Report title (defaults to project name) |
+| `--threshold` | | 75 | Pass/fail threshold |
+| `--timeout` | | 30 | HTTP timeout in seconds |
+
+#### SonarQube Configuration
+
+The SonarQube source supports environment variables:
+
+| Variable | Description |
+|----------|-------------|
+| `SONARQUBE_URL` | Server URL (fallback for `--url`) |
+| `SONARQUBE_TOKEN` | API token (fallback for `--token`) |
+
+#### SonarQube Metric Mapping
+
+| SonarQube Metric | Factor Name | Weight | Conversion |
+|------------------|-------------|--------|------------|
+| `coverage` | Test Coverage | 25 | Direct percentage |
+| `reliability_rating` | Reliability | 25 | A=100, B=75, C=50, D=25, E=0 |
+| `security_rating` | Security | 25 | A=100, B=75, C=50, D=25, E=0 |
+| `sqale_rating` | Maintainability | 25 | A=100, B=75, C=50, D=25, E=0 |
+
+#### Examples
+
+```bash
+# Fetch from SonarQube with explicit URL
+confvis fetch sonarqube --url https://sonar.example.com --project myapp -o confidence.json
+
+# Use environment variables for authentication
+export SONARQUBE_URL=https://sonar.example.com
+export SONARQUBE_TOKEN=squ_xxx
+confvis fetch sonarqube -p myproject -o confidence.json
+
+# Fetch specific branch
+confvis fetch sonarqube -p myproject --branch feature/auth -o confidence.json
+
+# Custom title and threshold
+confvis fetch sonarqube -p myproject --title "API Server" --threshold 80 -o confidence.json
+
+# Pipe directly to gauge for badge generation
+confvis fetch sonarqube -p myproject -o - | confvis gauge -c - -o badge.svg
+
+# Verbose output shows score details
+confvis fetch sonarqube -p myproject -o confidence.json -v
+```
+
+---
+
 ### `confvis aggregate`
 
 Aggregate multiple confidence reports into a single dashboard with an overall score.
