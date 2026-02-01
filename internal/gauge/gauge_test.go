@@ -181,3 +181,51 @@ func TestGenerateToString(t *testing.T) {
 		t.Error("output should contain SVG content")
 	}
 }
+
+func TestGetColorScheme(t *testing.T) {
+	tests := []struct {
+		style      string
+		darkMode   bool
+		wantBg     string
+		wantScheme string
+	}{
+		{"github", false, "#ffffff", "GitHubLight"},
+		{"github", true, "#0d1117", "GitHubDark"},
+		{"minimal", false, "#fafafa", "Minimal"},
+		{"minimal", true, "#1a1a1a", "MinimalDark"},
+		{"corporate", false, "#f5f5f5", "Corporate"},
+		{"corporate", true, "#141414", "CorporateDark"},
+		{"high-contrast", false, "#ffffff", "HighContrast"},
+		{"high-contrast", true, "#000000", "HighContrastDark"},
+		{"unknown", false, "#ffffff", "GitHubLight (fallback)"},
+	}
+
+	for _, tt := range tests {
+		name := tt.style
+		if tt.darkMode {
+			name += "-dark"
+		}
+		t.Run(name, func(t *testing.T) {
+			scheme := GetColorScheme(tt.style, tt.darkMode)
+			if scheme.Background != tt.wantBg {
+				t.Errorf("GetColorScheme(%q, %v).Background = %q, want %q",
+					tt.style, tt.darkMode, scheme.Background, tt.wantBg)
+			}
+		})
+	}
+}
+
+func TestStyleNames(t *testing.T) {
+	names := StyleNames()
+	expected := []string{"github", "minimal", "corporate", "high-contrast"}
+
+	if len(names) != len(expected) {
+		t.Errorf("StyleNames() returned %d names, want %d", len(names), len(expected))
+	}
+
+	for i, name := range expected {
+		if names[i] != name {
+			t.Errorf("StyleNames()[%d] = %q, want %q", i, names[i], name)
+		}
+	}
+}

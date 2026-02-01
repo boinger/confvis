@@ -84,6 +84,7 @@ confvis gauge -c <config> -o <output-file> [flags]
 | `--format` | `-f` | svg | Output format: `svg`, `json`, or `text` |
 | `--width` | | 200 | Gauge width in pixels (svg only) |
 | `--height` | | 120 | Gauge height in pixels (svg only) |
+| `--style` | | github | Color scheme style (svg only) |
 | `--dark` | | false | Use dark mode colors (svg only) |
 | `--fail-under` | | 0 | Exit with code 1 if score is below this value |
 | `--green-above` | | 75 | Score threshold for green color (overrides JSON) |
@@ -94,6 +95,19 @@ confvis gauge -c <config> -o <output-file> [flags]
 - **svg** (default): SVG gauge badge image
 - **json**: JSON object with score metadata: `{"title", "score", "threshold", "passed"}`
 - **text**: Plain text score number (useful for scripting)
+
+#### Color Styles
+
+Available `--style` options:
+
+| Style | Description |
+|-------|-------------|
+| `github` | GitHub-inspired colors (default) |
+| `minimal` | Clean, subtle color scheme |
+| `corporate` | Professional, muted colors |
+| `high-contrast` | Accessibility-focused high contrast |
+
+All styles support `--dark` mode.
 
 #### Examples
 
@@ -130,6 +144,11 @@ SCORE=$(confvis gauge -c confidence.json -o - -f text)
 
 # Custom color thresholds (stricter)
 confvis gauge -c confidence.json -o badge.svg --green-above 90 --yellow-above 70
+
+# Different color styles
+confvis gauge -c confidence.json -o badge.svg --style minimal
+confvis gauge -c confidence.json -o badge.svg --style corporate --dark
+confvis gauge -c confidence.json -o badge.svg --style high-contrast
 ```
 
 ---

@@ -16,8 +16,9 @@ type Options struct {
 	Width       int
 	Height      int
 	DarkMode    bool
-	GreenAbove  int // Score threshold for green color (0 = use report default or 75)
-	YellowAbove int // Score threshold for yellow color (0 = use report default or 50)
+	Style       string // Color scheme style: github, minimal, corporate, high-contrast
+	GreenAbove  int    // Score threshold for green color (0 = use report default or 75)
+	YellowAbove int    // Score threshold for yellow color (0 = use report default or 50)
 }
 
 // DefaultOptions returns sensible defaults for gauge rendering.
@@ -38,10 +39,7 @@ func Generate(w io.Writer, report *confidence.Report, opts Options) error {
 		opts.Height = 120
 	}
 
-	scheme := GitHubLight()
-	if opts.DarkMode {
-		scheme = GitHubDark()
-	}
+	scheme := GetColorScheme(opts.Style, opts.DarkMode)
 
 	// Determine color thresholds: CLI overrides > report config > defaults
 	thresholds := report.EffectiveColorThresholds()

@@ -213,3 +213,109 @@ func TestReport_EffectiveColorThresholds(t *testing.T) {
 		t.Errorf("Expected (90, 70), got (%d, %d)", thresholds.GreenAbove, thresholds.YellowAbove)
 	}
 }
+
+func TestReport_CalculateScore(t *testing.T) {
+	tests := []struct {
+		name    string
+		factors []Factor
+		want    int
+	}{
+		{
+			name:    "no factors",
+			factors: nil,
+			want:    0,
+		},
+		{
+			name: "equal weights",
+			factors: []Factor{
+				{Name: "A", Score: 80, Weight: 50},
+				{Name: "B", Score: 60, Weight: 50},
+			},
+			want: 70, // (80*50 + 60*50) / 100 = 70
+		},
+		{
+			name: "different weights",
+			factors: []Factor{
+				{Name: "A", Score: 100, Weight: 75},
+				{Name: "B", Score: 0, Weight: 25},
+			},
+			want: 75, // (100*75 + 0*25) / 100 = 75
+		},
+		{
+			name: "single factor",
+			factors: []Factor{
+				{Name: "A", Score: 85, Weight: 100},
+			},
+			want: 85,
+		},
+		{
+			name: "zero total weight",
+			factors: []Factor{
+				{Name: "A", Score: 50, Weight: 0},
+			},
+			want: 0,
+		},
+		{
+			name: "rounding up",
+			factors: []Factor{
+				{Name: "A", Score: 100, Weight: 1},
+				{Name: "B", Score: 0, Weight: 2},
+			},
+			want: 33, // (100*1 + 0*2) / 3 = 33.33... rounds to 33
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &Report{Title: "Test", Threshold: 75, Factors: tt.factors}
+			got := r.CalculateScore()
+			if got != tt.want {
+				t.Errorf("CalculateScore() = %d, want %d", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestParse_AutoCalculateScore(t *testing.T) {
+	// When score is omitted but factors exist, score should be auto-calculated
+	input := `{
+		"title": "Auto Test",
+		"threshold": 75,
+		"factors": [
+			{"name": "A", "score": 80, "weight": 50},
+			{"name": "B", "score": 60, "weight": 50}
+		]
+	}`
+
+	report, err := Parse(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	// (80*50 + 60*50) / 100 = 70
+	if report.Score != 70 {
+		t.Errorf("Auto-calculated score = %d, want 70", report.Score)
+	}
+}
+
+func TestParse_ExplicitScoreNotOverridden(t *testing.T) {
+	// When score is explicitly provided, it should not be overridden
+	input := `{
+		"title": "Explicit Test",
+		"score": 50,
+		"threshold": 75,
+		"factors": [
+			{"name": "A", "score": 100, "weight": 100}
+		]
+	}`
+
+	report, err := Parse(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	// Explicit score should be kept (not overridden to 100 from factors)
+	if report.Score != 50 {
+		t.Errorf("Score = %d, want 50 (explicit value)", report.Score)
+	}
+}

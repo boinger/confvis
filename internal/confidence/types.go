@@ -48,3 +48,26 @@ func (r *Report) EffectiveColorThresholds() ColorThresholds {
 	}
 	return DefaultColorThresholds()
 }
+
+// CalculateScore computes the weighted average score from factors.
+// Returns 0 if no factors exist or total weight is zero.
+func (r *Report) CalculateScore() int {
+	if len(r.Factors) == 0 {
+		return 0
+	}
+
+	var totalWeight int
+	var weightedSum int
+
+	for _, f := range r.Factors {
+		totalWeight += f.Weight
+		weightedSum += f.Score * f.Weight
+	}
+
+	if totalWeight == 0 {
+		return 0
+	}
+
+	// Round to nearest integer
+	return (weightedSum + totalWeight/2) / totalWeight
+}

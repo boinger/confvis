@@ -20,6 +20,7 @@ var (
 	gaugeDark        bool
 	gaugeFailUnder   int
 	gaugeFormat      string
+	gaugeStyle       string
 	gaugeGreenAbove  int
 	gaugeYellowAbove int
 )
@@ -37,6 +38,7 @@ func init() {
 	gaugeCmd.Flags().StringVarP(&gaugeFormat, "format", "f", "svg", "output format: svg, json, or text")
 	gaugeCmd.Flags().IntVar(&gaugeWidth, "width", 200, "gauge width in pixels (svg only)")
 	gaugeCmd.Flags().IntVar(&gaugeHeight, "height", 120, "gauge height in pixels (svg only)")
+	gaugeCmd.Flags().StringVar(&gaugeStyle, "style", "github", "color scheme: github, minimal, corporate, high-contrast (svg only)")
 	gaugeCmd.Flags().BoolVar(&gaugeDark, "dark", false, "use dark mode colors (svg only)")
 	gaugeCmd.Flags().IntVar(&gaugeFailUnder, "fail-under", 0, "exit non-zero if score is below this value")
 	gaugeCmd.Flags().IntVar(&gaugeGreenAbove, "green-above", 0, "score threshold for green color (overrides JSON config)")
@@ -103,6 +105,7 @@ func runGauge(_ *cobra.Command, _ []string) error {
 		opts := gauge.Options{
 			Width:       gaugeWidth,
 			Height:      gaugeHeight,
+			Style:       gaugeStyle,
 			DarkMode:    gaugeDark,
 			GreenAbove:  gaugeGreenAbove,
 			YellowAbove: gaugeYellowAbove,

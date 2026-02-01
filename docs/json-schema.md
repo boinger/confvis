@@ -7,7 +7,7 @@ confvis reads confidence reports in JSON format. This document describes the sch
 ```json
 {
   "title": "string (required)",
-  "score": "integer (required, 0-100)",
+  "score": "integer (0-100, auto-calculated if omitted)",
   "threshold": "integer (required, 0-100)",
   "description": "string (optional)",
   "thresholds": {
@@ -32,11 +32,13 @@ confvis reads confidence reports in JSON format. This document describes the sch
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `title` | string | Yes | Report title, displayed in dashboard header |
-| `score` | integer | Yes | Overall confidence score (0-100) |
+| `score` | integer | No* | Overall confidence score (0-100). Auto-calculated from factors if omitted |
 | `threshold` | integer | Yes | Minimum passing score. Score >= threshold = PASS |
 | `description` | string | No | Detailed report description |
 | `thresholds` | object | No | Custom color thresholds (see below) |
 | `factors` | array | No | Contributing factors breakdown |
+
+*Score is auto-calculated as a weighted average if omitted and factors are present.
 
 ### Color Thresholds Fields
 
@@ -104,6 +106,24 @@ Note: `greenAbove` must be >= `yellowAbove`. Scores below `yellowAbove` display 
   ]
 }
 ```
+
+### Report with Auto-Calculated Score
+
+When `score` is omitted but factors are present, the score is automatically
+calculated as a weighted average:
+
+```json
+{
+  "title": "Auto-Calculated Report",
+  "threshold": 75,
+  "factors": [
+    {"name": "Test Coverage", "score": 80, "weight": 50},
+    {"name": "Lint Score", "score": 60, "weight": 50}
+  ]
+}
+```
+
+This calculates to: (80×50 + 60×50) / 100 = **70**
 
 ### Report with Custom Color Thresholds
 

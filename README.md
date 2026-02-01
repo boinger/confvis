@@ -93,7 +93,7 @@ Creates:
 Generate a gauge badge in various formats.
 
 ```bash
-confvis gauge -c confidence.json -o badge.svg [--format svg|json|text] [--width 200] [--height 120] [--dark]
+confvis gauge -c confidence.json -o badge.svg [--format svg|json|text] [--style github|minimal|corporate|high-contrast] [--dark]
 ```
 
 Output formats:
@@ -101,16 +101,20 @@ Output formats:
 - `json`: Score metadata as JSON
 - `text`: Just the score number (for scripting)
 
+Color styles: `github` (default), `minimal`, `corporate`, `high-contrast`
+
 ## JSON Schema
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `title` | string | Yes | Report title |
-| `score` | int | Yes | Overall score (0-100) |
+| `score` | int | No* | Overall score (0-100), auto-calculated if omitted |
 | `threshold` | int | Yes | Minimum passing score |
 | `description` | string | No | Report description |
 | `thresholds` | object | No | Custom color thresholds (`greenAbove`, `yellowAbove`) |
 | `factors` | array | No | Breakdown of contributing factors |
+
+*Score is auto-calculated as a weighted average when omitted and factors are present.
 
 Each factor:
 

@@ -391,3 +391,117 @@ func TestGauge_CustomThresholds_CLIOverridesJSON(t *testing.T) {
 		t.Error("arc should use success color when CLI overrides JSON thresholds")
 	}
 }
+
+func TestGauge_StyleMinimal(t *testing.T) {
+	bin := buildBinary(t)
+
+	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample.json", "-o", "-", "--style", "minimal")
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("gauge with --style minimal failed: %v\n%s", err, output)
+	}
+
+	// Minimal style uses #fafafa background
+	outputStr := string(output)
+	if !strings.Contains(outputStr, "fill:#fafafa") {
+		t.Error("minimal style should use #fafafa background")
+	}
+}
+
+func TestGauge_StyleHighContrast(t *testing.T) {
+	bin := buildBinary(t)
+
+	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample.json", "-o", "-", "--style", "high-contrast")
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("gauge with --style high-contrast failed: %v\n%s", err, output)
+	}
+
+	// High contrast uses #008000 for success (score 85 is green)
+	outputStr := string(output)
+	if !strings.Contains(outputStr, "stroke:#008000") {
+		t.Error("high-contrast style should use #008000 for success")
+	}
+}
+
+func TestGauge_StyleCorporateDark(t *testing.T) {
+	bin := buildBinary(t)
+
+	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample.json", "-o", "-", "--style", "corporate", "--dark")
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("gauge with --style corporate --dark failed: %v\n%s", err, output)
+	}
+
+	// Corporate dark uses #141414 background
+	outputStr := string(output)
+	if !strings.Contains(outputStr, "fill:#141414") {
+		t.Error("corporate dark style should use #141414 background")
+	}
+}
+
+func TestGauge_AutoCalculateScore(t *testing.T) {
+	bin := buildBinary(t)
+
+	// JSON without score but with factors
+	jsonNoScore := `{
+		"title": "Auto Test",
+		"threshold": 75,
+		"factors": [
+			{"name": "A", "score": 80, "weight": 50},
+			{"name": "B", "score": 60, "weight": 50}
+		]
+	}`
+
+	cmd := exec.Command(bin, "gauge", "-c", "-", "-o", "-", "-f", "json")
+	cmd.Stdin = strings.NewReader(jsonNoScore)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("gauge with auto-calculate failed: %v\n%s", err, output)
+	}
+
+	// Score should be auto-calculated: (80*50 + 60*50) / 100 = 70
+	outputStr := string(output)
+	if !strings.Contains(outputStr, `"score": 70`) {
+		t.Errorf("auto-calculated score should be 70, got: %s", outputStr)
+	}
+	if !strings.Contains(outputStr, `"passed": false`) {
+		t.Error("passed should be false since 70 < 75")
+	}
+}
+
+func TestGauge_AutoCalculate_FailUnder(t *testing.T) {
+	bin := buildBinary(t)
+
+	// JSON that auto-calculates to 70
+	jsonNoScore := `{
+		"title": "Auto Test",
+		"threshold": 75,
+		"factors": [
+			{"name": "A", "score": 80, "weight": 50},
+			{"name": "B", "score": 60, "weight": 50}
+		]
+	}`
+
+	// Should fail because auto-calculated 70 < 75
+	cmd := exec.Command(bin, "gauge", "-c", "-", "-o", "-", "-f", "text", "--fail-under", "75")
+	cmd.Stdin = strings.NewReader(jsonNoScore)
+
+	err := cmd.Run()
+	if err == nil {
+		t.Fatal("expected exit 1 for auto-calculated score 70 < threshold 75")
+	}
+
+	exitErr, ok := err.(*exec.ExitError)
+	if !ok {
+		t.Fatalf("expected *exec.ExitError, got %T", err)
+	}
+
+	if exitErr.ExitCode() != 1 {
+		t.Errorf("expected exit code 1, got %d", exitErr.ExitCode())
+	}
+}

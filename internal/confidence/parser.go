@@ -22,10 +22,17 @@ func ParseFile(path string) (*Report, error) {
 }
 
 // Parse reads and parses a confidence report from an io.Reader.
+// If score is omitted (0) but factors exist, the score is automatically
+// calculated as a weighted average of factor scores.
 func Parse(r io.Reader) (*Report, error) {
 	var report Report
 	if err := json.NewDecoder(r).Decode(&report); err != nil {
 		return nil, fmt.Errorf("decoding JSON: %w", err)
+	}
+
+	// Auto-calculate score from factors if score is omitted
+	if report.Score == 0 && len(report.Factors) > 0 {
+		report.Score = report.CalculateScore()
 	}
 
 	if err := Validate(&report); err != nil {
