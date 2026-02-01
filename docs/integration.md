@@ -59,7 +59,8 @@ confidence-ci:
 
 ## Aggregating Multiple Sources
 
-Create a script that combines metrics from multiple tools into a single report:
+Create a script that combines metrics from multiple tools into a single report.
+With auto-calculate, you only need to specify factors - the overall score is computed automatically:
 
 ```bash
 #!/bin/bash
@@ -74,14 +75,10 @@ LINT_ISSUES=$(golangci-lint run ./... 2>&1 | grep -c "^" || echo 0)
 LINT_SCORE=$((100 - LINT_ISSUES * 5))
 [ $LINT_SCORE -lt 0 ] && LINT_SCORE=0
 
-# Calculate overall (simple average)
-SCORE=$(( (COVERAGE + LINT_SCORE) / 2 ))
-
-# Generate JSON
+# Generate JSON - score is auto-calculated from weighted factors
 cat > confidence.json << EOF
 {
   "title": "Code Quality",
-  "score": $SCORE,
   "threshold": 75,
   "factors": [
     {"name": "Test Coverage", "score": $COVERAGE, "weight": 50},
@@ -90,7 +87,8 @@ cat > confidence.json << EOF
 }
 EOF
 
-echo "Generated confidence.json with score: $SCORE"
+# Show the calculated score
+confvis gauge -c confidence.json -o - -f text
 ```
 
 ## Embedding in README
@@ -148,6 +146,24 @@ npm test -- --coverage --coverageReporters=json-summary
 
 # Extract from coverage-summary.json
 COVERAGE=$(jq '.total.lines.pct | floor' coverage/coverage-summary.json)
+```
+
+## Styling Options
+
+Generate badges in different color schemes to match your project:
+
+```bash
+# Clean, minimal style
+confvis gauge -c confidence.json -o badge.svg --style minimal
+
+# Professional look
+confvis gauge -c confidence.json -o badge.svg --style corporate
+
+# Accessibility-focused
+confvis gauge -c confidence.json -o badge.svg --style high-contrast
+
+# Dark mode variants
+confvis gauge -c confidence.json -o badge.svg --style minimal --dark
 ```
 
 ## Dashboard Hosting
