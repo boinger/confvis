@@ -1,0 +1,23 @@
+# Binary (at root only)
+/confvis
+
+# Test coverage
+coverage.out
+coverage.html
+
+# Vendor directory (if used)
+vendor/
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build output
+dist/

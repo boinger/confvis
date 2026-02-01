@@ -1,0 +1,51 @@
+name: Generate Confidence Badge
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  badge:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.21"
+
+      - name: Install confvis
+        run: go install github.com/boinger/confvis/cmd/confvis@latest
+
+      - name: Generate confidence report
+        run: |
+          # Run tests with coverage
+          go test -coverprofile=coverage.out ./...
+          COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print int($3)}')
+
+          # Generate confidence.json
+          cat > confidence.json << EOF
+          {
+            "title": "Code Quality",
+            "score": $COVERAGE,
+            "threshold": 75,
+            "factors": [
+              {"name": "Test Coverage", "score": $COVERAGE, "weight": 100}
+            ]
+          }
+          EOF
+
+      - name: Generate badge
+        run: confvis generate -c confidence.json -o ./badges
+
+      - name: Commit badge (main branch only)
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Update confidence badge"
+          file_pattern: "badges/*"

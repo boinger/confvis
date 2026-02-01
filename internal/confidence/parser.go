@@ -1,0 +1,65 @@
+package confidence
+
+import (
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
+)
+
+// ParseFile reads and parses a confidence report from a file path.
+func ParseFile(path string) (*Report, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("opening file: %w", err)
+	}
+
+	report, err := Parse(f)
+	if closeErr := f.Close(); closeErr != nil && err == nil {
+		return nil, fmt.Errorf("closing file: %w", closeErr)
+	}
+	return report, err
+}
+
+// Parse reads and parses a confidence report from an io.Reader.
+func Parse(r io.Reader) (*Report, error) {
+	var report Report
+	if err := json.NewDecoder(r).Decode(&report); err != nil {
+		return nil, fmt.Errorf("decoding JSON: %w", err)
+	}
+
+	if err := Validate(&report); err != nil {
+		return nil, err
+	}
+
+	return &report, nil
+}
+
+// Validate checks that a report has valid data.
+func Validate(r *Report) error {
+	if r.Title == "" {
+		return fmt.Errorf("validation: title is required")
+	}
+
+	if r.Score < 0 || r.Score > 100 {
+		return fmt.Errorf("validation: score must be between 0 and 100, got %d", r.Score)
+	}
+
+	if r.Threshold < 0 || r.Threshold > 100 {
+		return fmt.Errorf("validation: threshold must be between 0 and 100, got %d", r.Threshold)
+	}
+
+	for i, f := range r.Factors {
+		if f.Name == "" {
+			return fmt.Errorf("validation: factor[%d] name is required", i)
+		}
+		if f.Score < 0 || f.Score > 100 {
+			return fmt.Errorf("validation: factor[%d] score must be between 0 and 100, got %d", i, f.Score)
+		}
+		if f.Weight < 0 || f.Weight > 100 {
+			return fmt.Errorf("validation: factor[%d] weight must be between 0 and 100, got %d", i, f.Weight)
+		}
+	}
+
+	return nil
+}

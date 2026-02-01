@@ -1,0 +1,32 @@
+{
+  "title": "Code Quality Report",
+  "score": 62,
+  "threshold": 75,
+  "description": "Overall code quality assessment - needs improvement.",
+  "factors": [
+    {
+      "name": "Test Coverage",
+      "score": 45,
+      "weight": 30,
+      "description": "Test coverage below acceptable threshold"
+    },
+    {
+      "name": "Code Complexity",
+      "score": 68,
+      "weight": 25,
+      "description": "Some functions exceed complexity limits"
+    },
+    {
+      "name": "Documentation",
+      "score": 72,
+      "weight": 20,
+      "description": "API documentation incomplete"
+    },
+    {
+      "name": "Security Scan",
+      "score": 65,
+      "weight": 25,
+      "description": "Medium severity issues detected"
+    }
+  ]
+}

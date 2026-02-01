@@ -1,0 +1,113 @@
+# confvis
+
+Generate visual confidence badges and dashboards from JSON metrics.
+
+confvis transforms JSON confidence reports into SVG gauge badges and HTML dashboards, making it easy to visualize code quality, test coverage, security scores, or any metric you track.
+
+## Installation
+
+```bash
+go install github.com/boinger/confvis/cmd/confvis@latest
+```
+
+Or build from source:
+
+```bash
+git clone https://github.com/boinger/confvis.git
+cd confvis
+go build -o confvis ./cmd/confvis
+```
+
+## Quick Start
+
+1. Create a confidence report JSON file:
+
+```json
+{
+  "title": "Code Quality",
+  "score": 85,
+  "threshold": 75,
+  "factors": [
+    {"name": "Test Coverage", "score": 92, "weight": 30},
+    {"name": "Code Complexity", "score": 78, "weight": 25},
+    {"name": "Documentation", "score": 88, "weight": 20},
+    {"name": "Security Scan", "score": 80, "weight": 25}
+  ]
+}
+```
+
+2. Generate visualizations:
+
+```bash
+# Generate both badge and dashboard
+confvis generate -c confidence.json -o ./output
+
+# Generate just the gauge badge
+confvis gauge -c confidence.json -o badge.svg
+```
+
+3. Embed in your README:
+
+```markdown
+![Confidence](./output/badge.svg)
+```
+
+## Commands
+
+### `confvis generate`
+
+Generate both an SVG badge and HTML dashboard.
+
+```bash
+confvis generate -c confidence.json -o ./output [--dark]
+```
+
+Creates:
+- `output/badge.svg` - SVG gauge badge
+- `output/dashboard/index.html` - Interactive HTML dashboard
+
+### `confvis gauge`
+
+Generate just the SVG gauge badge.
+
+```bash
+confvis gauge -c confidence.json -o badge.svg [--width 200] [--height 120] [--dark]
+```
+
+## JSON Schema
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `title` | string | Yes | Report title |
+| `score` | int | Yes | Overall score (0-100) |
+| `threshold` | int | Yes | Minimum passing score |
+| `description` | string | No | Report description |
+| `factors` | array | No | Breakdown of contributing factors |
+
+Each factor:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Factor name |
+| `score` | int | Yes | Factor score (0-100) |
+| `weight` | int | Yes | Weight in overall calculation |
+| `description` | string | No | Factor description |
+
+## Documentation
+
+- [Installation Guide](docs/installation.md)
+- [CLI Reference](docs/cli-reference.md)
+- [JSON Schema](docs/json-schema.md)
+- [Integration Guide](docs/integration.md)
+- [Architecture](docs/architecture.md)
+
+## Examples
+
+See the [examples/](examples/) directory for:
+- GitHub Actions workflow
+- Makefile integration
+- Multi-source score aggregation
+
+## License
+
+MIT - see [LICENSE](LICENSE)
