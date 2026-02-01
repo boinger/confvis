@@ -84,8 +84,10 @@ confvis gauge -c <config> -o <output-file> [flags]
 |------|-------|---------|-------------|
 | `--input-format` | | auto | Input format: `auto`, `json`, or `yaml` (auto-detects from extension) |
 | `--format` | `-f` | svg | Output format: `svg`, `json`, `text`, or `markdown` |
-| `--badge-type` | | gauge | Badge type: `gauge` (semi-circle) or `flat` (shields.io style) |
+| `--badge-type` | | gauge | Badge type: `gauge`, `flat`, or `sparkline` |
 | `--label` | | | Custom label for flat badge (defaults to report title) |
+| `--history-file` | | | Path to history file for sparkline (JSON lines format) |
+| `--history-count` | | 10 | Number of historical points to show in sparkline |
 | `--width` | | 200 | Gauge width in pixels (gauge badge only) |
 | `--height` | | 120 | Gauge height in pixels (gauge badge only) |
 | `--style` | | github | Color scheme style (svg only) |
@@ -196,6 +198,12 @@ confvis gauge -c confidence.yaml -o badge.svg
 
 # YAML from stdin (requires explicit format)
 cat confidence.yaml | confvis gauge -c - --input-format yaml -o badge.svg
+
+# Sparkline badge showing score trend
+confvis gauge -c confidence.json -o sparkline.svg --badge-type sparkline --history-file .confvis-history.jsonl
+
+# Sparkline with custom history count
+confvis gauge -c confidence.json -o sparkline.svg --badge-type sparkline --history-file .confvis-history.jsonl --history-count 20
 ```
 
 ---

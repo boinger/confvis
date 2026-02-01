@@ -972,3 +972,109 @@ func TestGenerate_YAMLInput(t *testing.T) {
 		t.Error("dashboard/index.html was not created")
 	}
 }
+
+func TestGauge_Sparkline(t *testing.T) {
+	bin := buildBinary(t)
+
+	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample.json", "-o", "-", "--badge-type", "sparkline")
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("gauge sparkline failed: %v\n%s", err, output)
+	}
+
+	outputStr := string(output)
+	if !strings.Contains(outputStr, "<svg") {
+		t.Error("sparkline should be an SVG")
+	}
+	if !strings.Contains(outputStr, "85%") {
+		t.Error("sparkline should contain score percentage")
+	}
+}
+
+func TestGauge_Sparkline_WithHistory(t *testing.T) {
+	bin := buildBinary(t)
+
+	// Create history file
+	tmpDir := t.TempDir()
+	historyPath := filepath.Join(tmpDir, "history.jsonl")
+	historyContent := `{"score": 70, "timestamp": "2024-01-01T10:00:00Z"}
+{"score": 75, "timestamp": "2024-01-02T10:00:00Z"}
+{"score": 80, "timestamp": "2024-01-03T10:00:00Z"}
+`
+	if err := os.WriteFile(historyPath, []byte(historyContent), 0o644); err != nil {
+		t.Fatalf("writing history file: %v", err)
+	}
+
+	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample.json", "-o", "-", "--badge-type", "sparkline", "--history-file", historyPath)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("gauge sparkline with history failed: %v\n%s", err, output)
+	}
+
+	outputStr := string(output)
+	// Should have polyline for sparkline
+	if !strings.Contains(outputStr, "polyline") {
+		t.Error("sparkline with history should contain polyline element")
+	}
+
+	// Check that current score was appended to history
+	historyData, err := os.ReadFile(historyPath)
+	if err != nil {
+		t.Fatalf("reading history file: %v", err)
+	}
+	if !strings.Contains(string(historyData), `"score":85`) {
+		t.Error("current score should be appended to history file")
+	}
+}
+
+func TestGauge_Sparkline_HistoryCount(t *testing.T) {
+	bin := buildBinary(t)
+
+	// Create history file with more entries than default
+	tmpDir := t.TempDir()
+	historyPath := filepath.Join(tmpDir, "history.jsonl")
+	historyContent := `{"score": 60, "timestamp": "2024-01-01T10:00:00Z"}
+{"score": 62, "timestamp": "2024-01-02T10:00:00Z"}
+{"score": 65, "timestamp": "2024-01-03T10:00:00Z"}
+{"score": 68, "timestamp": "2024-01-04T10:00:00Z"}
+{"score": 70, "timestamp": "2024-01-05T10:00:00Z"}
+{"score": 72, "timestamp": "2024-01-06T10:00:00Z"}
+{"score": 75, "timestamp": "2024-01-07T10:00:00Z"}
+{"score": 78, "timestamp": "2024-01-08T10:00:00Z"}
+{"score": 80, "timestamp": "2024-01-09T10:00:00Z"}
+{"score": 82, "timestamp": "2024-01-10T10:00:00Z"}
+`
+	if err := os.WriteFile(historyPath, []byte(historyContent), 0o644); err != nil {
+		t.Fatalf("writing history file: %v", err)
+	}
+
+	// Test with custom history count
+	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample.json", "-o", "-", "--badge-type", "sparkline", "--history-file", historyPath, "--history-count", "5")
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("gauge sparkline with history count failed: %v\n%s", err, output)
+	}
+
+	if !strings.Contains(string(output), "<svg") {
+		t.Error("output should be an SVG")
+	}
+}
+
+func TestGauge_BadgeType_Sparkline_Invalid(t *testing.T) {
+	bin := buildBinary(t)
+
+	// Test with non-existent history file (should work, creates new file)
+	tmpDir := t.TempDir()
+	historyPath := filepath.Join(tmpDir, "nonexistent", "history.jsonl")
+
+	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample.json", "-o", "-", "--badge-type", "sparkline", "--history-file", historyPath)
+
+	// This should fail because the directory doesn't exist
+	err := cmd.Run()
+	if err == nil {
+		t.Error("expected error when history file directory doesn't exist")
+	}
+}

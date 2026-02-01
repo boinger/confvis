@@ -10,6 +10,7 @@ import (
 
 	"github.com/boinger/confvis/internal/confidence"
 	"github.com/boinger/confvis/internal/gauge"
+	"github.com/boinger/confvis/internal/history"
 )
 
 var (
@@ -28,6 +29,8 @@ var (
 	gaugeBadgeType        string
 	gaugeLabel            string
 	gaugeInputFormat      string
+	gaugeHistoryFile      string
+	gaugeHistoryCount     int
 )
 
 var gaugeCmd = &cobra.Command{
@@ -51,8 +54,10 @@ func init() {
 	gaugeCmd.Flags().IntVar(&gaugeYellowAbove, "yellow-above", 0, "score threshold for yellow color (overrides JSON config)")
 	gaugeCmd.Flags().StringVar(&gaugeCompare, "compare", "", "path to baseline report JSON for comparison")
 	gaugeCmd.Flags().BoolVar(&gaugeFailOnRegression, "fail-on-regression", false, "exit non-zero if score decreased from baseline (requires --compare)")
-	gaugeCmd.Flags().StringVar(&gaugeBadgeType, "badge-type", "gauge", "badge type: gauge (semi-circle) or flat (shields.io style)")
+	gaugeCmd.Flags().StringVar(&gaugeBadgeType, "badge-type", "gauge", "badge type: gauge, flat, or sparkline")
 	gaugeCmd.Flags().StringVar(&gaugeLabel, "label", "", "custom label for flat badge (defaults to report title)")
+	gaugeCmd.Flags().StringVar(&gaugeHistoryFile, "history-file", "", "path to history file for sparkline (JSON lines format)")
+	gaugeCmd.Flags().IntVar(&gaugeHistoryCount, "history-count", 10, "number of historical points to show in sparkline")
 
 	if err := gaugeCmd.MarkFlagRequired("config"); err != nil {
 		panic(err)
@@ -75,10 +80,10 @@ func runGauge(_ *cobra.Command, _ []string) error {
 
 	// Validate badge type
 	switch gaugeBadgeType {
-	case "gauge", "flat":
+	case "gauge", "flat", "sparkline":
 		// valid
 	default:
-		return fmt.Errorf("invalid badge-type %q: must be gauge or flat", gaugeBadgeType)
+		return fmt.Errorf("invalid badge-type %q: must be gauge, flat, or sparkline", gaugeBadgeType)
 	}
 
 	// Validate and convert input format
@@ -148,7 +153,8 @@ func runGauge(_ *cobra.Command, _ []string) error {
 
 	switch gaugeFormat {
 	case "svg":
-		if gaugeBadgeType == "flat" {
+		switch gaugeBadgeType {
+		case "flat":
 			flatOpts := gauge.FlatOptions{
 				Label:       gaugeLabel,
 				DarkMode:    gaugeDark,
@@ -159,7 +165,53 @@ func runGauge(_ *cobra.Command, _ []string) error {
 			if err := gauge.GenerateFlat(w, report, flatOpts); err != nil {
 				return fmt.Errorf("generating flat badge: %w", err)
 			}
-		} else {
+
+		case "sparkline":
+			// Read history and generate sparkline
+			var scores []int
+			if gaugeHistoryFile != "" {
+				hist, err := history.ReadFile(gaugeHistoryFile)
+				if err != nil {
+					return fmt.Errorf("reading history: %w", err)
+				}
+				// Get last N entries plus current score
+				entries := hist.Last(gaugeHistoryCount - 1)
+				for _, e := range entries {
+					scores = append(scores, e.Score)
+				}
+			}
+			// Append current score
+			scores = append(scores, report.Score)
+
+			sparkOpts := gauge.SparklineOptions{
+				Width:       gaugeWidth,
+				Height:      gaugeHeight,
+				Scores:      scores,
+				DarkMode:    gaugeDark,
+				Style:       gaugeStyle,
+				GreenAbove:  gaugeGreenAbove,
+				YellowAbove: gaugeYellowAbove,
+			}
+			// Use smaller default size for sparkline
+			if sparkOpts.Width == 200 {
+				sparkOpts.Width = 120
+			}
+			if sparkOpts.Height == 120 {
+				sparkOpts.Height = 28
+			}
+			if err := gauge.GenerateSparkline(w, report, sparkOpts); err != nil {
+				return fmt.Errorf("generating sparkline: %w", err)
+			}
+
+			// Append to history file if specified
+			if gaugeHistoryFile != "" {
+				entry := history.NewEntry(report.Score)
+				if err := history.AppendToFile(gaugeHistoryFile, entry); err != nil {
+					return fmt.Errorf("appending to history: %w", err)
+				}
+			}
+
+		default: // "gauge"
 			opts := gauge.Options{
 				Width:       gaugeWidth,
 				Height:      gaugeHeight,
