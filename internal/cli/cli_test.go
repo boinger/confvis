@@ -1078,3 +1078,204 @@ func TestGauge_BadgeType_Sparkline_Invalid(t *testing.T) {
 		t.Error("expected error when history file directory doesn't exist")
 	}
 }
+
+func TestAggregate_Basic(t *testing.T) {
+	bin := buildBinary(t)
+
+	outputDir := t.TempDir()
+
+	cmd := exec.Command(bin, "aggregate", "-c", "../../testdata/sample.json", "-c", "../../testdata/sample_failing.json", "-o", outputDir)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("aggregate failed: %v\n%s", err, output)
+	}
+
+	// Verify badge.svg was created
+	badgePath := filepath.Join(outputDir, "badge.svg")
+	if _, err := os.Stat(badgePath); os.IsNotExist(err) {
+		t.Error("badge.svg was not created")
+	}
+
+	// Verify dashboard was created
+	dashboardPath := filepath.Join(outputDir, "dashboard", "index.html")
+	if _, err := os.Stat(dashboardPath); os.IsNotExist(err) {
+		t.Error("dashboard/index.html was not created")
+	}
+
+	// Read dashboard and verify content
+	dashboardContent, err := os.ReadFile(dashboardPath)
+	if err != nil {
+		t.Fatalf("reading dashboard: %v", err)
+	}
+
+	dashStr := string(dashboardContent)
+	if !strings.Contains(dashStr, "Aggregate Confidence Report") {
+		t.Error("dashboard should contain aggregate title")
+	}
+	if !strings.Contains(dashStr, "Code Quality Report") {
+		t.Error("dashboard should contain component titles")
+	}
+}
+
+func TestAggregate_WithWeights(t *testing.T) {
+	bin := buildBinary(t)
+
+	outputDir := t.TempDir()
+
+	// Weight sample.json (85) more heavily than sample_failing.json (62)
+	cmd := exec.Command(bin, "aggregate", "-c", "../../testdata/sample.json:80", "-c", "../../testdata/sample_failing.json:20", "-o", outputDir, "-v")
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("aggregate with weights failed: %v\n%s", err, output)
+	}
+
+	// Weighted average: (85*80 + 62*20) / 100 = (6800 + 1240) / 100 = 80.4 ≈ 80
+	// Should show the aggregate score in verbose output
+	outputStr := string(output)
+	if !strings.Contains(outputStr, "weight: 80") || !strings.Contains(outputStr, "weight: 20") {
+		t.Error("verbose output should show weights")
+	}
+}
+
+func TestAggregate_GlobPattern(t *testing.T) {
+	bin := buildBinary(t)
+
+	outputDir := t.TempDir()
+
+	// Use glob pattern to match all JSON files in testdata
+	cmd := exec.Command(bin, "aggregate", "-c", "../../testdata/sample*.json", "-o", outputDir)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("aggregate with glob failed: %v\n%s", err, output)
+	}
+
+	// Verify dashboard was created
+	dashboardPath := filepath.Join(outputDir, "dashboard", "index.html")
+	if _, err := os.Stat(dashboardPath); os.IsNotExist(err) {
+		t.Error("dashboard/index.html was not created")
+	}
+}
+
+func TestAggregate_DarkMode(t *testing.T) {
+	bin := buildBinary(t)
+
+	outputDir := t.TempDir()
+
+	cmd := exec.Command(bin, "aggregate", "-c", "../../testdata/sample.json", "-o", outputDir, "--dark")
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("aggregate dark mode failed: %v\n%s", err, output)
+	}
+
+	// Read dashboard and verify dark mode class
+	dashboardPath := filepath.Join(outputDir, "dashboard", "index.html")
+	dashboardContent, err := os.ReadFile(dashboardPath)
+	if err != nil {
+		t.Fatalf("reading dashboard: %v", err)
+	}
+
+	if !strings.Contains(string(dashboardContent), `class="dark"`) {
+		t.Error("dashboard should have dark mode class")
+	}
+}
+
+func TestAggregate_FailUnder_Pass(t *testing.T) {
+	bin := buildBinary(t)
+
+	outputDir := t.TempDir()
+
+	// Average of 85 and 62 is ~73 or 74 depending on rounding
+	cmd := exec.Command(bin, "aggregate", "-c", "../../testdata/sample.json", "-c", "../../testdata/sample_failing.json", "-o", outputDir, "--fail-under", "70")
+
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("expected exit 0 for aggregate score above threshold, got error: %v", err)
+	}
+}
+
+func TestAggregate_FailUnder_Fail(t *testing.T) {
+	bin := buildBinary(t)
+
+	outputDir := t.TempDir()
+
+	// Average of 85 and 62 is ~73 or 74
+	cmd := exec.Command(bin, "aggregate", "-c", "../../testdata/sample.json", "-c", "../../testdata/sample_failing.json", "-o", outputDir, "--fail-under", "80")
+
+	err := cmd.Run()
+	if err == nil {
+		t.Fatal("expected exit 1 for aggregate score below threshold, got exit 0")
+	}
+
+	exitErr, ok := err.(*exec.ExitError)
+	if !ok {
+		t.Fatalf("expected *exec.ExitError, got %T", err)
+	}
+
+	if exitErr.ExitCode() != 1 {
+		t.Errorf("expected exit code 1, got %d", exitErr.ExitCode())
+	}
+}
+
+func TestAggregate_IndividualBadges(t *testing.T) {
+	bin := buildBinary(t)
+
+	outputDir := t.TempDir()
+
+	cmd := exec.Command(bin, "aggregate", "-c", "../../testdata/sample.json", "-c", "../../testdata/sample_failing.json", "-o", outputDir)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("aggregate failed: %v\n%s", err, output)
+	}
+
+	// Should create individual badges with sanitized names
+	// sample.json has title "Code Quality Report"
+	codeBadgePath := filepath.Join(outputDir, "code-quality-report.svg")
+	if _, err := os.Stat(codeBadgePath); os.IsNotExist(err) {
+		t.Error("individual badge for 'Code Quality Report' was not created")
+	}
+
+	// sample_failing.json also has title "Code Quality Report"
+	// (since they both have same title, only one file gets created)
+}
+
+func TestAggregate_NoReports(t *testing.T) {
+	bin := buildBinary(t)
+
+	outputDir := t.TempDir()
+
+	// Use a glob pattern that matches nothing
+	cmd := exec.Command(bin, "aggregate", "-c", "../../testdata/nonexistent*.json", "-o", outputDir)
+
+	err := cmd.Run()
+	if err == nil {
+		t.Fatal("expected error when no reports found")
+	}
+}
+
+func TestAggregate_MissingOutput(t *testing.T) {
+	bin := buildBinary(t)
+
+	cmd := exec.Command(bin, "aggregate", "-c", "../../testdata/sample.json")
+
+	err := cmd.Run()
+	if err == nil {
+		t.Fatal("expected error when output flag is missing")
+	}
+}
+
+func TestAggregate_MissingConfig(t *testing.T) {
+	bin := buildBinary(t)
+
+	outputDir := t.TempDir()
+
+	cmd := exec.Command(bin, "aggregate", "-o", outputDir)
+
+	err := cmd.Run()
+	if err == nil {
+		t.Fatal("expected error when config flag is missing")
+	}
+}

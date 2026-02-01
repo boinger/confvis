@@ -208,6 +208,71 @@ confvis gauge -c confidence.json -o sparkline.svg --badge-type sparkline --histo
 
 ---
 
+### `confvis aggregate`
+
+Aggregate multiple confidence reports into a single dashboard with an overall score.
+
+```bash
+confvis aggregate -c <config>[:weight] [-c <config>[:weight] ...] -o <output-dir> [flags]
+```
+
+#### Required Flags
+
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--config` | `-c` | Path to confidence report (JSON/YAML), or glob pattern. Can be repeated. Optional weight suffix (e.g., `path:80`) |
+| `--output` | `-o` | Output directory path |
+
+#### Optional Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--dark` | false | Use dark mode colors |
+| `--fail-under` | 0 | Exit with code 1 if aggregate score is below this value |
+
+#### Config Format
+
+Each `-c` flag accepts a path with optional weight:
+
+- `path` - Use default weight of 100
+- `path:weight` - Use specified weight (e.g., `api.json:60`)
+- `glob` - Expand glob pattern (e.g., `services/*/confidence.json`)
+- `glob:weight` - All matched files use same weight
+
+#### Output
+
+Creates:
+- `<output>/badge.svg` - Aggregate SVG gauge badge
+- `<output>/dashboard/index.html` - Multi-report HTML dashboard
+- `<output>/<report-title>.svg` - Individual badges for each report
+
+#### Examples
+
+```bash
+# Basic aggregation of two reports
+confvis aggregate -c api/confidence.json -c web/confidence.json -o ./output
+
+# With custom weights (API counts more)
+confvis aggregate -c api/confidence.json:60 -c web/confidence.json:40 -o ./output
+
+# Using glob pattern for monorepo
+confvis aggregate -c "services/*/confidence.json" -o ./output
+
+# Multiple glob patterns
+confvis aggregate -c "backend/*.json" -c "frontend/*.json:50" -o ./output
+
+# Dark mode
+confvis aggregate -c api/confidence.json -c web/confidence.json -o ./output --dark
+
+# CI/CD with threshold
+confvis aggregate -c "services/*/confidence.json" -o ./output --fail-under 75
+
+# Verbose output showing weights
+confvis aggregate -c api.json:60 -c web.json:40 -o ./output -v
+```
+
+---
+
 ## Exit Codes
 
 | Code | Meaning |

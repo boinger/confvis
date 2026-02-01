@@ -128,6 +128,26 @@ Badge types:
 
 Color styles: `github` (default), `minimal`, `corporate`, `high-contrast`
 
+### `confvis aggregate`
+
+Aggregate multiple reports into a single dashboard with weighted scores.
+
+```bash
+# Aggregate multiple reports
+confvis aggregate -c api/confidence.json -c web/confidence.json -o ./output
+
+# With custom weights
+confvis aggregate -c api/confidence.json:60 -c web/confidence.json:40 -o ./output
+
+# Using glob patterns (monorepo)
+confvis aggregate -c "services/*/confidence.json" -o ./output
+```
+
+Creates:
+- `output/badge.svg` - Aggregate SVG gauge badge
+- `output/dashboard/index.html` - Multi-report dashboard with all components
+- `output/<report-title>.svg` - Individual badges for each report
+
 ## JSON Schema
 
 | Field | Type | Required | Description |
@@ -149,6 +169,7 @@ Each factor:
 | `score` | int | Yes | Factor score (0-100) |
 | `weight` | int | Yes | Weight in overall calculation |
 | `description` | string | No | Factor description |
+| `url` | string | No | Link to detailed report (clickable in dashboard) |
 
 ## Documentation
 
