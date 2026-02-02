@@ -224,6 +224,7 @@ confvis fetch <source> -p <project> -o <output> [flags]
 | `codecov` | Coverage metrics from Codecov |
 | `github-actions` | CI/CD workflow metrics from GitHub Actions |
 | `snyk` | Vulnerability metrics from Snyk |
+| `trivy` | Local security vulnerability scanning |
 
 #### Required Flags
 
@@ -252,6 +253,7 @@ confvis fetch <source> -p <project> -o <output> [flags]
 | `--event` | github-actions | | Trigger event to filter (push, pull_request) |
 | `--count` | github-actions | 20 | Number of recent runs to analyze |
 | `--org` | snyk | | Organization ID (required for Snyk) |
+| `--trivy-cmd` | trivy | trivy | Trivy command to execute |
 
 #### Environment Variables
 
@@ -265,6 +267,7 @@ confvis fetch <source> -p <project> -o <output> [flags]
 | `SNYK_TOKEN` | snyk | API token |
 | `SNYK_ORG_ID` | snyk | Organization ID |
 | `SNYK_API_URL` | snyk | API URL |
+| `TRIVY_CMD` | trivy | Trivy command to execute |
 
 #### Examples
 
@@ -285,6 +288,9 @@ confvis fetch github-actions -p myorg/myrepo --workflow ci.yml --count 20 -o con
 # Fetch from Snyk
 export SNYK_TOKEN=xxx
 confvis fetch snyk --org my-org-id -p my-project-id -o confidence.json
+
+# Fetch from Trivy (local scan)
+confvis fetch trivy -p . -o security.json
 
 # Pipe directly to gauge for badge generation
 confvis fetch sonarqube -p myproject -o - | confvis gauge -c - -o badge.svg

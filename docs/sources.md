@@ -10,6 +10,7 @@ confvis can fetch metrics directly from external systems using the `confvis fetc
 | `codecov` | Coverage metrics from Codecov | Available |
 | `github-actions` | CI/CD workflow metrics from GitHub Actions | Available |
 | `snyk` | Security vulnerability metrics from Snyk | Available |
+| `trivy` | Local security vulnerability scanning with Trivy | Available |
 
 ## Usage
 
@@ -362,12 +363,14 @@ Fetch from multiple sources and aggregate:
 confvis fetch sonarqube -p myproject -o sonar.json
 confvis fetch codecov -p myorg/myrepo -o coverage.json
 confvis fetch snyk --org my-org -p project-id -o security.json
+confvis fetch trivy -p . -o trivy.json
 
 # Aggregate with weights
 confvis aggregate \
-  -c sonar.json:50 \
-  -c coverage.json:30 \
+  -c sonar.json:40 \
+  -c coverage.json:25 \
   -c security.json:20 \
+  -c trivy.json:15 \
   -o ./output
 ```
 
@@ -375,10 +378,101 @@ Or use process substitution for a single pipeline:
 
 ```bash
 confvis aggregate \
-  -c <(confvis fetch sonarqube -p api -o -):50 \
-  -c <(confvis fetch codecov -p myorg/api -o -):30 \
+  -c <(confvis fetch sonarqube -p api -o -):40 \
+  -c <(confvis fetch codecov -p myorg/api -o -):25 \
   -c <(confvis fetch snyk --org my-org -p api-project -o -):20 \
+  -c <(confvis fetch trivy -p . -o -):15 \
   -o ./output
+```
+
+## Trivy
+
+Scans the local filesystem for security vulnerabilities using Trivy.
+
+Unlike other sources that fetch from remote APIs, Trivy runs locally and scans your codebase directly. This is useful for CI/CD pipelines where you want to check for vulnerabilities before deploying.
+
+### Configuration
+
+| Flag | Environment Variable | Description |
+|------|---------------------|-------------|
+| `--trivy-cmd` | `TRIVY_CMD` | Trivy command (default: `trivy`) |
+
+**Note:** The `--project` flag specifies the path to scan (default: `.`).
+
+### Prerequisites
+
+Trivy must be installed on the system. Install via:
+
+```bash
+# macOS
+brew install trivy
+
+# Linux (Ubuntu/Debian)
+sudo apt-get install trivy
+
+# Docker (no installation required)
+confvis fetch trivy -p . --trivy-cmd "docker run --rm -v $(pwd):/scan aquasec/trivy fs /scan" -o security.json
+```
+
+### Metric Mapping
+
+Vulnerability counts are converted to scores using severity-based penalties (same as Snyk):
+
+| Factor Name | Scoring Formula | Weight |
+|-------------|-----------------|--------|
+| Critical Vulnerabilities | 100 if 0, else max(0, 100 - count×33) | 40% |
+| High Vulnerabilities | 100 if 0, else max(0, 100 - count×20) | 30% |
+| Medium Vulnerabilities | 100 if 0, else max(0, 100 - count×10) | 20% |
+| Low Vulnerabilities | 100 if 0, else max(0, 100 - count×5) | 10% |
+
+### Example Output
+
+```json
+{
+  "title": "confvis",
+  "score": 100,
+  "threshold": 75,
+  "source": "trivy",
+  "generatedAt": "2026-02-01T15:30:00Z",
+  "factors": [
+    {"name": "Critical Vulnerabilities", "score": 100, "weight": 40, "description": "0 critical"},
+    {"name": "High Vulnerabilities", "score": 100, "weight": 30, "description": "0 high"},
+    {"name": "Medium Vulnerabilities", "score": 100, "weight": 20, "description": "0 medium"},
+    {"name": "Low Vulnerabilities", "score": 100, "weight": 10, "description": "0 low"}
+  ]
+}
+```
+
+### Examples
+
+```bash
+# Scan current directory
+confvis fetch trivy -p . -o security.json
+
+# Scan a specific path
+confvis fetch trivy -p ./cmd/myapp -o security.json
+
+# Use Docker to run Trivy (no local installation needed)
+confvis fetch trivy -p . --trivy-cmd "docker run --rm -v $(pwd):/scan aquasec/trivy fs /scan" -o security.json
+
+# Custom title
+confvis fetch trivy -p . --title "Security Scan" -o security.json
+
+# Pipe to badge generation
+confvis fetch trivy -p . -o - | confvis gauge -c - -o security-badge.svg
+```
+
+### CI/CD Integration
+
+Trivy is commonly used in CI/CD pipelines. Here's a GitHub Actions example:
+
+```yaml
+- name: Install Trivy
+  run: |
+    curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+
+- name: Fetch Trivy metrics
+  run: confvis fetch trivy -p . -o security.json
 ```
 
 ## Adding New Sources

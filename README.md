@@ -1,5 +1,9 @@
 # confvis
 
+[![Confidence](./badges/badge.svg)](./badges/dashboard/index.html)
+[![CI](https://github.com/boinger/confvis/actions/workflows/ci.yml/badge.svg)](https://github.com/boinger/confvis/actions/workflows/ci.yml)
+[![Coverage](https://codecov.io/gh/boinger/confvis/graph/badge.svg)](https://codecov.io/gh/boinger/confvis)
+
 Generate visual confidence badges and dashboards from JSON metrics.
 
 confvis transforms JSON confidence reports into SVG gauge badges and HTML dashboards, making it easy to visualize code quality, test coverage, security scores, or any metric you track.
@@ -115,6 +119,9 @@ confvis fetch github-actions -p myorg/myrepo -o confidence.json
 export SNYK_TOKEN=xxx
 confvis fetch snyk --org my-org-id -p my-project-id -o confidence.json
 
+# Fetch from Trivy (local security scan)
+confvis fetch trivy -p . -o security.json
+
 # Pipe directly to badge generation
 confvis fetch sonarqube -p myproject -o - | confvis gauge -c - -o badge.svg
 ```
@@ -131,7 +138,7 @@ Fetch metrics from an external source.
 confvis fetch <source> -p <project> -o <output> [source-specific-flags]
 ```
 
-Supported sources: `sonarqube`, `codecov`, `github-actions`, `snyk`
+Supported sources: `sonarqube`, `codecov`, `github-actions`, `snyk`, `trivy`
 
 ### `confvis generate`
 

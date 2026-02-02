@@ -1,0 +1,76 @@
+name: Confidence Badge
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 8 * * *'  # Daily at 8 AM UTC
+  workflow_dispatch:
+
+jobs:
+  dogfood:
+    name: Generate Confidence Badge
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Build confvis
+        run: go build -o confvis ./cmd/confvis
+
+      - name: Install Trivy
+        run: |
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+
+      - name: Fetch Codecov metrics
+        run: ./confvis fetch codecov -p boinger/confvis -o coverage.json
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        continue-on-error: true
+
+      - name: Fetch SonarCloud metrics
+        run: ./confvis fetch sonarqube -p boinger_confvis -o quality.json
+        env:
+          SONARQUBE_URL: https://sonarcloud.io
+          SONARQUBE_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        continue-on-error: true
+
+      - name: Fetch CI metrics
+        run: ./confvis fetch github-actions -p boinger/confvis --workflow ci.yml --count 30 -o ci.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+
+      - name: Fetch Trivy security metrics
+        run: ./confvis fetch trivy -p . -o security.json
+        continue-on-error: true
+
+      - name: Aggregate confidence (with available sources)
+        run: |
+          # Build list of available config files
+          CONFIGS=""
+          if [ -f coverage.json ]; then CONFIGS="$CONFIGS -c coverage.json:30"; fi
+          if [ -f quality.json ]; then CONFIGS="$CONFIGS -c quality.json:30"; fi
+          if [ -f ci.json ]; then CONFIGS="$CONFIGS -c ci.json:20"; fi
+          if [ -f security.json ]; then CONFIGS="$CONFIGS -c security.json:20"; fi
+
+          if [ -z "$CONFIGS" ]; then
+            echo "No metric files available, skipping aggregation"
+            exit 0
+          fi
+
+          ./confvis aggregate $CONFIGS -o ./badges --fail-under 0
+
+      - name: Commit badge
+        if: github.ref == 'refs/heads/main'
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: update confidence badge [skip ci]"
+          file_pattern: "badges/*"

@@ -18,6 +18,7 @@ import (
 	_ "github.com/boinger/confvis/internal/sources/ghactions"
 	_ "github.com/boinger/confvis/internal/sources/snyk"
 	_ "github.com/boinger/confvis/internal/sources/sonarqube"
+	_ "github.com/boinger/confvis/internal/sources/trivy"
 )
 
 var (
@@ -35,6 +36,7 @@ var (
 	fetchEvent    string // github-actions: event filter
 	fetchCount    int    // github-actions: run count
 	fetchOrg      string // snyk: organization ID
+	fetchTrivyCmd string // trivy: command to run
 )
 
 var fetchCmd = &cobra.Command{
@@ -47,6 +49,7 @@ Available sources:
   codecov        Coverage metrics from Codecov
   github-actions CI/CD workflow metrics from GitHub Actions
   snyk           Vulnerability metrics from Snyk
+  trivy          Security vulnerability scanning with Trivy
 
 Examples:
   # Fetch from SonarQube
@@ -63,6 +66,10 @@ Examples:
   # Fetch from Snyk
   export SNYK_TOKEN=xxx
   confvis fetch snyk --org my-org-id -p my-project-id -o confidence.json
+
+  # Fetch from Trivy (local security scan)
+  confvis fetch trivy -p . -o security.json
+  confvis fetch trivy -p . --trivy-cmd "docker run aquasec/trivy" -o security.json
 
   # Fetch and pipe directly to gauge
   confvis fetch sonarqube -p myproject -o - | confvis gauge -c - -o badge.svg`,
@@ -87,6 +94,7 @@ func init() {
 	fetchCmd.Flags().StringVar(&fetchEvent, "event", "", "github-actions: trigger event to filter (push, pull_request)")
 	fetchCmd.Flags().IntVar(&fetchCount, "count", 20, "github-actions: number of recent runs to analyze")
 	fetchCmd.Flags().StringVar(&fetchOrg, "org", "", "snyk: organization ID")
+	fetchCmd.Flags().StringVar(&fetchTrivyCmd, "trivy-cmd", "", "trivy: command to run (default: trivy)")
 
 	if err := fetchCmd.MarkFlagRequired("project"); err != nil {
 		panic(err)
@@ -118,11 +126,12 @@ func runFetch(_ *cobra.Command, args []string) error {
 		Threshold: fetchThreshold,
 		Timeout:   fetchTimeout,
 		Extra: map[string]string{
-			"service":  fetchService,
-			"workflow": fetchWorkflow,
-			"event":    fetchEvent,
-			"count":    strconv.Itoa(fetchCount),
-			"org":      fetchOrg,
+			"service":   fetchService,
+			"workflow":  fetchWorkflow,
+			"event":     fetchEvent,
+			"count":     strconv.Itoa(fetchCount),
+			"org":       fetchOrg,
+			"trivy-cmd": fetchTrivyCmd,
 		},
 	}
 

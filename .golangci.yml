@@ -1,0 +1,68 @@
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  enable-all: true
+  disable:
+    # Too strict for this project
+    - exhaustruct      # Requires all struct fields to be initialized
+    - varnamelen       # Variable name length restrictions
+    - wrapcheck        # Requires wrapping errors from external packages
+    - depguard         # Dependency guard (not needed for this project)
+    - ireturn          # Forces concrete types in returns
+    - tagliatelle      # Struct tag naming conventions
+    - nonamedreturns   # Named returns are useful for documentation
+    - gochecknoglobals # Globals are used for cobra command setup
+    - nlreturn         # Overly strict newline requirements
+    - wsl              # Whitespace linter is too aggressive
+    - mnd              # Magic numbers - threshold values are clear in context
+    - exhaustive       # Exhaustive switch/enum checking
+    - testpackage      # Allows tests in same package for internal testing
+    - paralleltest     # Not all tests benefit from parallel execution
+    - err113           # Error wrapping requirements
+    - gosmopolitan     # Internationalization checks not needed
+    - canonicalheader  # HTTP header canonicalization not needed
+    - intrange         # Range over int is fine for Go 1.22+
+
+linters-settings:
+  gocyclo:
+    min-complexity: 15
+  funlen:
+    lines: 100
+    statements: 50
+  lll:
+    line-length: 120
+  goimports:
+    local-prefixes: github.com/boinger/confvis
+  revive:
+    rules:
+      - name: unexported-return
+        disabled: true
+      - name: unused-parameter
+        disabled: true
+  stylecheck:
+    checks:
+      - all
+      - -ST1003  # Underscores in package names (testdata)
+  gosec:
+    excludes:
+      - G107  # URL construction from variables (expected behavior for API clients)
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  exclude-rules:
+    # Test files can be longer and have more complexity
+    - path: _test\.go
+      linters:
+        - funlen
+        - gocyclo
+        - dupl
+        - maintidx
+    # Main entry point is expected to be simple
+    - path: cmd/confvis/main\.go
+      linters:
+        - gochecknoinits
