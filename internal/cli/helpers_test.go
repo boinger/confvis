@@ -1098,3 +1098,259 @@ func TestGenerateMultiDashboard_InvalidPath(t *testing.T) {
 		t.Error("expected error for invalid path")
 	}
 }
+
+// Tests for verbose mode
+
+func TestGenerateBadge_Verbose(t *testing.T) {
+	tmpDir := t.TempDir()
+	badgePath := filepath.Join(tmpDir, "badge.svg")
+
+	report := &confidence.Report{
+		Title:     "Test Report",
+		Score:     85,
+		Threshold: 75,
+	}
+
+	// Verbose mode should not error
+	err := generateBadge(badgePath, report, false, true)
+	if err != nil {
+		t.Fatalf("generateBadge() error = %v", err)
+	}
+
+	// Verify file was created
+	if _, err := os.Stat(badgePath); os.IsNotExist(err) {
+		t.Error("badge file should exist")
+	}
+}
+
+func TestGenerateDashboard_Verbose(t *testing.T) {
+	tmpDir := t.TempDir()
+	dashPath := filepath.Join(tmpDir, "index.html")
+
+	report := &confidence.Report{
+		Title:     "Test Report",
+		Score:     85,
+		Threshold: 75,
+	}
+
+	// Verbose mode should not error
+	err := generateDashboard(dashPath, report, false, true)
+	if err != nil {
+		t.Fatalf("generateDashboard() error = %v", err)
+	}
+
+	// Verify file was created
+	if _, err := os.Stat(dashPath); os.IsNotExist(err) {
+		t.Error("dashboard file should exist")
+	}
+}
+
+func TestGenerateAggregateBadge_Verbose(t *testing.T) {
+	tmpDir := t.TempDir()
+	badgePath := filepath.Join(tmpDir, "aggregate.svg")
+
+	report := &confidence.Report{
+		Title:     "Aggregate",
+		Score:     80,
+		Threshold: 75,
+	}
+
+	// Verbose mode should not error
+	err := generateAggregateBadge(badgePath, report, false, true)
+	if err != nil {
+		t.Fatalf("generateAggregateBadge() error = %v", err)
+	}
+
+	// Verify file was created
+	if _, err := os.Stat(badgePath); os.IsNotExist(err) {
+		t.Error("badge file should exist")
+	}
+}
+
+func TestGenerateMultiDashboard_Verbose(t *testing.T) {
+	tmpDir := t.TempDir()
+	dashPath := filepath.Join(tmpDir, "index.html")
+
+	reports := []reportWithWeight{
+		{
+			Report: &confidence.Report{
+				Title:     "Report 1",
+				Score:     85,
+				Threshold: 75,
+			},
+			Weight: 100,
+			Path:   "report1.json",
+		},
+	}
+
+	aggregate := &confidence.Report{
+		Title:     "Aggregate",
+		Score:     85,
+		Threshold: 75,
+	}
+
+	// Verbose mode should not error
+	err := generateMultiDashboard(dashPath, reports, aggregate, false, true)
+	if err != nil {
+		t.Fatalf("generateMultiDashboard() error = %v", err)
+	}
+
+	// Verify file was created
+	if _, err := os.Stat(dashPath); os.IsNotExist(err) {
+		t.Error("dashboard file should exist")
+	}
+}
+
+// Tests for failing reports in generators
+
+func TestGenerateBadge_FailingScore(t *testing.T) {
+	tmpDir := t.TempDir()
+	badgePath := filepath.Join(tmpDir, "badge.svg")
+
+	report := &confidence.Report{
+		Title:     "Failing Report",
+		Score:     50,
+		Threshold: 75,
+	}
+
+	err := generateBadge(badgePath, report, false, false)
+	if err != nil {
+		t.Fatalf("generateBadge() error = %v", err)
+	}
+
+	content, err := os.ReadFile(badgePath)
+	if err != nil {
+		t.Fatalf("reading badge file: %v", err)
+	}
+
+	svg := string(content)
+	if !strings.Contains(svg, "50") {
+		t.Error("badge should contain failing score")
+	}
+}
+
+func TestGenerateDashboard_FailingScore(t *testing.T) {
+	tmpDir := t.TempDir()
+	dashPath := filepath.Join(tmpDir, "index.html")
+
+	report := &confidence.Report{
+		Title:     "Failing Report",
+		Score:     50,
+		Threshold: 75,
+	}
+
+	err := generateDashboard(dashPath, report, false, false)
+	if err != nil {
+		t.Fatalf("generateDashboard() error = %v", err)
+	}
+
+	content, err := os.ReadFile(dashPath)
+	if err != nil {
+		t.Fatalf("reading dashboard file: %v", err)
+	}
+
+	html := string(content)
+	if !strings.Contains(html, "Failing Report") {
+		t.Error("dashboard should contain report title")
+	}
+}
+
+func TestGenerateAggregateBadge_FailingScore(t *testing.T) {
+	tmpDir := t.TempDir()
+	badgePath := filepath.Join(tmpDir, "aggregate.svg")
+
+	report := &confidence.Report{
+		Title:     "Failing Aggregate",
+		Score:     50,
+		Threshold: 75,
+	}
+
+	err := generateAggregateBadge(badgePath, report, false, false)
+	if err != nil {
+		t.Fatalf("generateAggregateBadge() error = %v", err)
+	}
+
+	content, err := os.ReadFile(badgePath)
+	if err != nil {
+		t.Fatalf("reading badge file: %v", err)
+	}
+
+	svg := string(content)
+	if !strings.Contains(svg, "50") {
+		t.Error("badge should contain failing score")
+	}
+}
+
+func TestGenerateMultiDashboard_MixedScores(t *testing.T) {
+	tmpDir := t.TempDir()
+	dashPath := filepath.Join(tmpDir, "index.html")
+
+	reports := []reportWithWeight{
+		{
+			Report: &confidence.Report{
+				Title:     "Passing Report",
+				Score:     90,
+				Threshold: 75,
+			},
+			Weight: 50,
+			Path:   "passing.json",
+		},
+		{
+			Report: &confidence.Report{
+				Title:     "Failing Report",
+				Score:     50,
+				Threshold: 75,
+			},
+			Weight: 50,
+			Path:   "failing.json",
+		},
+	}
+
+	aggregate := &confidence.Report{
+		Title:     "Aggregate",
+		Score:     70, // Mixed result
+		Threshold: 75,
+	}
+
+	err := generateMultiDashboard(dashPath, reports, aggregate, false, false)
+	if err != nil {
+		t.Fatalf("generateMultiDashboard() error = %v", err)
+	}
+
+	content, err := os.ReadFile(dashPath)
+	if err != nil {
+		t.Fatalf("reading dashboard file: %v", err)
+	}
+
+	html := string(content)
+	if !strings.Contains(html, "Passing Report") {
+		t.Error("dashboard should contain passing report")
+	}
+	if !strings.Contains(html, "Failing Report") {
+		t.Error("dashboard should contain failing report")
+	}
+}
+
+func TestWriteMarkdown_FactorWithDescription(t *testing.T) {
+	report := &confidence.Report{
+		Title:     "Test Report",
+		Score:     85,
+		Threshold: 75,
+		Factors: []confidence.Factor{
+			{Name: "Coverage", Score: 90, Weight: 50, Description: "Unit test coverage"},
+		},
+	}
+
+	var buf bytes.Buffer
+	err := writeMarkdown(&buf, report, nil, 0)
+	if err != nil {
+		t.Fatalf("writeMarkdown() error = %v", err)
+	}
+
+	md := buf.String()
+	// Factor descriptions may or may not be in markdown output
+	// This test exercises the code path
+	if !strings.Contains(md, "Coverage") {
+		t.Error("markdown should contain factor name")
+	}
+}
