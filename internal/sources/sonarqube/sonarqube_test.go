@@ -376,3 +376,256 @@ func TestSource_Registration(t *testing.T) {
 		t.Error("sonarqube source not registered")
 	}
 }
+
+func TestClient_FetchQualityGate_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Verify path
+		if r.URL.Path != "/api/qualitygates/project_status" {
+			t.Errorf("path = %q, want /api/qualitygates/project_status", r.URL.Path)
+		}
+
+		// Verify project key
+		if r.URL.Query().Get("projectKey") != "myproject" {
+			t.Errorf("projectKey = %q, want myproject", r.URL.Query().Get("projectKey"))
+		}
+
+		resp := QualityGateResponse{
+			ProjectStatus: ProjectStatus{
+				Status: "OK",
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Errorf("encoding response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	client := &Client{
+		baseURL:    server.URL,
+		token:      "test-token",
+		httpClient: server.Client(),
+	}
+
+	qg, err := client.FetchQualityGate(context.Background(), "myproject", "")
+	if err != nil {
+		t.Fatalf("FetchQualityGate() error = %v", err)
+	}
+
+	if qg.ProjectStatus.Status != "OK" {
+		t.Errorf("status = %q, want OK", qg.ProjectStatus.Status)
+	}
+}
+
+func TestClient_FetchQualityGate_WithBranch(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Verify branch parameter
+		if r.URL.Query().Get("branch") != "main" {
+			t.Errorf("branch = %q, want main", r.URL.Query().Get("branch"))
+		}
+
+		resp := QualityGateResponse{
+			ProjectStatus: ProjectStatus{
+				Status: "ERROR",
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Errorf("encoding response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	client := &Client{
+		baseURL:    server.URL,
+		token:      "test-token",
+		httpClient: server.Client(),
+	}
+
+	qg, err := client.FetchQualityGate(context.Background(), "myproject", "main")
+	if err != nil {
+		t.Fatalf("FetchQualityGate() error = %v", err)
+	}
+
+	if qg.ProjectStatus.Status != "ERROR" {
+		t.Errorf("status = %q, want ERROR", qg.ProjectStatus.Status)
+	}
+}
+
+func TestClient_FetchQualityGate_APIError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, `{"errors":[{"msg":"Not found"}]}`, http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	client := &Client{
+		baseURL:    server.URL,
+		token:      "test-token",
+		httpClient: server.Client(),
+	}
+
+	_, err := client.FetchQualityGate(context.Background(), "nonexistent", "")
+	if err == nil {
+		t.Error("expected error for API failure")
+	}
+}
+
+func TestClient_doRequest_InvalidJSON(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if _, err := w.Write([]byte("not valid json")); err != nil {
+			t.Errorf("writing response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	client := &Client{
+		baseURL:    server.URL,
+		token:      "test-token",
+		httpClient: server.Client(),
+	}
+
+	_, err := client.FetchMeasures(context.Background(), "myproject", "")
+	if err == nil {
+		t.Error("expected error for invalid JSON response")
+	}
+}
+
+func TestNewClient_TrimsTrailingSlash(t *testing.T) {
+	client := NewClient("https://sonar.example.com/", "token", 5*time.Second)
+	if client.baseURL != "https://sonar.example.com" {
+		t.Errorf("baseURL = %q, want %q", client.baseURL, "https://sonar.example.com")
+	}
+}
+
+func TestSource_Fetch_DefaultTimeout(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := MeasuresResponse{
+			Component: ComponentMeasures{
+				Key:      "myproject",
+				Name:     "My Project",
+				Measures: []Measure{},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Errorf("encoding response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	s := &Source{}
+	opts := sources.Options{
+		URL:     server.URL,
+		Project: "myproject",
+		Timeout: 0, // Should use default 30s
+	}
+
+	_, err := s.Fetch(context.Background(), opts)
+	if err != nil {
+		t.Fatalf("Fetch() error = %v", err)
+	}
+}
+
+func TestSource_Fetch_EmptyComponentName(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := MeasuresResponse{
+			Component: ComponentMeasures{
+				Key:      "myproject",
+				Name:     "", // Empty name, should fall back to project
+				Measures: []Measure{},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Errorf("encoding response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	s := &Source{}
+	opts := sources.Options{
+		URL:     server.URL,
+		Project: "myproject",
+		Timeout: 5,
+	}
+
+	report, err := s.Fetch(context.Background(), opts)
+	if err != nil {
+		t.Fatalf("Fetch() error = %v", err)
+	}
+
+	// Should fall back to project name
+	if report.Title != "myproject" {
+		t.Errorf("Title = %q, want %q", report.Title, "myproject")
+	}
+}
+
+func TestSource_Fetch_TokenFromEnv(t *testing.T) {
+	var receivedAuth string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedAuth = r.Header.Get("Authorization")
+		resp := MeasuresResponse{
+			Component: ComponentMeasures{
+				Key:      "myproject",
+				Name:     "My Project",
+				Measures: []Measure{},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Errorf("encoding response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	t.Setenv(EnvToken, "env-token")
+
+	s := &Source{}
+	opts := sources.Options{
+		URL:     server.URL,
+		Project: "myproject",
+		Timeout: 5,
+	}
+
+	_, err := s.Fetch(context.Background(), opts)
+	if err != nil {
+		t.Fatalf("Fetch() error = %v", err)
+	}
+
+	// Should have used env token
+	if receivedAuth == "" {
+		t.Error("expected Authorization header from env token")
+	}
+}
+
+func TestSource_Fetch_URLFromEnv(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := MeasuresResponse{
+			Component: ComponentMeasures{
+				Key:      "myproject",
+				Name:     "My Project",
+				Measures: []Measure{},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Errorf("encoding response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	t.Setenv(EnvURL, server.URL)
+
+	s := &Source{}
+	opts := sources.Options{
+		Project: "myproject",
+		Timeout: 5,
+	}
+
+	_, err := s.Fetch(context.Background(), opts)
+	if err != nil {
+		t.Fatalf("Fetch() error = %v", err)
+	}
+}

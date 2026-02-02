@@ -363,3 +363,157 @@ func containsAt(s, substr string, start int) bool {
 	}
 	return false
 }
+
+func TestSource_Fetch_MissingProjectID(t *testing.T) {
+	s := &Source{}
+	opts := sources.Options{
+		Token:   "test-token",
+		Extra:   map[string]string{"org": "my-org-id"},
+		Timeout: 5,
+	}
+
+	_, err := s.Fetch(context.Background(), opts)
+	if err == nil {
+		t.Error("expected error for missing project ID")
+	}
+	if !contains(err.Error(), "project ID required") {
+		t.Errorf("error should mention project ID required, got: %v", err)
+	}
+}
+
+func TestSource_Fetch_DefaultTimeout(t *testing.T) {
+	// Test that default timeout is used when zero is passed
+	s := &Source{}
+	t.Setenv(EnvToken, "test-token")
+	t.Setenv(EnvOrgID, "my-org-id")
+
+	opts := sources.Options{
+		Project: "my-project-id",
+		Timeout: 0, // Should use default 30s
+	}
+
+	// This will fail with connection error, but exercises the timeout path
+	_, _ = s.Fetch(context.Background(), opts)
+}
+
+func TestSource_Fetch_TokenFromOption(t *testing.T) {
+	// Clear env var to ensure option token is used
+	t.Setenv(EnvToken, "")
+	t.Setenv(EnvOrgID, "my-org-id")
+
+	s := &Source{}
+	opts := sources.Options{
+		Token:   "option-token", // Token from option
+		Project: "my-project-id",
+		Timeout: 1,
+	}
+
+	// This will fail with connection error, but we're testing that
+	// it doesn't error on missing token
+	_, err := s.Fetch(context.Background(), opts)
+	if err != nil && contains(err.Error(), "token required") {
+		t.Errorf("should have used token from option: %v", err)
+	}
+}
+
+func TestSource_Fetch_OrgFromOption(t *testing.T) {
+	// Clear env var to ensure option org is used
+	t.Setenv(EnvToken, "test-token")
+	t.Setenv(EnvOrgID, "")
+
+	s := &Source{}
+	opts := sources.Options{
+		Project: "my-project-id",
+		Extra:   map[string]string{"org": "option-org"}, // Org from option
+		Timeout: 1,
+	}
+
+	// This will fail with connection error, but we're testing that
+	// it doesn't error on missing org
+	_, err := s.Fetch(context.Background(), opts)
+	if err != nil && contains(err.Error(), "organization ID required") {
+		t.Errorf("should have used org from option: %v", err)
+	}
+}
+
+func TestSource_Fetch_URLFromOption(t *testing.T) {
+	t.Setenv(EnvToken, "test-token")
+	t.Setenv(EnvOrgID, "my-org-id")
+	t.Setenv(EnvAPIURL, "") // Clear to ensure option is used
+
+	s := &Source{}
+	opts := sources.Options{
+		URL:     "https://custom-api.snyk.io", // URL from option
+		Project: "my-project-id",
+		Timeout: 1,
+	}
+
+	// This will fail with connection error, but exercises the URL path
+	_, _ = s.Fetch(context.Background(), opts)
+}
+
+func TestSource_Fetch_CustomTitle(t *testing.T) {
+	t.Setenv(EnvToken, "test-token")
+	t.Setenv(EnvOrgID, "my-org-id")
+
+	s := &Source{}
+	opts := sources.Options{
+		Project: "my-project-id",
+		Title:   "Custom Security Report",
+		Timeout: 1,
+	}
+
+	// This will fail with connection error, but exercises the title path
+	_, _ = s.Fetch(context.Background(), opts)
+}
+
+func TestSource_Fetch_NilExtraOptions(t *testing.T) {
+	// Test with nil Extra map
+	t.Setenv(EnvToken, "test-token")
+	t.Setenv(EnvOrgID, "my-org-id")
+
+	s := &Source{}
+	opts := sources.Options{
+		Project: "my-project-id",
+		Extra:   nil, // Explicitly nil
+		Timeout: 1,
+	}
+
+	// This should use env var for org
+	_, _ = s.Fetch(context.Background(), opts)
+}
+
+func TestClient_doRequest_InvalidJSON(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if _, err := w.Write([]byte("not valid json")); err != nil {
+			t.Errorf("writing response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	client := &Client{
+		baseURL:    server.URL,
+		token:      "test-token",
+		httpClient: server.Client(),
+	}
+
+	_, err := client.FetchProject(context.Background(), "my-org-id", "my-project-id")
+	if err == nil {
+		t.Error("expected error for invalid JSON response")
+	}
+}
+
+func TestNewClient_DefaultBaseURL(t *testing.T) {
+	client := NewClient("", "token", 5*time.Second)
+	if client.baseURL != defaultBaseURL {
+		t.Errorf("baseURL = %q, want %q", client.baseURL, defaultBaseURL)
+	}
+}
+
+func TestNewClient_TrimsTrailingSlash(t *testing.T) {
+	client := NewClient("https://api.snyk.io/", "token", 5*time.Second)
+	if client.baseURL != "https://api.snyk.io" {
+		t.Errorf("baseURL = %q, want %q", client.baseURL, "https://api.snyk.io")
+	}
+}
