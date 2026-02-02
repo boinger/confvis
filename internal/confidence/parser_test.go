@@ -1,6 +1,8 @@
 package confidence
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -497,5 +499,174 @@ func TestDetectFormat(t *testing.T) {
 		if got != tt.want {
 			t.Errorf("detectFormat(%q) = %q, want %q", tt.path, got, tt.want)
 		}
+	}
+}
+
+// Tests for ParseFile and ParseFileWithFormat
+
+func TestParseFile_JSON(t *testing.T) {
+	// Use existing testdata file
+	report, err := ParseFile("../../testdata/sample.json")
+	if err != nil {
+		t.Fatalf("ParseFile() error = %v", err)
+	}
+
+	if report.Title != "Code Quality Report" {
+		t.Errorf("Title = %q, want %q", report.Title, "Code Quality Report")
+	}
+	if report.Score != 85 {
+		t.Errorf("Score = %d, want %d", report.Score, 85)
+	}
+}
+
+func TestParseFile_YAML(t *testing.T) {
+	// Use existing testdata file
+	report, err := ParseFile("../../testdata/sample.yaml")
+	if err != nil {
+		t.Fatalf("ParseFile() error = %v", err)
+	}
+
+	if report.Title != "Code Quality Report" {
+		t.Errorf("Title = %q, want %q", report.Title, "Code Quality Report")
+	}
+	if report.Score != 85 {
+		t.Errorf("Score = %d, want %d", report.Score, 85)
+	}
+}
+
+func TestParseFile_NonExistent(t *testing.T) {
+	_, err := ParseFile("nonexistent.json")
+	if err == nil {
+		t.Error("ParseFile() expected error for non-existent file")
+	}
+	if !strings.Contains(err.Error(), "opening file") {
+		t.Errorf("error = %q, want to contain 'opening file'", err.Error())
+	}
+}
+
+func TestParseFileWithFormat_ExplicitJSON(t *testing.T) {
+	report, err := ParseFileWithFormat("../../testdata/sample.json", FormatJSON)
+	if err != nil {
+		t.Fatalf("ParseFileWithFormat() error = %v", err)
+	}
+
+	if report.Score != 85 {
+		t.Errorf("Score = %d, want %d", report.Score, 85)
+	}
+}
+
+func TestParseFileWithFormat_ExplicitYAML(t *testing.T) {
+	report, err := ParseFileWithFormat("../../testdata/sample.yaml", FormatYAML)
+	if err != nil {
+		t.Fatalf("ParseFileWithFormat() error = %v", err)
+	}
+
+	if report.Score != 85 {
+		t.Errorf("Score = %d, want %d", report.Score, 85)
+	}
+}
+
+func TestParseFileWithFormat_AutoDetect(t *testing.T) {
+	// Auto-detect from .json extension
+	report, err := ParseFileWithFormat("../../testdata/sample.json", FormatAuto)
+	if err != nil {
+		t.Fatalf("ParseFileWithFormat(Auto) error = %v", err)
+	}
+
+	if report.Score != 85 {
+		t.Errorf("Score = %d, want %d", report.Score, 85)
+	}
+}
+
+func TestParseFileWithFormat_InvalidContent(t *testing.T) {
+	// Create temp file with invalid JSON
+	tmpDir := t.TempDir()
+	invalidPath := filepath.Join(tmpDir, "invalid.json")
+	if err := os.WriteFile(invalidPath, []byte("not valid json"), 0o644); err != nil {
+		t.Fatalf("writing temp file: %v", err)
+	}
+
+	_, err := ParseFileWithFormat(invalidPath, FormatJSON)
+	if err == nil {
+		t.Error("ParseFileWithFormat() expected error for invalid JSON")
+	}
+}
+
+func TestParseFileWithFormat_ValidationError(t *testing.T) {
+	// Create temp file with JSON that fails validation (missing title)
+	tmpDir := t.TempDir()
+	noTitlePath := filepath.Join(tmpDir, "notitle.json")
+	content := `{"score": 85, "threshold": 75}`
+	if err := os.WriteFile(noTitlePath, []byte(content), 0o644); err != nil {
+		t.Fatalf("writing temp file: %v", err)
+	}
+
+	_, err := ParseFileWithFormat(noTitlePath, FormatJSON)
+	if err == nil {
+		t.Error("ParseFileWithFormat() expected validation error")
+	}
+	if !strings.Contains(err.Error(), "title is required") {
+		t.Errorf("error = %q, want to contain 'title is required'", err.Error())
+	}
+}
+
+func TestParseFile_FactorValidation(t *testing.T) {
+	// Create temp file with invalid factor score
+	tmpDir := t.TempDir()
+	invalidPath := filepath.Join(tmpDir, "invalid_factor.json")
+	content := `{
+		"title": "Test",
+		"score": 85,
+		"threshold": 75,
+		"factors": [{"name": "F1", "score": 150, "weight": 50}]
+	}`
+	if err := os.WriteFile(invalidPath, []byte(content), 0o644); err != nil {
+		t.Fatalf("writing temp file: %v", err)
+	}
+
+	_, err := ParseFile(invalidPath)
+	if err == nil {
+		t.Error("ParseFile() expected validation error for invalid factor score")
+	}
+	if !strings.Contains(err.Error(), "factor[0] score must be between") {
+		t.Errorf("error = %q, want to contain factor validation error", err.Error())
+	}
+}
+
+func TestParseFile_FactorWeightValidation(t *testing.T) {
+	// Create temp file with invalid factor weight
+	tmpDir := t.TempDir()
+	invalidPath := filepath.Join(tmpDir, "invalid_weight.json")
+	content := `{
+		"title": "Test",
+		"score": 85,
+		"threshold": 75,
+		"factors": [{"name": "F1", "score": 50, "weight": 150}]
+	}`
+	if err := os.WriteFile(invalidPath, []byte(content), 0o644); err != nil {
+		t.Fatalf("writing temp file: %v", err)
+	}
+
+	_, err := ParseFile(invalidPath)
+	if err == nil {
+		t.Error("ParseFile() expected validation error for invalid factor weight")
+	}
+	if !strings.Contains(err.Error(), "factor[0] weight must be between") {
+		t.Errorf("error = %q, want to contain factor weight validation error", err.Error())
+	}
+}
+
+func TestParseFile_NegativeThreshold(t *testing.T) {
+	// Create temp file with negative threshold
+	tmpDir := t.TempDir()
+	invalidPath := filepath.Join(tmpDir, "negative_threshold.json")
+	content := `{"title": "Test", "score": 85, "threshold": -10}`
+	if err := os.WriteFile(invalidPath, []byte(content), 0o644); err != nil {
+		t.Fatalf("writing temp file: %v", err)
+	}
+
+	_, err := ParseFile(invalidPath)
+	if err == nil {
+		t.Error("ParseFile() expected validation error for negative threshold")
 	}
 }
