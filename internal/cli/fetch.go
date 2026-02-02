@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -13,6 +14,9 @@ import (
 
 	"github.com/boinger/confvis/internal/sources"
 	// Import sources to register them
+	_ "github.com/boinger/confvis/internal/sources/codecov"
+	_ "github.com/boinger/confvis/internal/sources/ghactions"
+	_ "github.com/boinger/confvis/internal/sources/snyk"
 	_ "github.com/boinger/confvis/internal/sources/sonarqube"
 )
 
@@ -25,6 +29,12 @@ var (
 	fetchThreshold int
 	fetchTimeout   int
 	fetchOutput    string
+	// Source-specific flags
+	fetchService  string // codecov: git provider
+	fetchWorkflow string // github-actions: workflow filter
+	fetchEvent    string // github-actions: event filter
+	fetchCount    int    // github-actions: run count
+	fetchOrg      string // snyk: organization ID
 )
 
 var fetchCmd = &cobra.Command{
@@ -33,24 +43,35 @@ var fetchCmd = &cobra.Command{
 	Long: `Fetch metrics from an external source and output a confidence report.
 
 Available sources:
-  sonarqube    Fetch code quality metrics from SonarQube
+  sonarqube      Code quality metrics from SonarQube
+  codecov        Coverage metrics from Codecov
+  github-actions CI/CD workflow metrics from GitHub Actions
+  snyk           Vulnerability metrics from Snyk
 
 Examples:
-  # Fetch from SonarQube and save to file
+  # Fetch from SonarQube
   confvis fetch sonarqube --url https://sonar.example.com --project myapp -o confidence.json
 
-  # Fetch and pipe directly to gauge
-  confvis fetch sonarqube -p myproject -o - | confvis gauge -c - -o badge.svg
+  # Fetch from Codecov (project is owner/repo)
+  export CODECOV_TOKEN=xxx
+  confvis fetch codecov -p myorg/myrepo -o confidence.json
 
-  # Use environment variables for authentication
-  export SONARQUBE_URL=https://sonar.example.com
-  export SONARQUBE_TOKEN=squ_xxx
-  confvis fetch sonarqube -p myproject -o confidence.json`,
+  # Fetch from GitHub Actions
+  export GITHUB_TOKEN=xxx
+  confvis fetch github-actions -p myorg/myrepo --workflow ci.yml --count 20 -o confidence.json
+
+  # Fetch from Snyk
+  export SNYK_TOKEN=xxx
+  confvis fetch snyk --org my-org-id -p my-project-id -o confidence.json
+
+  # Fetch and pipe directly to gauge
+  confvis fetch sonarqube -p myproject -o - | confvis gauge -c - -o badge.svg`,
 	Args: cobra.ExactArgs(1),
 	RunE: runFetch,
 }
 
 func init() {
+	// Common flags
 	fetchCmd.Flags().StringVarP(&fetchURL, "url", "u", "", "source server URL (or use environment variable)")
 	fetchCmd.Flags().StringVarP(&fetchProject, "project", "p", "", "project key/identifier (required)")
 	fetchCmd.Flags().StringVarP(&fetchToken, "token", "t", "", "API token (or use environment variable)")
@@ -59,6 +80,13 @@ func init() {
 	fetchCmd.Flags().IntVar(&fetchThreshold, "threshold", 75, "pass/fail threshold")
 	fetchCmd.Flags().IntVar(&fetchTimeout, "timeout", 30, "HTTP timeout in seconds")
 	fetchCmd.Flags().StringVarP(&fetchOutput, "output", "o", "", "output file path, or - for stdout (required)")
+
+	// Source-specific flags
+	fetchCmd.Flags().StringVar(&fetchService, "service", "github", "codecov: git provider (github, gitlab, bitbucket)")
+	fetchCmd.Flags().StringVar(&fetchWorkflow, "workflow", "", "github-actions: workflow file or ID to filter")
+	fetchCmd.Flags().StringVar(&fetchEvent, "event", "", "github-actions: trigger event to filter (push, pull_request)")
+	fetchCmd.Flags().IntVar(&fetchCount, "count", 20, "github-actions: number of recent runs to analyze")
+	fetchCmd.Flags().StringVar(&fetchOrg, "org", "", "snyk: organization ID")
 
 	if err := fetchCmd.MarkFlagRequired("project"); err != nil {
 		panic(err)
@@ -89,6 +117,13 @@ func runFetch(_ *cobra.Command, args []string) error {
 		Title:     fetchTitle,
 		Threshold: fetchThreshold,
 		Timeout:   fetchTimeout,
+		Extra: map[string]string{
+			"service":  fetchService,
+			"workflow": fetchWorkflow,
+			"event":    fetchEvent,
+			"count":    strconv.Itoa(fetchCount),
+			"org":      fetchOrg,
+		},
 	}
 
 	// Create context with timeout

@@ -95,13 +95,25 @@ confvis gauge -c confidence.json -o - > badge.svg
 
 ## External Sources
 
-confvis can fetch metrics directly from external systems like SonarQube:
+confvis can fetch metrics directly from external systems:
 
 ```bash
-# Fetch from SonarQube
+# Fetch from SonarQube (code quality)
 export SONARQUBE_URL=https://sonar.example.com
 export SONARQUBE_TOKEN=squ_xxx
 confvis fetch sonarqube -p myproject -o confidence.json
+
+# Fetch from Codecov (coverage)
+export CODECOV_TOKEN=xxx
+confvis fetch codecov -p myorg/myrepo -o confidence.json
+
+# Fetch from GitHub Actions (CI/CD)
+export GITHUB_TOKEN=xxx
+confvis fetch github-actions -p myorg/myrepo -o confidence.json
+
+# Fetch from Snyk (security)
+export SNYK_TOKEN=xxx
+confvis fetch snyk --org my-org-id -p my-project-id -o confidence.json
 
 # Pipe directly to badge generation
 confvis fetch sonarqube -p myproject -o - | confvis gauge -c - -o badge.svg
@@ -116,10 +128,10 @@ See [Sources Documentation](docs/sources.md) for details on available sources an
 Fetch metrics from an external source.
 
 ```bash
-confvis fetch sonarqube -p myproject -o confidence.json [--url URL] [--token TOKEN]
+confvis fetch <source> -p <project> -o <output> [source-specific-flags]
 ```
 
-Supported sources: `sonarqube`
+Supported sources: `sonarqube`, `codecov`, `github-actions`, `snyk`
 
 ### `confvis generate`
 
