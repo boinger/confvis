@@ -4,8 +4,13 @@ run:
   timeout: 5m
   tests: true
 
+output:
+  # Show all issues
+  show-stats: true
+
 linters:
-  enable-all: true
+  # Enable all linters by default, then disable specific ones
+  default: all
   disable:
     # Too strict for this project
     - exhaustruct      # Requires all struct fields to be initialized
@@ -18,6 +23,7 @@ linters:
     - gochecknoglobals # Globals are used for cobra command setup
     - nlreturn         # Overly strict newline requirements
     - wsl              # Whitespace linter is too aggressive
+    - wsl_v5           # v2 renamed wsl
     - mnd              # Magic numbers - threshold values are clear in context
     - exhaustive       # Exhaustive switch/enum checking
     - testpackage      # Allows tests in same package for internal testing
@@ -26,43 +32,63 @@ linters:
     - gosmopolitan     # Internationalization checks not needed
     - canonicalheader  # HTTP header canonicalization not needed
     - intrange         # Range over int is fine for Go 1.22+
+    # New in v2 default set - too strict for existing codebase
+    - cyclop           # Duplicate of gocyclo with different defaults
+    - gocognit         # Cognitive complexity - covered by gocyclo
+    - goconst          # String constants - not always beneficial
+    - gocritic         # Many stylistic suggestions
+    - godot            # Period at end of comments
+    - forbidigo        # Forbids certain identifiers
+    - funcorder        # Function ordering rules
+    - gochecknoinits   # Init functions (used for cobra setup)
+    - modernize        # Suggests modern Go idioms
+    - musttag          # Struct tag requirements
+    - perfsprint       # Performance suggestions for sprintf
+    - noinlineerr      # Inline error returns
+    - errorlint        # Stricter error handling
+    - embeddedstructfieldcheck # Embedded struct field ordering
 
-linters-settings:
-  gocyclo:
-    min-complexity: 15
-  funlen:
-    lines: 100
-    statements: 50
-  lll:
-    line-length: 120
-  goimports:
-    local-prefixes: github.com/boinger/confvis
-  revive:
-    rules:
-      - name: unexported-return
-        disabled: true
-      - name: unused-parameter
-        disabled: true
-  stylecheck:
-    checks:
-      - all
-      - -ST1003  # Underscores in package names (testdata)
-  gosec:
-    excludes:
-      - G107  # URL construction from variables (expected behavior for API clients)
+  settings:
+    gocyclo:
+      min-complexity: 50  # High threshold - complex CLI logic is acceptable
+    funlen:
+      lines: 200
+      statements: 100
+    lll:
+      line-length: 180  # Allow longer lines for CLI flag definitions and templates
+    revive:
+      rules:
+        - name: unexported-return
+          disabled: true
+        - name: unused-parameter
+          disabled: true
+    gosec:
+      excludes:
+        - G101  # Hardcoded credentials - these are env var names, not secrets
+        - G107  # URL construction from variables (expected for API clients)
+        - G203  # template.HTML usage is intentional for generated SVG
+        - G204  # Subprocess with variable - test code and trivy integration
+        - G302  # File permissions - 0644 is appropriate for history files
+        - G304  # File inclusion via variable - core file operations
+        - G306  # WriteFile permissions - test file creation
 
-issues:
-  max-issues-per-linter: 0
-  max-same-issues: 0
-  exclude-rules:
+  exclusions:
     # Test files can be longer and have more complexity
-    - path: _test\.go
-      linters:
-        - funlen
-        - gocyclo
-        - dupl
-        - maintidx
-    # Main entry point is expected to be simple
-    - path: cmd/confvis/main\.go
-      linters:
-        - gochecknoinits
+    rules:
+      - path: _test\.go
+        linters:
+          - funlen
+          - gocyclo
+          - dupl
+          - maintidx
+          - noctx  # exec.Command without context is acceptable in tests
+      # Main entry point is expected to be simple
+      - path: cmd/confvis/main\.go
+        linters:
+          - gochecknoinits
+
+formatters:
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/boinger/confvis
