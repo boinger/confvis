@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -63,9 +64,36 @@ type reportWithWeight struct {
 	Path   string
 }
 
+// AggregateDeps contains dependencies for the aggregate command.
+type AggregateDeps struct {
+	FS        FileSystem
+	Stderr    io.Writer
+	Verbose   bool
+	Quiet     bool
+	ExitFunc  func(int)
+	Configs   []string
+	Output    string
+	Dark      bool
+	FailUnder int
+}
+
 func runAggregate(_ *cobra.Command, _ []string) error {
+	return aggregateImpl(&AggregateDeps{
+		FS:        DefaultFileSystem,
+		Stderr:    os.Stderr,
+		Verbose:   verbose,
+		Quiet:     quiet,
+		ExitFunc:  os.Exit,
+		Configs:   aggConfigs,
+		Output:    aggOutput,
+		Dark:      aggDark,
+		FailUnder: aggFailUnder,
+	})
+}
+
+func aggregateImpl(deps *AggregateDeps) error {
 	// Parse all configs and expand globs
-	reports, err := parseConfigsWithWeights(aggConfigs)
+	reports, err := parseConfigsWithWeightsFS(deps.FS, deps.Configs)
 	if err != nil {
 		return err
 	}
@@ -87,7 +115,7 @@ func runAggregate(_ *cobra.Command, _ []string) error {
 		aggregateScore = (weightedSum + totalWeight/2) / totalWeight
 	}
 
-	showVerbose := verbose && !quiet
+	showVerbose := deps.Verbose && !deps.Quiet
 
 	if showVerbose {
 		fmt.Printf("Aggregating %d reports (aggregate score: %d)\n", len(reports), aggregateScore)
@@ -97,8 +125,8 @@ func runAggregate(_ *cobra.Command, _ []string) error {
 	}
 
 	// Create output directories
-	dashboardDir := filepath.Join(aggOutput, "dashboard")
-	if err := os.MkdirAll(dashboardDir, 0o755); err != nil {
+	dashboardDir := filepath.Join(deps.Output, "dashboard")
+	if err := deps.FS.MkdirAll(dashboardDir, 0o755); err != nil {
 		return fmt.Errorf("creating output directory: %w", err)
 	}
 
@@ -117,14 +145,14 @@ func runAggregate(_ *cobra.Command, _ []string) error {
 	}
 
 	// Generate aggregate badge
-	badgePath := filepath.Join(aggOutput, "badge.svg")
-	if err := generateAggregateBadge(badgePath, aggregateReport, aggDark, showVerbose); err != nil {
+	badgePath := filepath.Join(deps.Output, "badge.svg")
+	if err := generateAggregateBadgeWithFS(deps.FS, badgePath, aggregateReport, deps.Dark, showVerbose); err != nil {
 		return err
 	}
 
 	// Generate multi-dashboard
 	dashboardPath := filepath.Join(dashboardDir, "index.html")
-	if err := generateMultiDashboard(dashboardPath, reports, aggregateReport, aggDark, showVerbose); err != nil {
+	if err := generateMultiDashboardWithFS(deps.FS, dashboardPath, reports, aggregateReport, deps.Dark, showVerbose); err != nil {
 		return err
 	}
 
@@ -134,24 +162,30 @@ func runAggregate(_ *cobra.Command, _ []string) error {
 		if safeName == "" {
 			safeName = fmt.Sprintf("report_%d", i)
 		}
-		individualBadgePath := filepath.Join(aggOutput, fmt.Sprintf("%s.svg", safeName))
-		if err := generateAggregateBadge(individualBadgePath, r.Report, aggDark, showVerbose); err != nil {
+		individualBadgePath := filepath.Join(deps.Output, fmt.Sprintf("%s.svg", safeName))
+		if err := generateAggregateBadgeWithFS(deps.FS, individualBadgePath, r.Report, deps.Dark, showVerbose); err != nil {
 			return err
 		}
 	}
 
-	if aggFailUnder > 0 && aggregateScore < aggFailUnder {
-		if !quiet {
-			fmt.Fprintf(os.Stderr, "Aggregate score %d is below threshold %d\n", aggregateScore, aggFailUnder)
+	if deps.FailUnder > 0 && aggregateScore < deps.FailUnder {
+		if !deps.Quiet {
+			_, _ = fmt.Fprintf(deps.Stderr, "Aggregate score %d is below threshold %d\n", aggregateScore, deps.FailUnder)
 		}
-		os.Exit(1)
+		deps.ExitFunc(1)
 	}
 
 	return nil
 }
 
 // parseConfigsWithWeights parses config flags, expands globs, and extracts weights.
+// Uses the default file system.
 func parseConfigsWithWeights(configs []string) ([]reportWithWeight, error) {
+	return parseConfigsWithWeightsFS(DefaultFileSystem, configs)
+}
+
+// parseConfigsWithWeightsFS parses config flags using the provided FileSystem.
+func parseConfigsWithWeightsFS(fs FileSystem, configs []string) ([]reportWithWeight, error) {
 	var results []reportWithWeight
 
 	for _, cfg := range configs {
@@ -169,7 +203,7 @@ func parseConfigsWithWeights(configs []string) ([]reportWithWeight, error) {
 		}
 
 		// Expand glob pattern
-		matches, err := filepath.Glob(path)
+		matches, err := fs.Glob(path)
 		if err != nil {
 			return nil, fmt.Errorf("invalid glob pattern %q: %w", path, err)
 		}
@@ -180,7 +214,13 @@ func parseConfigsWithWeights(configs []string) ([]reportWithWeight, error) {
 		}
 
 		for _, match := range matches {
-			report, err := confidence.ParseFile(match)
+			// Read file using the filesystem
+			reader, format, err := openConfigFile(fs, match, confidence.FormatAuto)
+			if err != nil {
+				return nil, fmt.Errorf("parsing %q: %w", match, err)
+			}
+
+			report, err := confidence.ParseWithFormat(reader, format)
 			if err != nil {
 				return nil, fmt.Errorf("parsing %q: %w", match, err)
 			}
@@ -197,7 +237,11 @@ func parseConfigsWithWeights(configs []string) ([]reportWithWeight, error) {
 }
 
 func generateAggregateBadge(path string, report *confidence.Report, dark, verbose bool) error {
-	f, err := os.Create(path)
+	return generateAggregateBadgeWithFS(DefaultFileSystem, path, report, dark, verbose)
+}
+
+func generateAggregateBadgeWithFS(fs FileSystem, path string, report *confidence.Report, dark, verbose bool) error {
+	f, err := fs.Create(path)
 	if err != nil {
 		return fmt.Errorf("creating badge file: %w", err)
 	}
@@ -223,7 +267,11 @@ func generateAggregateBadge(path string, report *confidence.Report, dark, verbos
 }
 
 func generateMultiDashboard(path string, reports []reportWithWeight, aggregate *confidence.Report, dark, verbose bool) error {
-	f, err := os.Create(path)
+	return generateMultiDashboardWithFS(DefaultFileSystem, path, reports, aggregate, dark, verbose)
+}
+
+func generateMultiDashboardWithFS(fs FileSystem, path string, reports []reportWithWeight, aggregate *confidence.Report, dark, verbose bool) error {
+	f, err := fs.Create(path)
 	if err != nil {
 		return fmt.Errorf("creating dashboard file: %w", err)
 	}
@@ -268,3 +316,15 @@ func sanitizeFilename(s string) string {
 	}
 	return result.String()
 }
+
+// openConfigFile is defined in generate.go, but we need to ensure it uses
+// the format detection logic. Since it's already defined there, we'll reuse it.
+// If the function uses a different filesystem interface, we need to ensure compatibility.
+
+// detectConfigFormat is defined in generate.go
+// If not, we define a local version here for aggregate-specific use
+func init() {
+	// Ensure openConfigFile and detectConfigFormat are available
+	// They are defined in generate.go
+}
+

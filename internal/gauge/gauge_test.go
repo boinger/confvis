@@ -229,3 +229,31 @@ func TestStyleNames(t *testing.T) {
 		}
 	}
 }
+
+func TestGenerateToString_WithOptions(t *testing.T) {
+	report := &confidence.Report{
+		Title:     "Test",
+		Score:     50,
+		Threshold: 75,
+	}
+
+	opts := Options{
+		Width:    300,
+		Height:   200,
+		DarkMode: true,
+		Style:    "minimal",
+	}
+
+	svg, err := GenerateToString(report, opts)
+	if err != nil {
+		t.Fatalf("GenerateToString() error = %v", err)
+	}
+
+	// Should contain dark mode background
+	if !strings.Contains(svg, "#1a1a1a") {
+		t.Error("dark mode should use minimal dark background")
+	}
+	if !strings.Contains(svg, "FAIL") {
+		t.Error("failing report should show FAIL")
+	}
+}

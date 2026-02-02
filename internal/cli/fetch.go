@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"sort"
 	"strconv"
@@ -106,25 +107,46 @@ func init() {
 	rootCmd.AddCommand(fetchCmd)
 }
 
+// FetchDeps contains dependencies for the fetch command.
+type FetchDeps struct {
+	FS           FileSystem
+	Stdout       io.Writer
+	Stderr       io.Writer
+	Verbose      bool
+	Quiet        bool
+	SourceGetter func(string) sources.Source
+	SourceName   string
+	URL          string
+	Project      string
+	Token        string
+	Branch       string
+	Title        string
+	Threshold    int
+	Timeout      int
+	Output       string
+	Extra        map[string]string
+}
+
 func runFetch(_ *cobra.Command, args []string) error {
-	sourceName := args[0]
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(fetchTimeout)*time.Second)
+	defer cancel()
 
-	source := sources.Get(sourceName)
-	if source == nil {
-		available := sources.Names()
-		sort.Strings(available)
-		return fmt.Errorf("unknown source %q, available sources: %s", sourceName, strings.Join(available, ", "))
-	}
-
-	// Build options, allowing environment variable fallbacks
-	opts := sources.Options{
-		URL:       fetchURL,
-		Project:   fetchProject,
-		Token:     fetchToken,
-		Branch:    fetchBranch,
-		Title:     fetchTitle,
-		Threshold: fetchThreshold,
-		Timeout:   fetchTimeout,
+	return fetchImpl(ctx, &FetchDeps{
+		FS:           DefaultFileSystem,
+		Stdout:       os.Stdout,
+		Stderr:       os.Stderr,
+		Verbose:      verbose,
+		Quiet:        quiet,
+		SourceGetter: sources.Get,
+		SourceName:   args[0],
+		URL:          fetchURL,
+		Project:      fetchProject,
+		Token:        fetchToken,
+		Branch:       fetchBranch,
+		Title:        fetchTitle,
+		Threshold:    fetchThreshold,
+		Timeout:      fetchTimeout,
+		Output:       fetchOutput,
 		Extra: map[string]string{
 			"service":   fetchService,
 			"workflow":  fetchWorkflow,
@@ -133,31 +155,48 @@ func runFetch(_ *cobra.Command, args []string) error {
 			"org":       fetchOrg,
 			"trivy-cmd": fetchTrivyCmd,
 		},
+	})
+}
+
+func fetchImpl(ctx context.Context, deps *FetchDeps) error {
+	source := deps.SourceGetter(deps.SourceName)
+	if source == nil {
+		available := sources.Names()
+		sort.Strings(available)
+		return fmt.Errorf("unknown source %q, available sources: %s", deps.SourceName, strings.Join(available, ", "))
 	}
 
-	// Create context with timeout
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(fetchTimeout)*time.Second)
-	defer cancel()
+	// Build options, allowing environment variable fallbacks
+	opts := sources.Options{
+		URL:       deps.URL,
+		Project:   deps.Project,
+		Token:     deps.Token,
+		Branch:    deps.Branch,
+		Title:     deps.Title,
+		Threshold: deps.Threshold,
+		Timeout:   deps.Timeout,
+		Extra:     deps.Extra,
+	}
 
 	// Suppress verbose output when writing to stdout
-	outputToStdout := fetchOutput == "-"
-	showVerbose := verbose && !quiet && !outputToStdout
+	outputToStdout := deps.Output == "-"
+	showVerbose := deps.Verbose && !deps.Quiet && !outputToStdout
 
 	if showVerbose {
-		fmt.Printf("Fetching metrics from %s for project %q\n", sourceName, fetchProject)
+		_, _ = fmt.Fprintf(deps.Stderr, "Fetching metrics from %s for project %q\n", deps.SourceName, deps.Project)
 	}
 
 	report, err := source.Fetch(ctx, opts)
 	if err != nil {
-		return fmt.Errorf("fetching from %s: %w", sourceName, err)
+		return fmt.Errorf("fetching from %s: %w", deps.SourceName, err)
 	}
 
 	// Write output
-	var out *os.File
+	var out io.WriteCloser
 	if outputToStdout {
-		out = os.Stdout
+		out = nopWriteCloser{deps.Stdout}
 	} else {
-		out, err = os.Create(fetchOutput)
+		out, err = deps.FS.Create(deps.Output)
 		if err != nil {
 			return fmt.Errorf("creating output file: %w", err)
 		}
@@ -179,11 +218,18 @@ func runFetch(_ *cobra.Command, args []string) error {
 		if !report.Passed() {
 			status = "FAIL"
 		}
-		fmt.Printf("Score: %d/%d (%s)\n", report.Score, report.Threshold, status)
+		_, _ = fmt.Fprintf(deps.Stderr, "Score: %d/%d (%s)\n", report.Score, report.Threshold, status)
 		if !outputToStdout {
-			fmt.Printf("Wrote report to %s\n", fetchOutput)
+			_, _ = fmt.Fprintf(deps.Stderr, "Wrote report to %s\n", deps.Output)
 		}
 	}
 
 	return nil
 }
+
+// nopWriteCloser wraps an io.Writer and provides a no-op Close method.
+type nopWriteCloser struct {
+	io.Writer
+}
+
+func (nopWriteCloser) Close() error { return nil }

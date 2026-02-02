@@ -69,26 +69,87 @@ func init() {
 	rootCmd.AddCommand(gaugeCmd)
 }
 
+// GaugeDeps contains dependencies for the gauge command.
+type GaugeDeps struct {
+	FS               FileSystem
+	Stdin            io.Reader
+	Stdout           io.Writer
+	Stderr           io.Writer
+	Verbose          bool
+	Quiet            bool
+	ExitFunc         func(int)
+	HistoryReader    func(string) (*history.History, error)
+	HistoryAppender  func(string, history.Entry) error
+	Config           string
+	Output           string
+	Format           string
+	Style            string
+	BadgeType        string
+	Label            string
+	InputFormat      string
+	Compare          string
+	HistoryFile      string
+	Width            int
+	Height           int
+	FailUnder        int
+	GreenAbove       int
+	YellowAbove      int
+	HistoryCount     int
+	Dark             bool
+	FailOnRegression bool
+}
+
 func runGauge(_ *cobra.Command, _ []string) error {
+	return gaugeImpl(&GaugeDeps{
+		FS:               DefaultFileSystem,
+		Stdin:            os.Stdin,
+		Stdout:           os.Stdout,
+		Stderr:           os.Stderr,
+		Verbose:          verbose,
+		Quiet:            quiet,
+		ExitFunc:         os.Exit,
+		HistoryReader:    history.ReadFile,
+		HistoryAppender:  history.AppendToFile,
+		Config:           gaugeConfig,
+		Output:           gaugeOutput,
+		Format:           gaugeFormat,
+		Style:            gaugeStyle,
+		BadgeType:        gaugeBadgeType,
+		Label:            gaugeLabel,
+		InputFormat:      gaugeInputFormat,
+		Compare:          gaugeCompare,
+		HistoryFile:      gaugeHistoryFile,
+		Width:            gaugeWidth,
+		Height:           gaugeHeight,
+		FailUnder:        gaugeFailUnder,
+		GreenAbove:       gaugeGreenAbove,
+		YellowAbove:      gaugeYellowAbove,
+		HistoryCount:     gaugeHistoryCount,
+		Dark:             gaugeDark,
+		FailOnRegression: gaugeFailOnRegression,
+	})
+}
+
+func gaugeImpl(deps *GaugeDeps) error {
 	// Validate format
-	switch gaugeFormat {
+	switch deps.Format {
 	case "svg", "json", "text", "markdown":
 		// valid
 	default:
-		return fmt.Errorf("invalid format %q: must be svg, json, text, or markdown", gaugeFormat)
+		return fmt.Errorf("invalid format %q: must be svg, json, text, or markdown", deps.Format)
 	}
 
 	// Validate badge type
-	switch gaugeBadgeType {
+	switch deps.BadgeType {
 	case "gauge", "flat", "sparkline":
 		// valid
 	default:
-		return fmt.Errorf("invalid badge-type %q: must be gauge, flat, or sparkline", gaugeBadgeType)
+		return fmt.Errorf("invalid badge-type %q: must be gauge, flat, or sparkline", deps.BadgeType)
 	}
 
 	// Validate and convert input format
 	var inputFormat confidence.Format
-	switch gaugeInputFormat {
+	switch deps.InputFormat {
 	case "auto":
 		inputFormat = confidence.FormatAuto
 	case "json":
@@ -96,20 +157,26 @@ func runGauge(_ *cobra.Command, _ []string) error {
 	case "yaml":
 		inputFormat = confidence.FormatYAML
 	default:
-		return fmt.Errorf("invalid input-format %q: must be auto, json, or yaml", gaugeInputFormat)
+		return fmt.Errorf("invalid input-format %q: must be auto, json, or yaml", deps.InputFormat)
 	}
 
 	var report *confidence.Report
 	var err error
 
-	if gaugeConfig == "-" {
+	if deps.Config == "-" {
 		// For stdin, use JSON by default unless explicitly specified
 		if inputFormat == confidence.FormatAuto {
 			inputFormat = confidence.FormatJSON
 		}
-		report, err = confidence.ParseWithFormat(os.Stdin, inputFormat)
+		report, err = confidence.ParseWithFormat(deps.Stdin, inputFormat)
 	} else {
-		report, err = confidence.ParseFileWithFormat(gaugeConfig, inputFormat)
+		// Read file using injected filesystem
+		var reader io.Reader
+		reader, inputFormat, err = openConfigFile(deps.FS, deps.Config, inputFormat)
+		if err != nil {
+			return fmt.Errorf("parsing config: %w", err)
+		}
+		report, err = confidence.ParseWithFormat(reader, inputFormat)
 	}
 	if err != nil {
 		return fmt.Errorf("parsing config: %w", err)
@@ -118,8 +185,12 @@ func runGauge(_ *cobra.Command, _ []string) error {
 	// Parse baseline report if comparing
 	var baseline *confidence.Report
 	var delta int
-	if gaugeCompare != "" {
-		baseline, err = confidence.ParseFile(gaugeCompare)
+	if deps.Compare != "" {
+		reader, format, err := openConfigFile(deps.FS, deps.Compare, confidence.FormatAuto)
+		if err != nil {
+			return fmt.Errorf("parsing baseline: %w", err)
+		}
+		baseline, err = confidence.ParseWithFormat(reader, format)
 		if err != nil {
 			return fmt.Errorf("parsing baseline: %w", err)
 		}
@@ -127,19 +198,19 @@ func runGauge(_ *cobra.Command, _ []string) error {
 	}
 
 	// Suppress verbose output when writing to stdout
-	outputToStdout := gaugeOutput == "-"
-	showVerbose := verbose && !quiet && !outputToStdout
+	outputToStdout := deps.Output == "-"
+	showVerbose := deps.Verbose && !deps.Quiet && !outputToStdout
 
 	if showVerbose {
 		fmt.Printf("Generating %s for %q (score: %d, threshold: %d)\n",
-			gaugeFormat, report.Title, report.Score, report.Threshold)
+			deps.Format, report.Title, report.Score, report.Threshold)
 	}
 
 	var w io.Writer
 	if outputToStdout {
-		w = os.Stdout
+		w = deps.Stdout
 	} else {
-		f, err := os.Create(gaugeOutput)
+		f, err := deps.FS.Create(deps.Output)
 		if err != nil {
 			return fmt.Errorf("creating output file: %w", err)
 		}
@@ -151,78 +222,10 @@ func runGauge(_ *cobra.Command, _ []string) error {
 		w = f
 	}
 
-	switch gaugeFormat {
+	switch deps.Format {
 	case "svg":
-		switch gaugeBadgeType {
-		case "flat":
-			flatOpts := gauge.FlatOptions{
-				Label:       gaugeLabel,
-				DarkMode:    gaugeDark,
-				Style:       gaugeStyle,
-				GreenAbove:  gaugeGreenAbove,
-				YellowAbove: gaugeYellowAbove,
-			}
-			if err := gauge.GenerateFlat(w, report, flatOpts); err != nil {
-				return fmt.Errorf("generating flat badge: %w", err)
-			}
-
-		case "sparkline":
-			// Read history and generate sparkline
-			var scores []int
-			if gaugeHistoryFile != "" {
-				hist, err := history.ReadFile(gaugeHistoryFile)
-				if err != nil {
-					return fmt.Errorf("reading history: %w", err)
-				}
-				// Get last N entries plus current score
-				entries := hist.Last(gaugeHistoryCount - 1)
-				for _, e := range entries {
-					scores = append(scores, e.Score)
-				}
-			}
-			// Append current score
-			scores = append(scores, report.Score)
-
-			sparkOpts := gauge.SparklineOptions{
-				Width:       gaugeWidth,
-				Height:      gaugeHeight,
-				Scores:      scores,
-				DarkMode:    gaugeDark,
-				Style:       gaugeStyle,
-				GreenAbove:  gaugeGreenAbove,
-				YellowAbove: gaugeYellowAbove,
-			}
-			// Use smaller default size for sparkline
-			if sparkOpts.Width == 200 {
-				sparkOpts.Width = 120
-			}
-			if sparkOpts.Height == 120 {
-				sparkOpts.Height = 28
-			}
-			if err := gauge.GenerateSparkline(w, report, sparkOpts); err != nil {
-				return fmt.Errorf("generating sparkline: %w", err)
-			}
-
-			// Append to history file if specified
-			if gaugeHistoryFile != "" {
-				entry := history.NewEntry(report.Score)
-				if err := history.AppendToFile(gaugeHistoryFile, entry); err != nil {
-					return fmt.Errorf("appending to history: %w", err)
-				}
-			}
-
-		default: // "gauge"
-			opts := gauge.Options{
-				Width:       gaugeWidth,
-				Height:      gaugeHeight,
-				Style:       gaugeStyle,
-				DarkMode:    gaugeDark,
-				GreenAbove:  gaugeGreenAbove,
-				YellowAbove: gaugeYellowAbove,
-			}
-			if err := gauge.Generate(w, report, opts); err != nil {
-				return fmt.Errorf("generating gauge: %w", err)
-			}
+		if err := generateSVGBadge(w, report, deps); err != nil {
+			return err
 		}
 
 	case "json":
@@ -277,21 +280,98 @@ func runGauge(_ *cobra.Command, _ []string) error {
 	}
 
 	if showVerbose {
-		fmt.Printf("Wrote %s to %s\n", gaugeFormat, gaugeOutput)
+		fmt.Printf("Wrote %s to %s\n", deps.Format, deps.Output)
 	}
 
-	if gaugeFailUnder > 0 && report.Score < gaugeFailUnder {
-		if !quiet {
-			fmt.Fprintf(os.Stderr, "Score %d is below threshold %d\n", report.Score, gaugeFailUnder)
+	if deps.FailUnder > 0 && report.Score < deps.FailUnder {
+		if !deps.Quiet {
+			_, _ = fmt.Fprintf(deps.Stderr, "Score %d is below threshold %d\n", report.Score, deps.FailUnder)
 		}
-		os.Exit(1)
+		deps.ExitFunc(1)
 	}
 
-	if gaugeFailOnRegression && baseline != nil && delta < 0 {
-		if !quiet {
-			fmt.Fprintf(os.Stderr, "Score regressed from %d to %d (%d)\n", baseline.Score, report.Score, delta)
+	if deps.FailOnRegression && baseline != nil && delta < 0 {
+		if !deps.Quiet {
+			_, _ = fmt.Fprintf(deps.Stderr, "Score regressed from %d to %d (%d)\n", baseline.Score, report.Score, delta)
 		}
-		os.Exit(1)
+		deps.ExitFunc(1)
+	}
+
+	return nil
+}
+
+// generateSVGBadge generates the SVG badge based on badge type.
+func generateSVGBadge(w io.Writer, report *confidence.Report, deps *GaugeDeps) error {
+	switch deps.BadgeType {
+	case "flat":
+		flatOpts := gauge.FlatOptions{
+			Label:       deps.Label,
+			DarkMode:    deps.Dark,
+			Style:       deps.Style,
+			GreenAbove:  deps.GreenAbove,
+			YellowAbove: deps.YellowAbove,
+		}
+		if err := gauge.GenerateFlat(w, report, flatOpts); err != nil {
+			return fmt.Errorf("generating flat badge: %w", err)
+		}
+
+	case "sparkline":
+		// Read history and generate sparkline
+		var scores []int
+		if deps.HistoryFile != "" {
+			hist, err := deps.HistoryReader(deps.HistoryFile)
+			if err != nil {
+				return fmt.Errorf("reading history: %w", err)
+			}
+			// Get last N entries plus current score
+			entries := hist.Last(deps.HistoryCount - 1)
+			for _, e := range entries {
+				scores = append(scores, e.Score)
+			}
+		}
+		// Append current score
+		scores = append(scores, report.Score)
+
+		sparkOpts := gauge.SparklineOptions{
+			Width:       deps.Width,
+			Height:      deps.Height,
+			Scores:      scores,
+			DarkMode:    deps.Dark,
+			Style:       deps.Style,
+			GreenAbove:  deps.GreenAbove,
+			YellowAbove: deps.YellowAbove,
+		}
+		// Use smaller default size for sparkline
+		if sparkOpts.Width == 200 {
+			sparkOpts.Width = 120
+		}
+		if sparkOpts.Height == 120 {
+			sparkOpts.Height = 28
+		}
+		if err := gauge.GenerateSparkline(w, report, sparkOpts); err != nil {
+			return fmt.Errorf("generating sparkline: %w", err)
+		}
+
+		// Append to history file if specified
+		if deps.HistoryFile != "" {
+			entry := history.NewEntry(report.Score)
+			if err := deps.HistoryAppender(deps.HistoryFile, entry); err != nil {
+				return fmt.Errorf("appending to history: %w", err)
+			}
+		}
+
+	default: // "gauge"
+		opts := gauge.Options{
+			Width:       deps.Width,
+			Height:      deps.Height,
+			Style:       deps.Style,
+			DarkMode:    deps.Dark,
+			GreenAbove:  deps.GreenAbove,
+			YellowAbove: deps.YellowAbove,
+		}
+		if err := gauge.Generate(w, report, opts); err != nil {
+			return fmt.Errorf("generating gauge: %w", err)
+		}
 	}
 
 	return nil

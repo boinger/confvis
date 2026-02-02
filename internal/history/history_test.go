@@ -208,3 +208,54 @@ func TestNewEntry(t *testing.T) {
 		t.Errorf("NewEntry().Timestamp outside expected range")
 	}
 }
+
+func TestAppendToFile_InvalidPath(t *testing.T) {
+	// Try to write to a directory that doesn't exist
+	path := "/nonexistent/directory/history.jsonl"
+
+	entry := Entry{
+		Score:     85,
+		Timestamp: time.Date(2024, 1, 15, 10, 0, 0, 0, time.UTC),
+	}
+
+	err := AppendToFile(path, entry)
+	if err == nil {
+		t.Error("AppendToFile() expected error for invalid path")
+	}
+}
+
+func TestHistory_Last_Empty(t *testing.T) {
+	hist := &History{}
+
+	got := hist.Last(5)
+	if got != nil {
+		t.Errorf("Last() on empty history should return nil, got %v", got)
+	}
+}
+
+func TestHistory_Scores_Empty(t *testing.T) {
+	hist := &History{}
+
+	scores := hist.Scores()
+	if len(scores) != 0 {
+		t.Errorf("Scores() on empty history should return empty slice, got %v", scores)
+	}
+}
+
+func TestReadFile_PermissionError(t *testing.T) {
+	tmpDir := t.TempDir()
+	path := filepath.Join(tmpDir, "history.jsonl")
+
+	// Create a file that we can't read
+	if err := os.WriteFile(path, []byte(`{"score": 80}`), 0o000); err != nil {
+		t.Fatalf("writing test file: %v", err)
+	}
+	defer func() { _ = os.Chmod(path, 0o644) }() // Restore permissions for cleanup
+
+	_, err := ReadFile(path)
+	if err == nil {
+		// Note: This test may pass on some systems (e.g., running as root)
+		// where permission checks are bypassed
+		t.Log("ReadFile() expected error for permission denied (may pass if running as root)")
+	}
+}

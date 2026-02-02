@@ -1,9 +1,12 @@
 package cli
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -48,10 +51,41 @@ func init() {
 	rootCmd.AddCommand(generateCmd)
 }
 
+// GenerateDeps contains dependencies for the generate command.
+type GenerateDeps struct {
+	FS          FileSystem
+	Stdin       io.Reader
+	Stderr      io.Writer
+	Verbose     bool
+	Quiet       bool
+	ExitFunc    func(int)
+	Config      string
+	Output      string
+	InputFormat string
+	Dark        bool
+	FailUnder   int
+}
+
 func runGenerate(_ *cobra.Command, _ []string) error {
+	return generateImpl(&GenerateDeps{
+		FS:          DefaultFileSystem,
+		Stdin:       os.Stdin,
+		Stderr:      os.Stderr,
+		Verbose:     verbose,
+		Quiet:       quiet,
+		ExitFunc:    os.Exit,
+		Config:      genConfig,
+		Output:      genOutput,
+		InputFormat: genInputFormat,
+		Dark:        genDark,
+		FailUnder:   genFailUnder,
+	})
+}
+
+func generateImpl(deps *GenerateDeps) error {
 	// Validate and convert input format
 	var inputFormat confidence.Format
-	switch genInputFormat {
+	switch deps.InputFormat {
 	case "auto":
 		inputFormat = confidence.FormatAuto
 	case "json":
@@ -59,26 +93,32 @@ func runGenerate(_ *cobra.Command, _ []string) error {
 	case "yaml":
 		inputFormat = confidence.FormatYAML
 	default:
-		return fmt.Errorf("invalid input-format %q: must be auto, json, or yaml", genInputFormat)
+		return fmt.Errorf("invalid input-format %q: must be auto, json, or yaml", deps.InputFormat)
 	}
 
 	var report *confidence.Report
 	var err error
 
-	if genConfig == "-" {
+	if deps.Config == "-" {
 		// For stdin, use JSON by default unless explicitly specified
 		if inputFormat == confidence.FormatAuto {
 			inputFormat = confidence.FormatJSON
 		}
-		report, err = confidence.ParseWithFormat(os.Stdin, inputFormat)
+		report, err = confidence.ParseWithFormat(deps.Stdin, inputFormat)
 	} else {
-		report, err = confidence.ParseFileWithFormat(genConfig, inputFormat)
+		// Read file using injected filesystem
+		var reader io.Reader
+		reader, inputFormat, err = openConfigFile(deps.FS, deps.Config, inputFormat)
+		if err != nil {
+			return fmt.Errorf("parsing config: %w", err)
+		}
+		report, err = confidence.ParseWithFormat(reader, inputFormat)
 	}
 	if err != nil {
 		return fmt.Errorf("parsing config: %w", err)
 	}
 
-	showVerbose := verbose && !quiet
+	showVerbose := deps.Verbose && !deps.Quiet
 
 	if showVerbose {
 		fmt.Printf("Generating output for %q (score: %d, threshold: %d)\n",
@@ -86,35 +126,73 @@ func runGenerate(_ *cobra.Command, _ []string) error {
 	}
 
 	// Create output directories
-	dashboardDir := filepath.Join(genOutput, "dashboard")
-	if err := os.MkdirAll(dashboardDir, 0o755); err != nil {
+	dashboardDir := filepath.Join(deps.Output, "dashboard")
+	if err := deps.FS.MkdirAll(dashboardDir, 0o755); err != nil {
 		return fmt.Errorf("creating output directory: %w", err)
 	}
 
 	// Generate badge.svg
-	badgePath := filepath.Join(genOutput, "badge.svg")
-	if err := generateBadge(badgePath, report, genDark, showVerbose); err != nil {
+	badgePath := filepath.Join(deps.Output, "badge.svg")
+	if err := generateBadgeWithFS(deps.FS, badgePath, report, deps.Dark, showVerbose); err != nil {
 		return err
 	}
 
 	// Generate dashboard/index.html
 	dashboardPath := filepath.Join(dashboardDir, "index.html")
-	if err := generateDashboard(dashboardPath, report, genDark, showVerbose); err != nil {
+	if err := generateDashboardWithFS(deps.FS, dashboardPath, report, deps.Dark, showVerbose); err != nil {
 		return err
 	}
 
-	if genFailUnder > 0 && report.Score < genFailUnder {
-		if !quiet {
-			fmt.Fprintf(os.Stderr, "Score %d is below threshold %d\n", report.Score, genFailUnder)
+	if deps.FailUnder > 0 && report.Score < deps.FailUnder {
+		if !deps.Quiet {
+			_, _ = fmt.Fprintf(deps.Stderr, "Score %d is below threshold %d\n", report.Score, deps.FailUnder)
 		}
-		os.Exit(1)
+		deps.ExitFunc(1)
 	}
 
 	return nil
 }
 
+// openConfigFile opens a config file using the provided FileSystem and determines its format.
+func openConfigFile(fs FileSystem, path string, format confidence.Format) (io.Reader, confidence.Format, error) {
+	f, err := fs.Open(path)
+	if err != nil {
+		return nil, format, fmt.Errorf("opening file: %w", err)
+	}
+
+	// Read all content into memory so we can return it as a reader
+	// The file handle will be closed but the content is available
+	content, err := io.ReadAll(f)
+	_ = f.Close()
+	if err != nil {
+		return nil, format, fmt.Errorf("reading file: %w", err)
+	}
+
+	// Auto-detect format from extension
+	if format == confidence.FormatAuto {
+		format = detectConfigFormat(path)
+	}
+
+	return bytes.NewReader(content), format, nil
+}
+
+// detectConfigFormat returns the format based on file extension.
+func detectConfigFormat(path string) confidence.Format {
+	ext := strings.ToLower(filepath.Ext(path))
+	switch ext {
+	case ".yaml", ".yml":
+		return confidence.FormatYAML
+	default:
+		return confidence.FormatJSON
+	}
+}
+
 func generateBadge(path string, report *confidence.Report, dark, verbose bool) error {
-	f, err := os.Create(path)
+	return generateBadgeWithFS(DefaultFileSystem, path, report, dark, verbose)
+}
+
+func generateBadgeWithFS(fs FileSystem, path string, report *confidence.Report, dark, verbose bool) error {
+	f, err := fs.Create(path)
 	if err != nil {
 		return fmt.Errorf("creating badge file: %w", err)
 	}
@@ -140,7 +218,11 @@ func generateBadge(path string, report *confidence.Report, dark, verbose bool) e
 }
 
 func generateDashboard(path string, report *confidence.Report, dark, verbose bool) error {
-	f, err := os.Create(path)
+	return generateDashboardWithFS(DefaultFileSystem, path, report, dark, verbose)
+}
+
+func generateDashboardWithFS(fs FileSystem, path string, report *confidence.Report, dark, verbose bool) error {
+	f, err := fs.Create(path)
 	if err != nil {
 		return fmt.Errorf("creating dashboard file: %w", err)
 	}
