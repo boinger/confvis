@@ -46,15 +46,31 @@ Transform confvis into a shining example of code trustworthiness by having it me
 
 | Aspect | Status |
 |--------|--------|
-| Tests | 191 passing |
-| Coverage | ~44.5% (target: 80%) |
+| Tests | 240+ passing |
+| Coverage | ~65.5% (target: 80%) |
 | CI/CD | None |
 | Dogfooding | None |
-| Linter config | None |
-| Pre-commit hooks | None |
+| Linter config | ✅ Complete |
+| Pre-commit hooks | ✅ Complete |
 | Release automation | None |
-| SECURITY.md | Missing |
-| Trivy source | **Does not exist** (needs implementation)
+| SECURITY.md | ✅ Complete |
+| Trivy source | ✅ Complete |
+
+### Coverage by Package (as of Phase 3 partial completion)
+
+| Package | Coverage | Status |
+|---------|----------|--------|
+| `internal/gauge` | 97.0% | ✅ Exceeds target (80%) |
+| `internal/dashboard` | 78.3% | ✅ Exceeds target (75%) |
+| `internal/cli` | 35.8% | 🔄 In progress (target: 60%) |
+| `internal/confidence` | 83.1% | ✅ Exceeds target |
+| `internal/history` | 88.4% | ✅ Exceeds target |
+| `internal/sources/trivy` | 96.8% | ✅ Exceeds target |
+| `internal/sources/sonarqube` | 86.6% | ✅ Exceeds target |
+| `internal/sources/snyk` | 75.7% | ✅ At target |
+| `internal/sources/codecov` | 62.1% | 🔄 Below target |
+| `internal/sources/ghactions` | 59.6% | 🔄 Below target |
+| **Total** | **65.5%** | 🔄 In progress |
 
 ---
 
@@ -283,22 +299,22 @@ Add sections for:
 
 ### Priority Order
 
-| Package | Current | Target | Strategy |
-|---------|---------|--------|----------|
-| `cmd/confvis` | 0% | 50% | Add smoke test |
-| `internal/cli` | 14% | 60% | Add unit tests for helpers |
-| `internal/dashboard` | 30% | 70% | Test GenerateMulti, edge cases |
-| `internal/gauge` | 37% | 75% | Test flat.go, sparkline.go |
-| `internal/sources/*` | 60-75% | 80% | Error paths, mock servers |
+| Package | Before | After | Target | Status |
+|---------|--------|-------|--------|--------|
+| `cmd/confvis` | 0% | 0% | 50% | ⏳ Pending |
+| `internal/cli` | 14% | 35.8% | 60% | 🔄 In progress |
+| `internal/dashboard` | 30% | 78.3% | 70% | ✅ Complete |
+| `internal/gauge` | 37% | 97.0% | 75% | ✅ Complete |
+| `internal/sources/*` | 60-75% | 60-97% | 80% | 🔄 Partial |
 
-### Key Test Files to Create/Extend
+### Key Test Files Created/Extended
 
-1. `cmd/confvis/main_test.go` - Entry point smoke test
-2. `internal/cli/aggregate_test.go` - Unit tests for parseConfigsWithWeights, sanitizeFilename
+1. ~~`cmd/confvis/main_test.go`~~ - Entry point smoke test (pending)
+2. ✅ `internal/cli/helpers_test.go` - Unit tests for parseConfigsWithWeights, sanitizeFilename, writeMarkdown, generateBadge, generateDashboard, generateAggregateBadge, generateMultiDashboard (~60 tests)
 3. `internal/cli/fetch_test.go` - More unit tests (currently integration-heavy)
-4. `internal/gauge/flat_test.go` - Test GenerateFlat with all options
-5. `internal/gauge/sparkline_test.go` - Test GenerateSparkline variations
-6. `internal/dashboard/dashboard_test.go` - Test GenerateMulti
+4. ✅ `internal/gauge/flat_test.go` - Test GenerateFlat with all options (~15 tests)
+5. ✅ `internal/gauge/sparkline_test.go` - Test GenerateSparkline and calculateSparklineCoords (~17 tests)
+6. ✅ `internal/dashboard/dashboard_test.go` - Extended with GenerateMulti tests (~11 tests)
 
 ---
 
@@ -554,22 +570,24 @@ jobs:
 ## Implementation Sequence
 
 ```
-Week 1: Phase 1 (Foundation)
+Week 1: Phase 1 (Foundation) ✅ COMPLETE
          - .golangci.yml, Makefile, ci.yml, dependabot.yml
    ↓
-Week 2: Phase 2 (Quality Gates)
+Week 2: Phase 2 (Quality Gates) ✅ COMPLETE
          - pre-commit, commitlint, CONTRIBUTING.md update
    ↓
-Week 3: Phase 3a (Coverage Push - Start)
-         - cmd/confvis tests, cli unit tests
+Week 3: Phase 3a (Coverage Push - Start) ✅ COMPLETE
+         - gauge tests (flat_test.go, sparkline_test.go)
+         - dashboard tests (GenerateMulti)
    ↓
-Week 4: Phase 4 (Security + Trivy Source) ◄── CRITICAL PATH
+Week 4: Phase 4 (Security + Trivy Source) ✅ COMPLETE
          - Implement internal/sources/trivy/*
          - security.yml, SECURITY.md
    ↓
-Week 5: Phase 3b (Coverage Push - Complete)
-         - Finish coverage to 80%+
-         - Trivy source tests included
+Week 5: Phase 3b (Coverage Push - Continue) 🔄 IN PROGRESS
+         - cli helper tests (helpers_test.go) ✅
+         - Coverage at 65.5% (target: 80%)
+         - Remaining: cmd/confvis smoke tests, sources/* improvements
    ↓
 Week 6: Phase 5 (Dogfooding)
          - dogfood.yml workflow
@@ -616,12 +634,17 @@ Week 8: Phase 7 (Polish)
 - `internal/sources/trivy/trivy_test.go`
 - `internal/cli/fetch.go` (add trivy import)
 
+### New Test Files (Phase 3)
+- ✅ `internal/gauge/flat_test.go` - GenerateFlat tests
+- ✅ `internal/gauge/sparkline_test.go` - GenerateSparkline and calculateSparklineCoords tests
+- ✅ `internal/cli/helpers_test.go` - Unit tests for sanitizeFilename, parseConfigsWithWeights, writeMarkdown, generateBadge, generateDashboard, generateAggregateBadge, generateMultiDashboard
+
 ### Modified Files
-- `CONTRIBUTING.md` - Add conventional commits, pre-commit, coverage sections
+- ✅ `CONTRIBUTING.md` - Add conventional commits, pre-commit, coverage sections
 - `README.md` - Add badges, update with new development workflow
-- `docs/sources.md` - Add Trivy source documentation
-- `docs/cli-reference.md` - Add Trivy fetch documentation
-- Various `*_test.go` files - Coverage improvements
+- ✅ `docs/sources.md` - Add Trivy source documentation
+- ✅ `docs/cli-reference.md` - Add Trivy fetch documentation
+- ✅ `internal/dashboard/dashboard_test.go` - Extended with GenerateMulti tests
 
 ---
 
