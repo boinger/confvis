@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aggregate Confidence Report</title>
+    <style>
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f6f8fa;
+            --text-primary: #24292f;
+            --text-muted: #57606a;
+            --border-color: #d0d7de;
+            --success-color: #1a7f37;
+            --success-bg: #dafbe1;
+            --warning-color: #9a6700;
+            --warning-bg: #fff8c5;
+            --danger-color: #cf222e;
+            --danger-bg: #ffebe9;
+            --track-color: #e1e4e8;
+        }
+
+        .dark {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --text-primary: #e6edf3;
+            --text-muted: #8b949e;
+            --border-color: #30363d;
+            --success-color: #3fb950;
+            --success-bg: #238636;
+            --warning-color: #d29922;
+            --warning-bg: #9e6a03;
+            --danger-color: #f85149;
+            --danger-bg: #da3633;
+            --track-color: #30363d;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.5;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .title {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 12px;
+            border-radius: 16px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge-pass {
+            background-color: var(--success-bg);
+            color: var(--success-color);
+        }
+
+        .badge-fail {
+            background-color: var(--danger-bg);
+            color: var(--danger-color);
+        }
+
+        .aggregate-section {
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 24px;
+            margin-bottom: 32px;
+        }
+
+        .aggregate-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+
+        .aggregate-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .gauge-container {
+            display: flex;
+            justify-content: center;
+            margin: 16px 0;
+        }
+
+        .reports-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 16px;
+        }
+
+        .report-card {
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 16px;
+        }
+
+        .report-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+
+        .report-title {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .report-path {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 4px;
+            word-break: break-all;
+        }
+
+        .report-weight {
+            font-size: 12px;
+            color: var(--text-muted);
+            background-color: var(--bg-primary);
+            padding: 2px 8px;
+            border-radius: 12px;
+            white-space: nowrap;
+        }
+
+        .report-gauge {
+            display: flex;
+            justify-content: center;
+            margin: 12px 0;
+        }
+
+        .report-gauge svg {
+            max-width: 160px;
+            height: auto;
+        }
+
+        .factors-list {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .factor-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 4px 0;
+            font-size: 14px;
+        }
+
+        .factor-name {
+            color: var(--text-primary);
+        }
+
+        .factor-link {
+            color: var(--text-primary);
+            text-decoration: none;
+        }
+
+        .factor-link:hover {
+            text-decoration: underline;
+            color: var(--success-color);
+        }
+
+        .factor-score {
+            color: var(--text-muted);
+        }
+
+        .theme-toggle {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 8px 12px;
+            cursor: pointer;
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+
+        .theme-toggle:hover {
+            background: var(--border-color);
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="document.body.classList.toggle('dark')">
+        Toggle Theme
+    </button>
+
+    <div class="container">
+        <header class="header">
+            <h1 class="title">Aggregate Confidence Report</h1>
+            <span class="badge badge-fail">
+                Fail
+            </span>
+        </header>
+
+        <section class="aggregate-section">
+            <div class="aggregate-header">
+                <h2 class="aggregate-title">Overall Score</h2>
+                <span class="report-weight">3 reports</span>
+            </div>
+            <div class="gauge-container">
+                <?xml version="1.0"?>
+<!-- Generated by SVGo -->
+<svg width="200" height="120"
+     xmlns="http://www.w3.org/2000/svg"
+     xmlns:xlink="http://www.w3.org/1999/xlink">
+<rect x="0" y="0" width="200" height="120" style="fill:#ffffff" />
+<path d="M 20 100 A 80 80 0 0 1 180 100" style="fill:none;stroke:#e1e4e8;stroke-width:12;stroke-linecap:round" />
+<path d="M 20 100 A 80 80 0 0 1 180 100" style="fill:none;stroke:#9a6700;stroke-width:12;stroke-linecap:round;stroke-dasharray:178.44 251.33" />
+<circle cx="156" cy="44" r="4" style="fill:#57606a" />
+<text x="100" y="74" style="text-anchor:middle;font-family:system-ui,-apple-system,sans-serif;font-size:40px;font-weight:bold;fill:#24292f" >71</text>
+<text x="100" y="95" style="text-anchor:middle;font-family:system-ui,-apple-system,sans-serif;font-size:12px;font-weight:600;fill:#cf222e" >FAIL</text>
+</svg>
+
+            </div>
+        </section>
+
+        <h2 class="section-title">Components</h2>
+        <div class="reports-grid">
+            
+            <div class="report-card">
+                <div class="report-card-header">
+                    <div>
+                        <div class="report-title">confvis</div>
+                        <div class="report-path">quality.json</div>
+                    </div>
+                    <span class="report-weight">weight: 30</span>
+                </div>
+                <div class="report-gauge">
+                    <?xml version="1.0"?>
+<!-- Generated by SVGo -->
+<svg width="200" height="120"
+     xmlns="http://www.w3.org/2000/svg"
+     xmlns:xlink="http://www.w3.org/1999/xlink">
+<rect x="0" y="0" width="200" height="120" style="fill:#ffffff" />
+<path d="M 20 100 A 80 80 0 0 1 180 100" style="fill:none;stroke:#e1e4e8;stroke-width:12;stroke-linecap:round" />
+<path d="M 20 100 A 80 80 0 0 1 180 100" style="fill:none;stroke:#1a7f37;stroke-width:12;stroke-linecap:round;stroke-dasharray:251.33 251.33" />
+<circle cx="156" cy="44" r="4" style="fill:#57606a" />
+<text x="100" y="74" style="text-anchor:middle;font-family:system-ui,-apple-system,sans-serif;font-size:40px;font-weight:bold;fill:#24292f" >100</text>
+<text x="100" y="95" style="text-anchor:middle;font-family:system-ui,-apple-system,sans-serif;font-size:12px;font-weight:600;fill:#1a7f37" >PASS</text>
+</svg>
+
+                </div>
+                
+                <div class="factors-list">
+                    
+                    <div class="factor-row">
+                        <span class="factor-name"><a href="https://sonarcloud.io/component_measures?id=boinger_confvis&amp;metric=reliability_rating" class="factor-link" target="_blank" rel="noopener noreferrer">Reliability</a></span>
+                        <span class="factor-score">100%</span>
+                    </div>
+                    
+                    <div class="factor-row">
+                        <span class="factor-name"><a href="https://sonarcloud.io/component_measures?id=boinger_confvis&amp;metric=security_rating" class="factor-link" target="_blank" rel="noopener noreferrer">Security</a></span>
+                        <span class="factor-score">100%</span>
+                    </div>
+                    
+                    <div class="factor-row">
+                        <span class="factor-name"><a href="https://sonarcloud.io/component_measures?id=boinger_confvis&amp;metric=sqale_rating" class="factor-link" target="_blank" rel="noopener noreferrer">Maintainability</a></span>
+                        <span class="factor-score">100%</span>
+                    </div>
+                    
+                </div>
+                
+            </div>
+            
+            <div class="report-card">
+                <div class="report-card-header">
+                    <div>
+                        <div class="report-title">boinger/confvis</div>
+                        <div class="report-path">ci.json</div>
+                    </div>
+                    <span class="report-weight">weight: 20</span>
+                </div>
+                <div class="report-gauge">
+                    <?xml version="1.0"?>
+<!-- Generated by SVGo -->
+<svg width="200" height="120"
+     xmlns="http://www.w3.org/2000/svg"
+     xmlns:xlink="http://www.w3.org/1999/xlink">
+<rect x="0" y="0" width="200" height="120" style="fill:#ffffff" />
+<path d="M 20 100 A 80 80 0 0 1 180 100" style="fill:none;stroke:#e1e4e8;stroke-width:12;stroke-linecap:round" />
+<path d="M 20 100 A 80 80 0 0 1 180 100" style="fill:none;stroke:#cf222e;stroke-width:12;stroke-linecap:round;stroke-dasharray:0.00 251.33" />
+<circle cx="156" cy="44" r="4" style="fill:#57606a" />
+<text x="100" y="74" style="text-anchor:middle;font-family:system-ui,-apple-system,sans-serif;font-size:40px;font-weight:bold;fill:#24292f" >0</text>
+<text x="100" y="95" style="text-anchor:middle;font-family:system-ui,-apple-system,sans-serif;font-size:12px;font-weight:600;fill:#cf222e" >FAIL</text>
+</svg>
+
+                </div>
+                
+                <div class="factors-list">
+                    
+                    <div class="factor-row">
+                        <span class="factor-name"><a href="https://github.com/boinger/confvis/actions" class="factor-link" target="_blank" rel="noopener noreferrer">Workflow Success Rate</a></span>
+                        <span class="factor-score">0%</span>
+                    </div>
+                    
+                </div>
+                
+            </div>
+            
+            <div class="report-card">
+                <div class="report-card-header">
+                    <div>
+                        <div class="report-title">confvis</div>
+                        <div class="report-path">security.json</div>
+                    </div>
+                    <span class="report-weight">weight: 20</span>
+                </div>
+                <div class="report-gauge">
+                    <?xml version="1.0"?>
+<!-- Generated by SVGo -->
+<svg width="200" height="120"
+     xmlns="http://www.w3.org/2000/svg"
+     xmlns:xlink="http://www.w3.org/1999/xlink">
+<rect x="0" y="0" width="200" height="120" style="fill:#ffffff" />
+<path d="M 20 100 A 80 80 0 0 1 180 100" style="fill:none;stroke:#e1e4e8;stroke-width:12;stroke-linecap:round" />
+<path d="M 20 100 A 80 80 0 0 1 180 100" style="fill:none;stroke:#1a7f37;stroke-width:12;stroke-linecap:round;stroke-dasharray:251.33 251.33" />
+<circle cx="156" cy="44" r="4" style="fill:#57606a" />
+<text x="100" y="74" style="text-anchor:middle;font-family:system-ui,-apple-system,sans-serif;font-size:40px;font-weight:bold;fill:#24292f" >100</text>
+<text x="100" y="95" style="text-anchor:middle;font-family:system-ui,-apple-system,sans-serif;font-size:12px;font-weight:600;fill:#1a7f37" >PASS</text>
+</svg>
+
+                </div>
+                
+                <div class="factors-list">
+                    
+                    <div class="factor-row">
+                        <span class="factor-name">Critical Vulnerabilities</span>
+                        <span class="factor-score">100%</span>
+                    </div>
+                    
+                    <div class="factor-row">
+                        <span class="factor-name">High Vulnerabilities</span>
+                        <span class="factor-score">100%</span>
+                    </div>
+                    
+                    <div class="factor-row">
+                        <span class="factor-name">Medium Vulnerabilities</span>
+                        <span class="factor-score">100%</span>
+                    </div>
+                    
+                    <div class="factor-row">
+                        <span class="factor-name">Low Vulnerabilities</span>
+                        <span class="factor-score">100%</span>
+                    </div>
+                    
+                </div>
+                
+            </div>
+            
+        </div>
+    </div>
+</body>
+</html>
