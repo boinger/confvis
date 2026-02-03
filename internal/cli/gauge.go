@@ -44,7 +44,7 @@ func init() {
 	gaugeCmd.Flags().StringVarP(&gaugeConfig, "config", "c", "", "path to confidence report (JSON/YAML), or - for stdin (required)")
 	gaugeCmd.Flags().StringVar(&gaugeInputFormat, "input-format", "auto", "input format: auto, json, or yaml (auto-detects from extension)")
 	gaugeCmd.Flags().StringVarP(&gaugeOutput, "output", "o", "", "output file path, or - for stdout (required)")
-	gaugeCmd.Flags().StringVarP(&gaugeFormat, "format", "f", "svg", "output format: svg, json, text, or markdown")
+	gaugeCmd.Flags().StringVarP(&gaugeFormat, "format", "f", "svg", "output format: svg, json, text, markdown, or github-comment")
 	gaugeCmd.Flags().IntVar(&gaugeWidth, "width", 200, "gauge width in pixels (svg only)")
 	gaugeCmd.Flags().IntVar(&gaugeHeight, "height", 120, "gauge height in pixels (svg only)")
 	gaugeCmd.Flags().StringVar(&gaugeStyle, "style", "github", "color scheme: github, minimal, corporate, high-contrast (svg only)")
@@ -133,10 +133,10 @@ func runGauge(_ *cobra.Command, _ []string) error {
 func gaugeImpl(deps *GaugeDeps) error {
 	// Validate format
 	switch deps.Format {
-	case "svg", "json", "text", "markdown":
+	case "svg", "json", "text", "markdown", "github-comment":
 		// valid
 	default:
-		return fmt.Errorf("invalid format %q: must be svg, json, text, or markdown", deps.Format)
+		return fmt.Errorf("invalid format %q: must be svg, json, text, markdown, or github-comment", deps.Format)
 	}
 
 	// Validate badge type
@@ -222,61 +222,8 @@ func gaugeImpl(deps *GaugeDeps) error {
 		w = f
 	}
 
-	switch deps.Format {
-	case "svg":
-		if err := generateSVGBadge(w, report, deps); err != nil {
-			return err
-		}
-
-	case "json":
-		output := struct {
-			Title       string `json:"title"`
-			Score       int    `json:"score"`
-			Threshold   int    `json:"threshold"`
-			Passed      bool   `json:"passed"`
-			Version     string `json:"version,omitempty"`
-			GeneratedAt string `json:"generatedAt,omitempty"`
-			Source      string `json:"source,omitempty"`
-			Baseline    *int   `json:"baseline,omitempty"`
-			Delta       *int   `json:"delta,omitempty"`
-		}{
-			Title:       report.Title,
-			Score:       report.Score,
-			Threshold:   report.Threshold,
-			Passed:      report.Passed(),
-			Version:     report.Version,
-			GeneratedAt: report.GeneratedAt,
-			Source:      report.Source,
-		}
-		if baseline != nil {
-			output.Baseline = &baseline.Score
-			output.Delta = &delta
-		}
-		enc := json.NewEncoder(w)
-		enc.SetIndent("", "  ")
-		if err := enc.Encode(output); err != nil {
-			return fmt.Errorf("encoding JSON: %w", err)
-		}
-
-	case "text":
-		if baseline != nil {
-			sign := "+"
-			if delta < 0 {
-				sign = ""
-			}
-			if _, err := fmt.Fprintf(w, "%d (%s%d)\n", report.Score, sign, delta); err != nil {
-				return fmt.Errorf("writing text output: %w", err)
-			}
-		} else {
-			if _, err := fmt.Fprintf(w, "%d\n", report.Score); err != nil {
-				return fmt.Errorf("writing text output: %w", err)
-			}
-		}
-
-	case "markdown":
-		if err := writeMarkdown(w, report, baseline, delta); err != nil {
-			return fmt.Errorf("writing markdown output: %w", err)
-		}
+	if err := writeFormatOutput(w, deps.Format, report, baseline, delta, deps); err != nil {
+		return err
 	}
 
 	if showVerbose {
@@ -297,6 +244,74 @@ func gaugeImpl(deps *GaugeDeps) error {
 		deps.ExitFunc(1)
 	}
 
+	return nil
+}
+
+// writeFormatOutput dispatches to the appropriate format writer.
+func writeFormatOutput(w io.Writer, format string, report *confidence.Report, baseline *confidence.Report, delta int, deps *GaugeDeps) error {
+	switch format {
+	case "svg":
+		return generateSVGBadge(w, report, deps)
+	case "json":
+		return writeJSON(w, report, baseline, delta)
+	case "text":
+		return writeText(w, report.Score, baseline, delta)
+	case "markdown":
+		return writeMarkdown(w, report, baseline, delta)
+	case "github-comment":
+		return writeGitHubComment(w, report, baseline)
+	}
+	return nil
+}
+
+// writeJSON generates JSON output for the report.
+func writeJSON(w io.Writer, report *confidence.Report, baseline *confidence.Report, delta int) error {
+	output := struct {
+		Title       string `json:"title"`
+		Score       int    `json:"score"`
+		Threshold   int    `json:"threshold"`
+		Passed      bool   `json:"passed"`
+		Version     string `json:"version,omitempty"`
+		GeneratedAt string `json:"generatedAt,omitempty"`
+		Source      string `json:"source,omitempty"`
+		Baseline    *int   `json:"baseline,omitempty"`
+		Delta       *int   `json:"delta,omitempty"`
+	}{
+		Title:       report.Title,
+		Score:       report.Score,
+		Threshold:   report.Threshold,
+		Passed:      report.Passed(),
+		Version:     report.Version,
+		GeneratedAt: report.GeneratedAt,
+		Source:      report.Source,
+	}
+	if baseline != nil {
+		output.Baseline = &baseline.Score
+		output.Delta = &delta
+	}
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(output); err != nil {
+		return fmt.Errorf("encoding JSON: %w", err)
+	}
+	return nil
+}
+
+// writeText generates plain text output for the report.
+func writeText(w io.Writer, score int, baseline *confidence.Report, delta int) error {
+	if baseline != nil {
+		sign := "+"
+		if delta < 0 {
+			sign = ""
+		}
+		if _, err := fmt.Fprintf(w, "%d (%s%d)\n", score, sign, delta); err != nil {
+			return fmt.Errorf("writing text output: %w", err)
+		}
+	} else {
+		if _, err := fmt.Fprintf(w, "%d\n", score); err != nil {
+			return fmt.Errorf("writing text output: %w", err)
+		}
+	}
 	return nil
 }
 
@@ -375,6 +390,102 @@ func generateSVGBadge(w io.Writer, report *confidence.Report, deps *GaugeDeps) e
 	}
 
 	return nil
+}
+
+// writeGitHubComment generates GitHub-flavored markdown output for PR comments.
+func writeGitHubComment(w io.Writer, report *confidence.Report, baseline *confidence.Report) error {
+	if err := writeGitHubCommentHeader(w, report); err != nil {
+		return err
+	}
+
+	if err := writeGitHubCommentBaseline(w, report, baseline); err != nil {
+		return err
+	}
+
+	if err := writeGitHubCommentFactors(w, report.Factors); err != nil {
+		return err
+	}
+
+	return writeGitHubCommentFooter(w, report.Version)
+}
+
+func writeGitHubCommentHeader(w io.Writer, report *confidence.Report) error {
+	statusEmoji := ":white_check_mark:"
+	statusText := "Passed"
+	if !report.Passed() {
+		statusEmoji = ":x:"
+		statusText = "Failed"
+	}
+
+	if _, err := fmt.Fprintf(w, "## Confidence Report: %s\n\n", report.Title); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "| Metric | Value |"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "|--------|-------|"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "| Score | **%d%%** %s |\n", report.Score, statusEmoji); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "| Threshold | %d%% |\n", report.Threshold); err != nil {
+		return err
+	}
+	_, err := fmt.Fprintf(w, "| Status | %s |\n", statusText)
+	return err
+}
+
+func writeGitHubCommentBaseline(w io.Writer, report *confidence.Report, baseline *confidence.Report) error {
+	if baseline == nil {
+		return nil
+	}
+	delta := report.Score - baseline.Score
+	deltaEmoji := ":left_right_arrow:"
+	if delta > 0 {
+		deltaEmoji = ":arrow_up:"
+	} else if delta < 0 {
+		deltaEmoji = ":arrow_down:"
+	}
+	_, err := fmt.Fprintf(w, "| Change | %+d %s |\n", delta, deltaEmoji)
+	return err
+}
+
+func writeGitHubCommentFactors(w io.Writer, factors []confidence.Factor) error {
+	if len(factors) == 0 {
+		return nil
+	}
+	if _, err := fmt.Fprintln(w, "\n<details>"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprint(w, "<summary>Factor Breakdown</summary>\n\n"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "| Factor | Score | Weight | Description |"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, "|--------|-------|--------|-------------|"); err != nil {
+		return err
+	}
+	for _, f := range factors {
+		desc := f.Description
+		if desc == "" {
+			desc = "-"
+		}
+		if _, err := fmt.Fprintf(w, "| %s | %d | %d | %s |\n", f.Name, f.Score, f.Weight, desc); err != nil {
+			return err
+		}
+	}
+	_, err := fmt.Fprintln(w, "\n</details>")
+	return err
+}
+
+func writeGitHubCommentFooter(w io.Writer, version string) error {
+	if version == "" {
+		version = "unknown"
+	}
+	_, err := fmt.Fprintf(w, "\n---\n<sub>Generated by confvis v%s</sub>\n", version)
+	return err
 }
 
 // writeMarkdown generates markdown output for the report.

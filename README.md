@@ -157,7 +157,7 @@ Creates:
 Generate a gauge badge in various formats.
 
 ```bash
-confvis gauge -c confidence.json -o badge.svg [--format svg|json|text|markdown] [--badge-type gauge|flat] [--style github|minimal|corporate|high-contrast] [--dark]
+confvis gauge -c confidence.json -o badge.svg [--format svg|json|text|markdown|github-comment] [--badge-type gauge|flat] [--style github|minimal|corporate|high-contrast] [--dark]
 ```
 
 Output formats:
@@ -165,6 +165,7 @@ Output formats:
 - `json`: Score metadata as JSON
 - `text`: Just the score number (for scripting)
 - `markdown`: Markdown table for PR comments
+- `github-comment`: GitHub-flavored markdown with emoji and collapsible sections
 
 Badge types:
 - `gauge` (default): Semi-circular gauge

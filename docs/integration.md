@@ -36,6 +36,54 @@ jobs:
           file_pattern: "badges/*"
 ```
 
+## Pull Request Comments
+
+Post confidence reports directly to PRs using the `github-comment` format:
+
+```yaml
+name: PR Confidence Report
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  confidence:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Install confvis
+        run: go install github.com/boinger/confvis/cmd/confvis@latest
+
+      - name: Generate confidence report
+        id: report
+        run: |
+          # Generate GitHub-flavored markdown for PR comment
+          confvis gauge -c confidence.json -o report.md --format github-comment
+
+          # With baseline comparison (if you have a baseline file)
+          # confvis gauge -c confidence.json --compare baseline.json -o report.md --format github-comment
+
+      - name: Post PR comment
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          body-path: report.md
+```
+
+The `github-comment` format produces output with:
+- Emoji status indicators (:white_check_mark: / :x:)
+- Collapsible factor breakdown using `<details>`
+- Delta arrows when comparing against baseline (:arrow_up: / :arrow_down:)
+- Clean formatting optimized for GitHub's markdown renderer
+
 ## Makefile Integration
 
 Add targets to your Makefile:
