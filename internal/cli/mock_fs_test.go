@@ -11,9 +11,11 @@ import (
 
 // mockWriteCloser wraps a bytes.Buffer and tracks whether it was closed.
 type mockWriteCloser struct {
-	buf    *bytes.Buffer
-	closed bool
-	mu     sync.Mutex
+	buf      *bytes.Buffer
+	closed   bool
+	closeErr error
+	writeErr error
+	mu       sync.Mutex
 }
 
 func (m *mockWriteCloser) Write(p []byte) (n int, err error) {
@@ -22,6 +24,9 @@ func (m *mockWriteCloser) Write(p []byte) (n int, err error) {
 	if m.closed {
 		return 0, fmt.Errorf("write on closed file")
 	}
+	if m.writeErr != nil {
+		return 0, m.writeErr
+	}
 	return m.buf.Write(p)
 }
 
@@ -29,7 +34,7 @@ func (m *mockWriteCloser) Close() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.closed = true
-	return nil
+	return m.closeErr
 }
 
 // mockReadCloser wraps a bytes.Reader and tracks whether it was closed.
@@ -93,7 +98,20 @@ func (m *MockFileSystem) Create(name string) (io.WriteCloser, error) {
 
 	buf := &bytes.Buffer{}
 	m.Files[name] = buf
-	return &mockWriteCloser{buf: buf}, nil
+
+	// Check for close error
+	var closeErr error
+	if err, ok := m.Errors["close:"+name]; ok {
+		closeErr = err
+	}
+
+	// Check for write error
+	var writeErr error
+	if err, ok := m.Errors["write:"+name]; ok {
+		writeErr = err
+	}
+
+	return &mockWriteCloser{buf: buf, closeErr: closeErr, writeErr: writeErr}, nil
 }
 
 func (m *MockFileSystem) MkdirAll(path string, perm os.FileMode) error {

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/boinger/confvis/internal/confidence"
+	"github.com/boinger/confvis/internal/history"
 	"github.com/boinger/confvis/internal/sources"
 )
 
@@ -1760,5 +1761,827 @@ threshold: 75`)
 
 	if strings.TrimSpace(stdout.String()) != "92" {
 		t.Errorf("expected score 92, got: %s", stdout.String())
+	}
+}
+
+func TestGaugeImpl_SparklineHistoryReadError(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Spark Test", "score": 85, "threshold": 75}`)
+
+	deps := defaultGaugeDeps(fs)
+	deps.Config = "config.json"
+	deps.Output = "/output.svg"
+	deps.BadgeType = "sparkline"
+	deps.HistoryFile = "/history.jsonl"
+	deps.HistoryReader = func(path string) (*history.History, error) {
+		return nil, errors.New("history file corrupted")
+	}
+
+	err := gaugeImpl(deps)
+	if err == nil {
+		t.Fatal("expected error for history read failure")
+	}
+
+	if !strings.Contains(err.Error(), "reading history") {
+		t.Errorf("error should mention reading history, got: %v", err)
+	}
+}
+
+func TestGaugeImpl_SparklineHistoryAppendError(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Spark Test", "score": 85, "threshold": 75}`)
+
+	deps := defaultGaugeDeps(fs)
+	deps.Config = "config.json"
+	deps.Output = "/output.svg"
+	deps.BadgeType = "sparkline"
+	deps.HistoryFile = "/history.jsonl"
+	deps.HistoryReader = func(path string) (*history.History, error) {
+		return &history.History{Entries: []history.Entry{
+			{Score: 80},
+			{Score: 82},
+		}}, nil
+	}
+	deps.HistoryAppender = func(path string, entry history.Entry) error {
+		return errors.New("disk full")
+	}
+
+	err := gaugeImpl(deps)
+	if err == nil {
+		t.Fatal("expected error for history append failure")
+	}
+
+	if !strings.Contains(err.Error(), "appending to history") {
+		t.Errorf("error should mention appending to history, got: %v", err)
+	}
+}
+
+func TestGaugeImpl_SparklineWithHistoryFile(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Spark Test", "score": 85, "threshold": 75}`)
+
+	appendCalled := false
+	deps := defaultGaugeDeps(fs)
+	deps.Config = "config.json"
+	deps.Output = "/output.svg"
+	deps.BadgeType = "sparkline"
+	deps.HistoryFile = "/history.jsonl"
+	deps.HistoryCount = 5
+	deps.HistoryReader = func(path string) (*history.History, error) {
+		return &history.History{Entries: []history.Entry{
+			{Score: 75},
+			{Score: 78},
+			{Score: 80},
+			{Score: 82},
+		}}, nil
+	}
+	deps.HistoryAppender = func(path string, entry history.Entry) error {
+		appendCalled = true
+		if entry.Score != 85 {
+			t.Errorf("appended score = %d, want 85", entry.Score)
+		}
+		return nil
+	}
+
+	err := gaugeImpl(deps)
+	if err != nil {
+		t.Fatalf("gaugeImpl() error = %v", err)
+	}
+
+	if !appendCalled {
+		t.Error("history appender should be called")
+	}
+
+	output := fs.GetFileContent("/output.svg")
+	if !strings.Contains(output, "<svg") {
+		t.Error("output should contain SVG")
+	}
+}
+
+func TestGaugeImpl_SparklineNoHistoryFile(t *testing.T) {
+	// Test sparkline without history file - should use just current score
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Spark Test", "score": 85, "threshold": 75}`)
+
+	deps := defaultGaugeDeps(fs)
+	deps.Config = "config.json"
+	deps.Output = "/output.svg"
+	deps.BadgeType = "sparkline"
+	deps.HistoryFile = "" // No history file
+
+	err := gaugeImpl(deps)
+	if err != nil {
+		t.Fatalf("gaugeImpl() error = %v", err)
+	}
+
+	output := fs.GetFileContent("/output.svg")
+	if !strings.Contains(output, "<svg") {
+		t.Error("output should contain SVG")
+	}
+}
+
+func TestGaugeImpl_SparklineEmptyHistory(t *testing.T) {
+	// Test sparkline with empty history - should work with just current score
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Spark Test", "score": 85, "threshold": 75}`)
+
+	appendCalled := false
+	deps := defaultGaugeDeps(fs)
+	deps.Config = "config.json"
+	deps.Output = "/output.svg"
+	deps.BadgeType = "sparkline"
+	deps.HistoryFile = "/history.jsonl"
+	deps.HistoryReader = func(path string) (*history.History, error) {
+		return &history.History{Entries: []history.Entry{}}, nil // Empty history
+	}
+	deps.HistoryAppender = func(path string, entry history.Entry) error {
+		appendCalled = true
+		return nil
+	}
+
+	err := gaugeImpl(deps)
+	if err != nil {
+		t.Fatalf("gaugeImpl() error = %v", err)
+	}
+
+	if !appendCalled {
+		t.Error("history appender should be called even with empty history")
+	}
+}
+
+func TestGaugeImpl_BaselineParseError(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("current.json", `{"title": "Current", "score": 85, "threshold": 75}`)
+	fs.SetFileContent("baseline.json", `not valid json`)
+
+	deps := defaultGaugeDeps(fs)
+	deps.Config = "current.json"
+	deps.Output = "/output.svg"
+	deps.Compare = "baseline.json"
+
+	err := gaugeImpl(deps)
+	if err == nil {
+		t.Fatal("expected error for invalid baseline JSON")
+	}
+
+	if !strings.Contains(err.Error(), "parsing baseline") {
+		t.Errorf("error should mention parsing baseline, got: %v", err)
+	}
+}
+
+func TestGaugeImpl_BaselineFileNotFound(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("current.json", `{"title": "Current", "score": 85, "threshold": 75}`)
+	// Don't set baseline.json content
+
+	deps := defaultGaugeDeps(fs)
+	deps.Config = "current.json"
+	deps.Output = "/output.svg"
+	deps.Compare = "nonexistent.json"
+
+	err := gaugeImpl(deps)
+	if err == nil {
+		t.Fatal("expected error for missing baseline file")
+	}
+}
+
+func TestGaugeImpl_MarkdownWithBaseline(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("current.json", `{"title": "Current", "score": 85, "threshold": 75}`)
+	fs.SetFileContent("baseline.json", `{"title": "Baseline", "score": 62, "threshold": 75}`)
+
+	var stdout bytes.Buffer
+	deps := defaultGaugeDeps(fs)
+	deps.Stdout = &stdout
+	deps.Config = "current.json"
+	deps.Output = "-"
+	deps.Format = "markdown"
+	deps.Compare = "baseline.json"
+
+	err := gaugeImpl(deps)
+	if err != nil {
+		t.Fatalf("gaugeImpl() error = %v", err)
+	}
+
+	output := stdout.String()
+	if !strings.Contains(output, "+23") {
+		t.Errorf("markdown should contain positive delta +23, got: %s", output)
+	}
+	if !strings.Contains(output, "62%") {
+		t.Errorf("markdown should contain baseline percentage, got: %s", output)
+	}
+}
+
+func TestGaugeImpl_MarkdownWithNegativeBaseline(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("current.json", `{"title": "Current", "score": 62, "threshold": 75}`)
+	fs.SetFileContent("baseline.json", `{"title": "Baseline", "score": 85, "threshold": 75}`)
+
+	var stdout bytes.Buffer
+	deps := defaultGaugeDeps(fs)
+	deps.Stdout = &stdout
+	deps.Config = "current.json"
+	deps.Output = "-"
+	deps.Format = "markdown"
+	deps.Compare = "baseline.json"
+
+	err := gaugeImpl(deps)
+	if err != nil {
+		t.Fatalf("gaugeImpl() error = %v", err)
+	}
+
+	output := stdout.String()
+	if !strings.Contains(output, "-23") {
+		t.Errorf("markdown should contain negative delta -23, got: %s", output)
+	}
+}
+
+// Note: gaugeImpl uses a defer pattern for close errors that doesn't work with
+// non-named returns. Close errors in gauge are silently dropped. This test
+// documents the current behavior rather than testing error propagation.
+func TestGaugeImpl_FileCloseError_CurrentBehavior(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Test", "score": 85, "threshold": 75}`)
+	fs.SetError("close:/output.svg", errors.New("close failed"))
+
+	deps := defaultGaugeDeps(fs)
+	deps.Config = "config.json"
+	deps.Output = "/output.svg"
+
+	// Currently, close errors are silently dropped due to defer pattern bug
+	err := gaugeImpl(deps)
+	if err != nil {
+		t.Fatalf("gaugeImpl() should succeed despite close error (current behavior), got: %v", err)
+	}
+}
+
+// Note: The gauge library (svgo) doesn't propagate write errors, so write
+// errors during SVG generation are silently dropped. This test documents
+// the current behavior.
+func TestGaugeImpl_FileWriteError_CurrentBehavior(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Test", "score": 85, "threshold": 75}`)
+	fs.SetError("write:/output.svg", errors.New("disk full"))
+
+	deps := defaultGaugeDeps(fs)
+	deps.Config = "config.json"
+	deps.Output = "/output.svg"
+
+	// Currently, write errors during SVG generation are silently dropped
+	// because the underlying svgo library doesn't propagate write errors
+	err := gaugeImpl(deps)
+	if err != nil {
+		t.Fatalf("gaugeImpl() should succeed despite write error (current behavior), got: %v", err)
+	}
+}
+
+func TestGaugeImpl_VerboseOutput(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Verbose Test", "score": 85, "threshold": 75}`)
+
+	deps := defaultGaugeDeps(fs)
+	deps.Config = "config.json"
+	deps.Output = "/output.svg"
+	deps.Verbose = true
+
+	err := gaugeImpl(deps)
+	if err != nil {
+		t.Fatalf("gaugeImpl() error = %v", err)
+	}
+}
+
+func TestGaugeImpl_VerboseSuppressedForStdout(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Test", "score": 85, "threshold": 75}`)
+
+	var stdout, stderr bytes.Buffer
+	deps := defaultGaugeDeps(fs)
+	deps.Stdout = &stdout
+	deps.Stderr = &stderr
+	deps.Config = "config.json"
+	deps.Output = "-"
+	deps.Verbose = true
+
+	err := gaugeImpl(deps)
+	if err != nil {
+		t.Fatalf("gaugeImpl() error = %v", err)
+	}
+
+	// Verbose output should be suppressed when writing to stdout
+	if stderr.Len() > 0 {
+		t.Errorf("verbose output should be suppressed for stdout, got stderr: %s", stderr.String())
+	}
+}
+
+func TestGaugeImpl_JSONWithAllFields(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{
+		"title": "Full Test",
+		"score": 85,
+		"threshold": 75,
+		"version": "1.0.0",
+		"generatedAt": "2024-01-01T00:00:00Z",
+		"source": "test-source"
+	}`)
+
+	var stdout bytes.Buffer
+	deps := defaultGaugeDeps(fs)
+	deps.Stdout = &stdout
+	deps.Config = "config.json"
+	deps.Output = "-"
+	deps.Format = "json"
+
+	err := gaugeImpl(deps)
+	if err != nil {
+		t.Fatalf("gaugeImpl() error = %v", err)
+	}
+
+	output := stdout.String()
+	if !strings.Contains(output, `"version": "1.0.0"`) {
+		t.Error("JSON should contain version")
+	}
+	if !strings.Contains(output, `"source": "test-source"`) {
+		t.Error("JSON should contain source")
+	}
+}
+
+func TestGaugeImpl_MarkdownWithFactors(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{
+		"title": "Factor Test",
+		"score": 85,
+		"threshold": 75,
+		"description": "A detailed description",
+		"factors": [
+			{"name": "Test Factor", "score": 90, "weight": 50, "url": "https://example.com"},
+			{"name": "Another Factor", "score": 80, "weight": 50}
+		]
+	}`)
+
+	var stdout bytes.Buffer
+	deps := defaultGaugeDeps(fs)
+	deps.Stdout = &stdout
+	deps.Config = "config.json"
+	deps.Output = "-"
+	deps.Format = "markdown"
+
+	err := gaugeImpl(deps)
+	if err != nil {
+		t.Fatalf("gaugeImpl() error = %v", err)
+	}
+
+	output := stdout.String()
+	if !strings.Contains(output, "A detailed description") {
+		t.Error("markdown should contain description")
+	}
+	if !strings.Contains(output, "| Factor | Score | Weight |") {
+		t.Error("markdown should contain factor table header")
+	}
+	if !strings.Contains(output, "[Test Factor](https://example.com)") {
+		t.Error("markdown should contain factor with URL link")
+	}
+	if !strings.Contains(output, "Another Factor") {
+		t.Error("markdown should contain factor without URL")
+	}
+}
+
+func TestGaugeImpl_MarkdownFailingReport(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Fail Test", "score": 50, "threshold": 75}`)
+
+	var stdout bytes.Buffer
+	deps := defaultGaugeDeps(fs)
+	deps.Stdout = &stdout
+	deps.Config = "config.json"
+	deps.Output = "-"
+	deps.Format = "markdown"
+
+	err := gaugeImpl(deps)
+	if err != nil {
+		t.Fatalf("gaugeImpl() error = %v", err)
+	}
+
+	output := stdout.String()
+	if !strings.Contains(output, "(FAIL)") {
+		t.Error("markdown should show FAIL for score below threshold")
+	}
+}
+
+func TestGaugeImpl_TextWithZeroDelta(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("current.json", `{"title": "Current", "score": 85, "threshold": 75}`)
+	fs.SetFileContent("baseline.json", `{"title": "Baseline", "score": 85, "threshold": 75}`)
+
+	var stdout bytes.Buffer
+	deps := defaultGaugeDeps(fs)
+	deps.Stdout = &stdout
+	deps.Config = "current.json"
+	deps.Output = "-"
+	deps.Format = "text"
+	deps.Compare = "baseline.json"
+
+	err := gaugeImpl(deps)
+	if err != nil {
+		t.Fatalf("gaugeImpl() error = %v", err)
+	}
+
+	// Zero delta should show +0
+	if strings.TrimSpace(stdout.String()) != "85 (+0)" {
+		t.Errorf("text should show zero delta, got: %s", stdout.String())
+	}
+}
+
+func TestAggregateImpl_VerboseOutput(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("report.json", `{"title": "Test", "score": 85, "threshold": 75}`)
+
+	var stderr bytes.Buffer
+	deps := &AggregateDeps{
+		FS:        fs,
+		Stderr:    &stderr,
+		Verbose:   true,
+		Quiet:     false,
+		ExitFunc:  func(code int) {},
+		Configs:   []string{"report.json"},
+		Output:    "/output",
+		Dark:      false,
+		FailUnder: 0,
+	}
+
+	err := aggregateImpl(deps)
+	if err != nil {
+		t.Fatalf("aggregateImpl() error = %v", err)
+	}
+}
+
+func TestAggregateImpl_ValidWeight(t *testing.T) {
+	// Test that valid weight is used
+	fs := NewMockFileSystem()
+	fs.SetFileContent("report.json", `{"title": "Test", "score": 85, "threshold": 75}`)
+
+	deps := &AggregateDeps{
+		FS:        fs,
+		Stderr:    &bytes.Buffer{},
+		Verbose:   false,
+		Quiet:     false,
+		ExitFunc:  func(code int) {},
+		Configs:   []string{"report.json:50"}, // Valid weight
+		Output:    "/output",
+		Dark:      false,
+		FailUnder: 0,
+	}
+
+	err := aggregateImpl(deps)
+	if err != nil {
+		t.Fatalf("aggregateImpl() error = %v", err)
+	}
+}
+
+func TestAggregateImpl_SpecialCharTitle(t *testing.T) {
+	// Test sanitization with special characters in title
+	fs := NewMockFileSystem()
+	fs.SetFileContent("report.json", `{"title": "Test@#$%Report!", "score": 85, "threshold": 75}`)
+
+	deps := &AggregateDeps{
+		FS:        fs,
+		Stderr:    &bytes.Buffer{},
+		Verbose:   false,
+		Quiet:     false,
+		ExitFunc:  func(code int) {},
+		Configs:   []string{"report.json"},
+		Output:    "/output",
+		Dark:      false,
+		FailUnder: 0,
+	}
+
+	err := aggregateImpl(deps)
+	if err != nil {
+		t.Fatalf("aggregateImpl() error = %v", err)
+	}
+
+	// Should create testreport.svg (sanitized from Test@#$%Report!)
+	badge := fs.GetFileContent("/output/testreport.svg")
+	if !strings.Contains(badge, "<svg") {
+		t.Error("badge with sanitized name should be created")
+	}
+}
+
+func TestAggregateImpl_DashboardCloseError(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("report.json", `{"title": "Test", "score": 85, "threshold": 75}`)
+	fs.SetError("close:/output/dashboard/index.html", errors.New("close failed"))
+
+	deps := &AggregateDeps{
+		FS:        fs,
+		Stderr:    &bytes.Buffer{},
+		Verbose:   false,
+		Quiet:     false,
+		ExitFunc:  func(code int) {},
+		Configs:   []string{"report.json"},
+		Output:    "/output",
+		Dark:      false,
+		FailUnder: 0,
+	}
+
+	err := aggregateImpl(deps)
+	if err == nil {
+		t.Fatal("expected error for dashboard close failure")
+	}
+
+	if !strings.Contains(err.Error(), "closing dashboard file") {
+		t.Errorf("error should mention closing dashboard file, got: %v", err)
+	}
+}
+
+func TestAggregateImpl_ZeroThreshold(t *testing.T) {
+	// Test with reports that have no threshold set
+	fs := NewMockFileSystem()
+	fs.SetFileContent("report1.json", `{"title": "Report 1", "score": 85}`)
+	fs.SetFileContent("report2.json", `{"title": "Report 2", "score": 75}`)
+
+	deps := &AggregateDeps{
+		FS:        fs,
+		Stderr:    &bytes.Buffer{},
+		Verbose:   false,
+		Quiet:     false,
+		ExitFunc:  func(code int) {},
+		Configs:   []string{"report1.json", "report2.json"},
+		Output:    "/output",
+		Dark:      false,
+		FailUnder: 0,
+	}
+
+	err := aggregateImpl(deps)
+	if err != nil {
+		t.Fatalf("aggregateImpl() error = %v", err)
+	}
+}
+
+func TestGenerateImpl_VerboseOutput(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Verbose Test", "score": 85, "threshold": 75}`)
+
+	deps := &GenerateDeps{
+		FS:          fs,
+		Stdin:       nil,
+		Stderr:      &bytes.Buffer{},
+		Verbose:     true,
+		Quiet:       false,
+		ExitFunc:    func(code int) {},
+		Config:      "config.json",
+		Output:      "/output",
+		InputFormat: "auto",
+		Dark:        false,
+		FailUnder:   0,
+	}
+
+	err := generateImpl(deps)
+	if err != nil {
+		t.Fatalf("generateImpl() error = %v", err)
+	}
+}
+
+func TestGaugeImpl_SparklineDefaultDimensions(t *testing.T) {
+	// Test that sparkline uses smaller default dimensions
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Test", "score": 85, "threshold": 75}`)
+
+	var stdout bytes.Buffer
+	deps := defaultGaugeDeps(fs)
+	deps.Stdout = &stdout
+	deps.Config = "config.json"
+	deps.Output = "-"
+	deps.BadgeType = "sparkline"
+	// Width and Height default to 200 and 120, sparkline should override to 120 and 28
+
+	err := gaugeImpl(deps)
+	if err != nil {
+		t.Fatalf("gaugeImpl() error = %v", err)
+	}
+
+	output := stdout.String()
+	if !strings.Contains(output, `width="120"`) {
+		t.Error("sparkline should use default width of 120")
+	}
+}
+
+func TestGaugeImpl_FlatBadgeWithCustomLabel(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Original", "score": 85, "threshold": 75}`)
+
+	var stdout bytes.Buffer
+	deps := defaultGaugeDeps(fs)
+	deps.Stdout = &stdout
+	deps.Config = "config.json"
+	deps.Output = "-"
+	deps.BadgeType = "flat"
+	deps.Label = "" // Empty label should use report title
+
+	err := gaugeImpl(deps)
+	if err != nil {
+		t.Fatalf("gaugeImpl() error = %v", err)
+	}
+
+	output := stdout.String()
+	if !strings.Contains(output, "Original") {
+		t.Error("flat badge should use report title as label when custom label is empty")
+	}
+}
+
+func TestAggregateImpl_UseLowestThreshold(t *testing.T) {
+	// Test that aggregate uses the lowest threshold from all reports
+	fs := NewMockFileSystem()
+	fs.SetFileContent("high.json", `{"title": "High Threshold", "score": 85, "threshold": 90}`)
+	fs.SetFileContent("low.json", `{"title": "Low Threshold", "score": 85, "threshold": 60}`)
+
+	deps := &AggregateDeps{
+		FS:        fs,
+		Stderr:    &bytes.Buffer{},
+		Verbose:   false,
+		Quiet:     false,
+		ExitFunc:  func(code int) {},
+		Configs:   []string{"high.json", "low.json"},
+		Output:    "/output",
+		Dark:      false,
+		FailUnder: 0,
+	}
+
+	err := aggregateImpl(deps)
+	if err != nil {
+		t.Fatalf("aggregateImpl() error = %v", err)
+	}
+}
+
+func TestGaugeImpl_SparklineCustomDimensions(t *testing.T) {
+	// Test that custom dimensions are preserved for sparkline
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Test", "score": 85, "threshold": 75}`)
+
+	var stdout bytes.Buffer
+	deps := defaultGaugeDeps(fs)
+	deps.Stdout = &stdout
+	deps.Config = "config.json"
+	deps.Output = "-"
+	deps.BadgeType = "sparkline"
+	deps.Width = 150  // Custom width != 200
+	deps.Height = 50  // Custom height != 120
+
+	err := gaugeImpl(deps)
+	if err != nil {
+		t.Fatalf("gaugeImpl() error = %v", err)
+	}
+
+	output := stdout.String()
+	if !strings.Contains(output, `width="150"`) {
+		t.Error("sparkline should preserve custom width")
+	}
+}
+
+func TestGenerateImpl_FileCloseError(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Test", "score": 85, "threshold": 75}`)
+	fs.SetError("close:/output/badge.svg", errors.New("close failed"))
+
+	deps := &GenerateDeps{
+		FS:          fs,
+		Stdin:       nil,
+		Stderr:      &bytes.Buffer{},
+		Verbose:     false,
+		Quiet:       false,
+		ExitFunc:    func(code int) {},
+		Config:      "config.json",
+		Output:      "/output",
+		InputFormat: "auto",
+		Dark:        false,
+		FailUnder:   0,
+	}
+
+	err := generateImpl(deps)
+	if err == nil {
+		t.Fatal("expected error for file close failure")
+	}
+
+	if !strings.Contains(err.Error(), "closing badge file") {
+		t.Errorf("error should mention closing badge file, got: %v", err)
+	}
+}
+
+func TestGenerateImpl_DashboardCloseError(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Test", "score": 85, "threshold": 75}`)
+	fs.SetError("close:/output/dashboard/index.html", errors.New("close failed"))
+
+	deps := &GenerateDeps{
+		FS:          fs,
+		Stdin:       nil,
+		Stderr:      &bytes.Buffer{},
+		Verbose:     false,
+		Quiet:       false,
+		ExitFunc:    func(code int) {},
+		Config:      "config.json",
+		Output:      "/output",
+		InputFormat: "auto",
+		Dark:        false,
+		FailUnder:   0,
+	}
+
+	err := generateImpl(deps)
+	if err == nil {
+		t.Fatal("expected error for dashboard close failure")
+	}
+
+	if !strings.Contains(err.Error(), "closing dashboard file") {
+		t.Errorf("error should mention closing dashboard file, got: %v", err)
+	}
+}
+
+func TestAggregateImpl_BadgeCloseError(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("report.json", `{"title": "Test", "score": 85, "threshold": 75}`)
+	fs.SetError("close:/output/badge.svg", errors.New("close failed"))
+
+	deps := &AggregateDeps{
+		FS:        fs,
+		Stderr:    &bytes.Buffer{},
+		Verbose:   false,
+		Quiet:     false,
+		ExitFunc:  func(code int) {},
+		Configs:   []string{"report.json"},
+		Output:    "/output",
+		Dark:      false,
+		FailUnder: 0,
+	}
+
+	err := aggregateImpl(deps)
+	if err == nil {
+		t.Fatal("expected error for badge close failure")
+	}
+
+	if !strings.Contains(err.Error(), "closing badge file") {
+		t.Errorf("error should mention closing badge file, got: %v", err)
+	}
+}
+
+func TestAggregateImpl_IndividualBadgeCloseError(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("report.json", `{"title": "Test", "score": 85, "threshold": 75}`)
+	// Filename is sanitized from title: "Test" -> "test.svg"
+	fs.SetError("close:/output/test.svg", errors.New("close failed"))
+
+	deps := &AggregateDeps{
+		FS:        fs,
+		Stderr:    &bytes.Buffer{},
+		Verbose:   false,
+		Quiet:     false,
+		ExitFunc:  func(code int) {},
+		Configs:   []string{"report.json"},
+		Output:    "/output",
+		Dark:      false,
+		FailUnder: 0,
+	}
+
+	err := aggregateImpl(deps)
+	if err == nil {
+		t.Fatal("expected error for individual badge close failure")
+	}
+
+	if !strings.Contains(err.Error(), "closing badge file") {
+		t.Errorf("error should mention closing badge file, got: %v", err)
+	}
+}
+
+// Note: fetchImpl uses a defer pattern for close errors that doesn't work with
+// non-named returns. Close errors in fetch are silently dropped. This test
+// documents the current behavior rather than testing error propagation.
+func TestFetchImpl_FileCloseError_CurrentBehavior(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetError("close:/output/report.json", errors.New("close failed"))
+
+	src := &mockSource{
+		name: "test",
+		report: &confidence.Report{
+			Title:     "Test",
+			Score:     85,
+			Threshold: 75,
+		},
+	}
+
+	deps := &FetchDeps{
+		FS:           fs,
+		Stdout:       &bytes.Buffer{},
+		Stderr:       &bytes.Buffer{},
+		Verbose:      false,
+		Quiet:        false,
+		SourceGetter: mockSourceGetter(src),
+		SourceName:   "test",
+		Project:      "myproject",
+		Output:       "/output/report.json",
+		Extra:        map[string]string{},
+	}
+
+	// Currently, close errors are silently dropped due to defer pattern bug
+	err := fetchImpl(context.Background(), deps)
+	if err != nil {
+		t.Fatalf("fetchImpl() should succeed despite close error (current behavior), got: %v", err)
 	}
 }

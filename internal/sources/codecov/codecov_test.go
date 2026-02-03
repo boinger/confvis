@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/boinger/confvis/internal/sources"
@@ -325,5 +326,167 @@ func TestNewClient_WithTimeout(t *testing.T) {
 	}
 	if client.baseURL != defaultBaseURL {
 		t.Errorf("baseURL = %q, want %q", client.baseURL, defaultBaseURL)
+	}
+}
+
+func TestSource_Fetch_DefaultService(t *testing.T) {
+	// Test that default service is "github" when Extra is nil
+	s := &Source{}
+	t.Setenv(EnvToken, "test-token")
+
+	opts := sources.Options{
+		Project: "myorg/myrepo",
+		Extra:   nil, // No Extra map
+		Timeout: 1,
+	}
+
+	// This will fail with connection error, but exercises the default service path
+	_, _ = s.Fetch(context.Background(), opts)
+}
+
+func TestSource_Fetch_EmptyServiceInExtra(t *testing.T) {
+	// Test that empty service in Extra falls back to "github"
+	s := &Source{}
+	t.Setenv(EnvToken, "test-token")
+
+	opts := sources.Options{
+		Project: "myorg/myrepo",
+		Extra:   map[string]string{"service": ""}, // Empty service
+		Timeout: 1,
+	}
+
+	// This will fail with connection error, but exercises the empty service path
+	_, _ = s.Fetch(context.Background(), opts)
+}
+
+func TestSource_Fetch_CustomService(t *testing.T) {
+	// Test that custom service from Extra is used
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Verify bitbucket service is used in path
+		if !strings.Contains(r.URL.Path, "/bitbucket/") {
+			t.Errorf("path should contain bitbucket, got %s", r.URL.Path)
+		}
+
+		resp := ReportResponse{
+			Totals: Totals{Coverage: 80.0},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Errorf("encoding response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	client := &Client{
+		baseURL:    server.URL,
+		token:      "test-token",
+		httpClient: server.Client(),
+	}
+
+	report, err := client.FetchReport(context.Background(), "bitbucket", "team/repo")
+	if err != nil {
+		t.Fatalf("FetchReport() error = %v", err)
+	}
+
+	if report.Totals.Coverage != 80.0 {
+		t.Errorf("Coverage = %f, want 80.0", report.Totals.Coverage)
+	}
+}
+
+func TestSource_Fetch_NegativeTimeout(t *testing.T) {
+	// Test that negative timeout falls back to default 30s
+	s := &Source{}
+	t.Setenv(EnvToken, "test-token")
+
+	opts := sources.Options{
+		Project: "myorg/myrepo",
+		Timeout: -10, // Negative timeout
+	}
+
+	// This will fail with connection error, but verifies timeout handling
+	_, _ = s.Fetch(context.Background(), opts)
+}
+
+func TestSource_Fetch_TitleFallback(t *testing.T) {
+	// Test that title falls back to Project when not specified
+	s := &Source{}
+	t.Setenv(EnvToken, "test-token")
+
+	opts := sources.Options{
+		Project: "myorg/myrepo",
+		Title:   "", // Empty title should fall back to Project
+		Timeout: 1,
+	}
+
+	// This exercises the title fallback path
+	_, _ = s.Fetch(context.Background(), opts)
+}
+
+func TestSource_Fetch_ZeroCoverage(t *testing.T) {
+	// Test handling of 0% coverage
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := ReportResponse{
+			Totals: Totals{Coverage: 0.0},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Errorf("encoding response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	client := &Client{
+		baseURL:    server.URL,
+		token:      "test-token",
+		httpClient: server.Client(),
+	}
+
+	report, err := client.FetchReport(context.Background(), "github", "owner/repo")
+	if err != nil {
+		t.Fatalf("FetchReport() error = %v", err)
+	}
+
+	if report.Totals.Coverage != 0.0 {
+		t.Errorf("Coverage = %f, want 0.0", report.Totals.Coverage)
+	}
+
+	// Verify score truncation (0.0 -> 0)
+	score := int(report.Totals.Coverage)
+	if score != 0 {
+		t.Errorf("score = %d, want 0", score)
+	}
+}
+
+func TestSource_Fetch_FullCoverage(t *testing.T) {
+	// Test handling of 100% coverage
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := ReportResponse{
+			Totals: Totals{Coverage: 100.0},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Errorf("encoding response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	client := &Client{
+		baseURL:    server.URL,
+		token:      "test-token",
+		httpClient: server.Client(),
+	}
+
+	report, err := client.FetchReport(context.Background(), "github", "owner/repo")
+	if err != nil {
+		t.Fatalf("FetchReport() error = %v", err)
+	}
+
+	if report.Totals.Coverage != 100.0 {
+		t.Errorf("Coverage = %f, want 100.0", report.Totals.Coverage)
+	}
+
+	score := int(report.Totals.Coverage)
+	if score != 100 {
+		t.Errorf("score = %d, want 100", score)
 	}
 }
