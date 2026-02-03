@@ -15,8 +15,8 @@
 <text x="54" y="15" style="font-family:Verdana,Geneva,DejaVu Sans,sans-serif;font-size:11px;fill:#fff;fill:#010101;fill-opacity:0.3;text-anchor:middle" >Aggregate</text>
 <text x="53" y="14" style="font-family:Verdana,Geneva,DejaVu Sans,sans-serif;font-size:11px;fill:#fff;text-anchor:middle" >Aggregate</text>
 <g transform="translate(4,3)" >
-<path d="M7 1 A6 6 0 1 1 6.2 1.05 L7 7 Z" style="fill:#fff;fill-opacity:0.3" transform="translate(0.5,0.5)" />
-<path d="M7 1 A6 6 0 1 1 6.2 1.05 L7 7 Z" style="fill:#fff" />
+<path d="M7 1 A6 6 0 1 1 5.4 1.2 L7 7 Z" style="fill:#fff;fill-opacity:0.3" transform="translate(0.5,0.5)" />
+<path d="M7 1 A6 6 0 1 1 5.4 1.2 L7 7 Z" style="fill:#fff" />
 </g>
 <text x="108" y="15" style="font-family:Verdana,Geneva,DejaVu Sans,sans-serif;font-size:11px;fill:#fff;fill:#010101;fill-opacity:0.3;text-anchor:middle" >99%</text>
 <text x="107" y="14" style="font-family:Verdana,Geneva,DejaVu Sans,sans-serif;font-size:11px;fill:#fff;text-anchor:middle" >99%</text>

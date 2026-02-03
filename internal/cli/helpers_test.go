@@ -990,7 +990,7 @@ func TestGenerateAggregateBadge_FlatWithIcon(t *testing.T) {
 	}
 
 	// Test with icon path data
-	icon := "M7 1 A6 6 0 1 1 6.2 1.05 L7 7 Z"
+	icon := "M7 1 A6 6 0 1 1 5.4 1.2 L7 7 Z"
 	err := generateAggregateBadge(badgePath, report, false, "flat", icon, false)
 	if err != nil {
 		t.Fatalf("generateAggregateBadge() error = %v", err)
