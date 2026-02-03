@@ -12,6 +12,12 @@ import (
 
 const sourceName = "codecov"
 
+// Fetcher defines the interface for fetching Codecov data.
+type Fetcher interface {
+	FetchReport(ctx context.Context, service, ownerRepo string) (*ReportResponse, error)
+	ReportURL(service, ownerRepo string) string
+}
+
 // Environment variable names for configuration.
 const (
 	EnvToken = "CODECOV_TOKEN"
@@ -55,8 +61,14 @@ func (s *Source) Fetch(ctx context.Context, opts sources.Options) (*confidence.R
 	}
 	client := NewClient(token, timeout)
 
+	return s.FetchWithClient(ctx, client, opts, service)
+}
+
+// FetchWithClient retrieves coverage metrics using the provided Fetcher.
+// This allows injecting mock clients for testing.
+func (s *Source) FetchWithClient(ctx context.Context, fetcher Fetcher, opts sources.Options, service string) (*confidence.Report, error) {
 	// Fetch report
-	report, err := client.FetchReport(ctx, service, opts.Project)
+	report, err := fetcher.FetchReport(ctx, service, opts.Project)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +85,7 @@ func (s *Source) Fetch(ctx context.Context, opts sources.Options) (*confidence.R
 			Name:   "Code Coverage",
 			Score:  int(report.Totals.Coverage),
 			Weight: 100,
-			URL:    client.ReportURL(service, opts.Project),
+			URL:    fetcher.ReportURL(service, opts.Project),
 		},
 	}
 

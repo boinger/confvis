@@ -3,13 +3,30 @@ package snyk
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/boinger/confvis/internal/sources"
 )
+
+// mockFetcher implements the Fetcher interface for testing.
+type mockFetcher struct {
+	projectResp *ProjectResponse
+	projectErr  error
+	projectURL  string
+}
+
+func (m *mockFetcher) FetchProject(_ context.Context, _, _ string) (*ProjectResponse, error) {
+	return m.projectResp, m.projectErr
+}
+
+func (m *mockFetcher) ProjectURL(_, _ string) string {
+	return m.projectURL
+}
 
 func TestSeverityScore(t *testing.T) {
 	tests := []struct {
@@ -352,16 +369,7 @@ func TestSource_Fetch_EnvVarFallback(t *testing.T) {
 }
 
 func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsAt(s, substr, 0))
-}
-
-func containsAt(s, substr string, start int) bool {
-	for i := start; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
+	return strings.Contains(s, substr)
 }
 
 func TestSource_Fetch_MissingProjectID(t *testing.T) {
@@ -619,5 +627,285 @@ func TestSource_Fetch_AllSeveritiesMaxed(t *testing.T) {
 	}
 	if lowScore != 0 {
 		t.Errorf("low score with 100 issues = %d, want 0", lowScore)
+	}
+}
+
+func TestFetchWithClient_Success(t *testing.T) {
+	mock := &mockFetcher{
+		projectResp: &ProjectResponse{
+			Data: ProjectData{
+				ID:   "project-123",
+				Type: "project",
+				Attributes: ProjectAttributes{
+					Name: "My Project",
+				},
+				Meta: ProjectMeta{
+					LatestIssueCounts: &IssueCounts{
+						Critical: 0,
+						High:     2,
+						Medium:   5,
+						Low:      9,
+					},
+				},
+			},
+		},
+		projectURL: "https://app.snyk.io/org/my-org/project/project-123",
+	}
+
+	s := &Source{}
+	opts := sources.Options{
+		Project:   "project-123",
+		Title:     "Security Report",
+		Threshold: 70,
+	}
+
+	report, err := s.FetchWithClient(context.Background(), mock, opts, "my-org", "project-123")
+	if err != nil {
+		t.Fatalf("FetchWithClient() error = %v", err)
+	}
+
+	// Verify title from opts
+	if report.Title != "Security Report" {
+		t.Errorf("Title = %q, want %q", report.Title, "Security Report")
+	}
+
+	// Verify factors
+	if len(report.Factors) != 4 {
+		t.Fatalf("Factors count = %d, want 4", len(report.Factors))
+	}
+
+	// Critical: 100 (0 issues)
+	if report.Factors[0].Score != 100 {
+		t.Errorf("Critical score = %d, want 100", report.Factors[0].Score)
+	}
+	// High: 60 (2 issues * 20 penalty = 40 deducted)
+	if report.Factors[1].Score != 60 {
+		t.Errorf("High score = %d, want 60", report.Factors[1].Score)
+	}
+	// Medium: 50 (5 issues * 10 penalty = 50 deducted)
+	if report.Factors[2].Score != 50 {
+		t.Errorf("Medium score = %d, want 50", report.Factors[2].Score)
+	}
+	// Low: 55 (9 issues * 5 penalty = 45 deducted)
+	if report.Factors[3].Score != 55 {
+		t.Errorf("Low score = %d, want 55", report.Factors[3].Score)
+	}
+
+	// Verify URL is set correctly
+	if report.Factors[0].URL != "https://app.snyk.io/org/my-org/project/project-123" {
+		t.Errorf("URL = %q, want %q", report.Factors[0].URL, "https://app.snyk.io/org/my-org/project/project-123")
+	}
+}
+
+func TestFetchWithClient_FetchProjectError(t *testing.T) {
+	mock := &mockFetcher{
+		projectErr: errors.New("API connection failed"),
+	}
+
+	s := &Source{}
+	opts := sources.Options{
+		Project: "project-123",
+	}
+
+	_, err := s.FetchWithClient(context.Background(), mock, opts, "my-org", "project-123")
+	if err == nil {
+		t.Error("expected error when FetchProject fails")
+	}
+	if !strings.Contains(err.Error(), "API connection failed") {
+		t.Errorf("error = %q, want to contain %q", err.Error(), "API connection failed")
+	}
+}
+
+func TestFetchWithClient_NilIssueCounts(t *testing.T) {
+	mock := &mockFetcher{
+		projectResp: &ProjectResponse{
+			Data: ProjectData{
+				ID:   "project-123",
+				Type: "project",
+				Attributes: ProjectAttributes{
+					Name: "Clean Project",
+				},
+				Meta: ProjectMeta{
+					LatestIssueCounts: nil, // No issue counts
+				},
+			},
+		},
+		projectURL: "https://app.snyk.io/org/my-org/project/project-123",
+	}
+
+	s := &Source{}
+	opts := sources.Options{
+		Project: "project-123",
+	}
+
+	report, err := s.FetchWithClient(context.Background(), mock, opts, "my-org", "project-123")
+	if err != nil {
+		t.Fatalf("FetchWithClient() error = %v", err)
+	}
+
+	// All scores should be 100 (zero issues)
+	if report.Score != 100 {
+		t.Errorf("Score = %d, want 100", report.Score)
+	}
+}
+
+func TestFetchWithClient_AllClean(t *testing.T) {
+	mock := &mockFetcher{
+		projectResp: &ProjectResponse{
+			Data: ProjectData{
+				ID:   "project-123",
+				Type: "project",
+				Attributes: ProjectAttributes{
+					Name: "Clean Project",
+				},
+				Meta: ProjectMeta{
+					LatestIssueCounts: &IssueCounts{
+						Critical: 0,
+						High:     0,
+						Medium:   0,
+						Low:      0,
+					},
+				},
+			},
+		},
+		projectURL: "https://app.snyk.io/org/my-org/project/project-123",
+	}
+
+	s := &Source{}
+	opts := sources.Options{
+		Project: "project-123",
+	}
+
+	report, err := s.FetchWithClient(context.Background(), mock, opts, "my-org", "project-123")
+	if err != nil {
+		t.Fatalf("FetchWithClient() error = %v", err)
+	}
+
+	// All scores should be 100 → weighted score = 100
+	if report.Score != 100 {
+		t.Errorf("Score = %d, want 100", report.Score)
+	}
+}
+
+func TestFetchWithClient_CriticalVulnerabilities(t *testing.T) {
+	mock := &mockFetcher{
+		projectResp: &ProjectResponse{
+			Data: ProjectData{
+				ID:   "project-123",
+				Type: "project",
+				Attributes: ProjectAttributes{
+					Name: "Vulnerable Project",
+				},
+				Meta: ProjectMeta{
+					LatestIssueCounts: &IssueCounts{
+						Critical: 5,
+						High:     10,
+						Medium:   20,
+						Low:      50,
+					},
+				},
+			},
+		},
+		projectURL: "https://app.snyk.io/org/my-org/project/project-123",
+	}
+
+	s := &Source{}
+	opts := sources.Options{
+		Project: "project-123",
+	}
+
+	report, err := s.FetchWithClient(context.Background(), mock, opts, "my-org", "project-123")
+	if err != nil {
+		t.Fatalf("FetchWithClient() error = %v", err)
+	}
+
+	// Critical: 100 - 5*33 = -65 → 0 (capped)
+	if report.Factors[0].Score != 0 {
+		t.Errorf("Critical score = %d, want 0", report.Factors[0].Score)
+	}
+	// High: 100 - 10*20 = -100 → 0 (capped)
+	if report.Factors[1].Score != 0 {
+		t.Errorf("High score = %d, want 0", report.Factors[1].Score)
+	}
+	// Medium: 100 - 20*10 = -100 → 0 (capped)
+	if report.Factors[2].Score != 0 {
+		t.Errorf("Medium score = %d, want 0", report.Factors[2].Score)
+	}
+	// Low: 100 - 50*5 = -150 → 0 (capped)
+	if report.Factors[3].Score != 0 {
+		t.Errorf("Low score = %d, want 0", report.Factors[3].Score)
+	}
+
+	// Overall score should be 0
+	if report.Score != 0 {
+		t.Errorf("Score = %d, want 0", report.Score)
+	}
+}
+
+func TestFetchWithClient_TitleFallbackToProjectName(t *testing.T) {
+	mock := &mockFetcher{
+		projectResp: &ProjectResponse{
+			Data: ProjectData{
+				ID:   "project-123",
+				Type: "project",
+				Attributes: ProjectAttributes{
+					Name: "API Project Name",
+				},
+				Meta: ProjectMeta{
+					LatestIssueCounts: &IssueCounts{},
+				},
+			},
+		},
+		projectURL: "https://app.snyk.io/org/my-org/project/project-123",
+	}
+
+	s := &Source{}
+	opts := sources.Options{
+		Project: "project-123",
+		Title:   "", // Empty title should fall back to project name from API
+	}
+
+	report, err := s.FetchWithClient(context.Background(), mock, opts, "my-org", "project-123")
+	if err != nil {
+		t.Fatalf("FetchWithClient() error = %v", err)
+	}
+
+	// Title should fall back to project name from API
+	if report.Title != "API Project Name" {
+		t.Errorf("Title = %q, want %q", report.Title, "API Project Name")
+	}
+}
+
+func TestFetchWithClient_TitleFallbackToProjectID(t *testing.T) {
+	mock := &mockFetcher{
+		projectResp: &ProjectResponse{
+			Data: ProjectData{
+				ID:   "project-123",
+				Type: "project",
+				Attributes: ProjectAttributes{
+					Name: "", // Empty name from API
+				},
+				Meta: ProjectMeta{
+					LatestIssueCounts: &IssueCounts{},
+				},
+			},
+		},
+		projectURL: "https://app.snyk.io/org/my-org/project/project-123",
+	}
+
+	s := &Source{}
+	opts := sources.Options{
+		Project: "project-123",
+		Title:   "", // Empty title
+	}
+
+	report, err := s.FetchWithClient(context.Background(), mock, opts, "my-org", "project-123")
+	if err != nil {
+		t.Fatalf("FetchWithClient() error = %v", err)
+	}
+
+	// Title should fall back to projectID when both opts.Title and API name are empty
+	if report.Title != "project-123" {
+		t.Errorf("Title = %q, want %q", report.Title, "project-123")
 	}
 }

@@ -12,6 +12,12 @@ import (
 
 const sourceName = "snyk"
 
+// Fetcher defines the interface for fetching Snyk data.
+type Fetcher interface {
+	FetchProject(ctx context.Context, orgID, projectID string) (*ProjectResponse, error)
+	ProjectURL(orgID, projectID string) string
+}
+
 // Environment variable names for configuration.
 const (
 	EnvToken  = "SNYK_TOKEN"
@@ -89,8 +95,14 @@ func (s *Source) Fetch(ctx context.Context, opts sources.Options) (*confidence.R
 	}
 	client := NewClient(apiURL, token, timeout)
 
+	return s.FetchWithClient(ctx, client, opts, orgID, projectID)
+}
+
+// FetchWithClient retrieves vulnerability metrics using the provided Fetcher.
+// This allows injecting mock clients for testing.
+func (s *Source) FetchWithClient(ctx context.Context, fetcher Fetcher, opts sources.Options, orgID, projectID string) (*confidence.Report, error) {
 	// Fetch project with issue counts
-	project, err := client.FetchProject(ctx, orgID, projectID)
+	project, err := fetcher.FetchProject(ctx, orgID, projectID)
 	if err != nil {
 		return nil, err
 	}
@@ -117,28 +129,28 @@ func (s *Source) Fetch(ctx context.Context, opts sources.Options) (*confidence.R
 			Score:       SeverityScore(counts.Critical, PenaltyCritical),
 			Weight:      WeightCritical,
 			Description: fmt.Sprintf("%d critical", counts.Critical),
-			URL:         client.ProjectURL(orgID, projectID),
+			URL:         fetcher.ProjectURL(orgID, projectID),
 		},
 		{
 			Name:        "High Vulnerabilities",
 			Score:       SeverityScore(counts.High, PenaltyHigh),
 			Weight:      WeightHigh,
 			Description: fmt.Sprintf("%d high", counts.High),
-			URL:         client.ProjectURL(orgID, projectID),
+			URL:         fetcher.ProjectURL(orgID, projectID),
 		},
 		{
 			Name:        "Medium Vulnerabilities",
 			Score:       SeverityScore(counts.Medium, PenaltyMedium),
 			Weight:      WeightMedium,
 			Description: fmt.Sprintf("%d medium", counts.Medium),
-			URL:         client.ProjectURL(orgID, projectID),
+			URL:         fetcher.ProjectURL(orgID, projectID),
 		},
 		{
 			Name:        "Low Vulnerabilities",
 			Score:       SeverityScore(counts.Low, PenaltyLow),
 			Weight:      WeightLow,
 			Description: fmt.Sprintf("%d low", counts.Low),
-			URL:         client.ProjectURL(orgID, projectID),
+			URL:         fetcher.ProjectURL(orgID, projectID),
 		},
 	}
 

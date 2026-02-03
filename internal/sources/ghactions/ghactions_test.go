@@ -3,6 +3,7 @@ package ghactions
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -11,6 +12,21 @@ import (
 
 	"github.com/boinger/confvis/internal/sources"
 )
+
+// mockFetcher implements the Fetcher interface for testing.
+type mockFetcher struct {
+	runsResp   *WorkflowRunsResponse
+	runsErr    error
+	actionsURL string
+}
+
+func (m *mockFetcher) FetchRuns(_ context.Context, _ string, _ FetchRunsOptions) (*WorkflowRunsResponse, error) {
+	return m.runsResp, m.runsErr
+}
+
+func (m *mockFetcher) ActionsURL(_ string) string {
+	return m.actionsURL
+}
 
 func TestConclusionScore(t *testing.T) {
 	tests := []struct {
@@ -705,5 +721,195 @@ func TestSource_Fetch_EmptyWorkflowAndEvent(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("FetchRuns() error = %v", err)
+	}
+}
+
+func TestFetchWithClient_Success(t *testing.T) {
+	mock := &mockFetcher{
+		runsResp: &WorkflowRunsResponse{
+			TotalCount: 5,
+			WorkflowRuns: []WorkflowRun{
+				{ID: 1, Conclusion: "success"},
+				{ID: 2, Conclusion: "success"},
+				{ID: 3, Conclusion: "success"},
+				{ID: 4, Conclusion: "failure"},
+				{ID: 5, Conclusion: "success"},
+			},
+		},
+		actionsURL: "https://github.com/myorg/myrepo/actions",
+	}
+
+	s := &Source{}
+	opts := sources.Options{
+		Project:   "myorg/myrepo",
+		Title:     "CI Pipeline",
+		Threshold: 80,
+	}
+
+	report, err := s.FetchWithClient(context.Background(), mock, opts, FetchRunsOptions{Count: 20})
+	if err != nil {
+		t.Fatalf("FetchWithClient() error = %v", err)
+	}
+
+	// 4/5 = 80%
+	if report.Score != 80 {
+		t.Errorf("Score = %d, want 80", report.Score)
+	}
+	if report.Title != "CI Pipeline" {
+		t.Errorf("Title = %q, want %q", report.Title, "CI Pipeline")
+	}
+	if len(report.Factors) != 1 {
+		t.Fatalf("Factors count = %d, want 1", len(report.Factors))
+	}
+	if report.Factors[0].Description != "4/5 successful runs" {
+		t.Errorf("Description = %q, want %q", report.Factors[0].Description, "4/5 successful runs")
+	}
+	if report.Factors[0].URL != "https://github.com/myorg/myrepo/actions" {
+		t.Errorf("URL = %q, want %q", report.Factors[0].URL, "https://github.com/myorg/myrepo/actions")
+	}
+}
+
+func TestFetchWithClient_FetchRunsError(t *testing.T) {
+	mock := &mockFetcher{
+		runsErr: errors.New("API connection failed"),
+	}
+
+	s := &Source{}
+	opts := sources.Options{
+		Project: "myorg/myrepo",
+	}
+
+	_, err := s.FetchWithClient(context.Background(), mock, opts, FetchRunsOptions{Count: 20})
+	if err == nil {
+		t.Error("expected error when FetchRuns fails")
+	}
+	if !strings.Contains(err.Error(), "API connection failed") {
+		t.Errorf("error = %q, want to contain %q", err.Error(), "API connection failed")
+	}
+}
+
+func TestFetchWithClient_ZeroRuns(t *testing.T) {
+	mock := &mockFetcher{
+		runsResp: &WorkflowRunsResponse{
+			TotalCount:   0,
+			WorkflowRuns: []WorkflowRun{},
+		},
+		actionsURL: "https://github.com/myorg/myrepo/actions",
+	}
+
+	s := &Source{}
+	opts := sources.Options{
+		Project: "myorg/myrepo",
+	}
+
+	report, err := s.FetchWithClient(context.Background(), mock, opts, FetchRunsOptions{Count: 20})
+	if err != nil {
+		t.Fatalf("FetchWithClient() error = %v", err)
+	}
+
+	// 0 runs should result in 0% success rate (division edge case)
+	if report.Score != 0 {
+		t.Errorf("Score = %d, want 0", report.Score)
+	}
+	if report.Factors[0].Description != "0/0 successful runs" {
+		t.Errorf("Description = %q, want %q", report.Factors[0].Description, "0/0 successful runs")
+	}
+}
+
+func TestFetchWithClient_AllFailures(t *testing.T) {
+	mock := &mockFetcher{
+		runsResp: &WorkflowRunsResponse{
+			TotalCount: 4,
+			WorkflowRuns: []WorkflowRun{
+				{ID: 1, Conclusion: "failure"},
+				{ID: 2, Conclusion: "failure"},
+				{ID: 3, Conclusion: "timed_out"},
+				{ID: 4, Conclusion: "cancelled"},
+			},
+		},
+		actionsURL: "https://github.com/myorg/myrepo/actions",
+	}
+
+	s := &Source{}
+	opts := sources.Options{
+		Project: "myorg/myrepo",
+	}
+
+	report, err := s.FetchWithClient(context.Background(), mock, opts, FetchRunsOptions{Count: 20})
+	if err != nil {
+		t.Fatalf("FetchWithClient() error = %v", err)
+	}
+
+	// 0/4 = 0%
+	if report.Score != 0 {
+		t.Errorf("Score = %d, want 0", report.Score)
+	}
+	if report.Factors[0].Description != "0/4 successful runs" {
+		t.Errorf("Description = %q, want %q", report.Factors[0].Description, "0/4 successful runs")
+	}
+}
+
+func TestFetchWithClient_PartialSuccess(t *testing.T) {
+	mock := &mockFetcher{
+		runsResp: &WorkflowRunsResponse{
+			TotalCount: 10,
+			WorkflowRuns: []WorkflowRun{
+				{ID: 1, Conclusion: "success"},
+				{ID: 2, Conclusion: "success"},
+				{ID: 3, Conclusion: "success"},
+				{ID: 4, Conclusion: "failure"},
+				{ID: 5, Conclusion: "failure"},
+				{ID: 6, Conclusion: "success"},
+				{ID: 7, Conclusion: "neutral"},
+				{ID: 8, Conclusion: "cancelled"},
+				{ID: 9, Conclusion: "success"},
+				{ID: 10, Conclusion: "timed_out"},
+			},
+		},
+		actionsURL: "https://github.com/myorg/myrepo/actions",
+	}
+
+	s := &Source{}
+	opts := sources.Options{
+		Project: "myorg/myrepo",
+	}
+
+	report, err := s.FetchWithClient(context.Background(), mock, opts, FetchRunsOptions{Count: 20})
+	if err != nil {
+		t.Fatalf("FetchWithClient() error = %v", err)
+	}
+
+	// 5/10 = 50%
+	if report.Score != 50 {
+		t.Errorf("Score = %d, want 50", report.Score)
+	}
+	if report.Factors[0].Description != "5/10 successful runs" {
+		t.Errorf("Description = %q, want %q", report.Factors[0].Description, "5/10 successful runs")
+	}
+}
+
+func TestFetchWithClient_TitleFallback(t *testing.T) {
+	mock := &mockFetcher{
+		runsResp: &WorkflowRunsResponse{
+			TotalCount:   1,
+			WorkflowRuns: []WorkflowRun{{ID: 1, Conclusion: "success"}},
+		},
+		actionsURL: "https://github.com/myorg/myrepo/actions",
+	}
+
+	s := &Source{}
+	opts := sources.Options{
+		Project: "myorg/myrepo",
+		Title:   "", // Empty title should fall back to Project
+	}
+
+	report, err := s.FetchWithClient(context.Background(), mock, opts, FetchRunsOptions{Count: 20})
+	if err != nil {
+		t.Fatalf("FetchWithClient() error = %v", err)
+	}
+
+	// Title should fall back to Project
+	if report.Title != "myorg/myrepo" {
+		t.Errorf("Title = %q, want %q", report.Title, "myorg/myrepo")
 	}
 }

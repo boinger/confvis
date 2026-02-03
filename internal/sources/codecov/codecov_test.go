@@ -3,6 +3,7 @@ package codecov
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -10,6 +11,21 @@ import (
 
 	"github.com/boinger/confvis/internal/sources"
 )
+
+// mockFetcher implements the Fetcher interface for testing.
+type mockFetcher struct {
+	reportResp *ReportResponse
+	reportErr  error
+	reportURL  string
+}
+
+func (m *mockFetcher) FetchReport(_ context.Context, _, _ string) (*ReportResponse, error) {
+	return m.reportResp, m.reportErr
+}
+
+func (m *mockFetcher) ReportURL(_, _ string) string {
+	return m.reportURL
+}
 
 func TestSource_Name(t *testing.T) {
 	s := &Source{}
@@ -488,5 +504,157 @@ func TestSource_Fetch_FullCoverage(t *testing.T) {
 	score := int(report.Totals.Coverage)
 	if score != 100 {
 		t.Errorf("score = %d, want 100", score)
+	}
+}
+
+func TestFetchWithClient_Success(t *testing.T) {
+	mock := &mockFetcher{
+		reportResp: &ReportResponse{
+			Totals: Totals{Coverage: 87.5},
+		},
+		reportURL: "https://app.codecov.io/github/myorg/myrepo",
+	}
+
+	s := &Source{}
+	opts := sources.Options{
+		Project:   "myorg/myrepo",
+		Title:     "Coverage Report",
+		Threshold: 80,
+	}
+
+	report, err := s.FetchWithClient(context.Background(), mock, opts, "github")
+	if err != nil {
+		t.Fatalf("FetchWithClient() error = %v", err)
+	}
+
+	// 87.5 truncates to 87
+	if report.Score != 87 {
+		t.Errorf("Score = %d, want 87", report.Score)
+	}
+	if report.Title != "Coverage Report" {
+		t.Errorf("Title = %q, want %q", report.Title, "Coverage Report")
+	}
+	if len(report.Factors) != 1 {
+		t.Fatalf("Factors count = %d, want 1", len(report.Factors))
+	}
+	if report.Factors[0].Score != 87 {
+		t.Errorf("Factor Score = %d, want 87", report.Factors[0].Score)
+	}
+	if report.Factors[0].URL != "https://app.codecov.io/github/myorg/myrepo" {
+		t.Errorf("URL = %q, want %q", report.Factors[0].URL, "https://app.codecov.io/github/myorg/myrepo")
+	}
+}
+
+func TestFetchWithClient_FetchReportError(t *testing.T) {
+	mock := &mockFetcher{
+		reportErr: errors.New("API connection failed"),
+	}
+
+	s := &Source{}
+	opts := sources.Options{
+		Project: "myorg/myrepo",
+	}
+
+	_, err := s.FetchWithClient(context.Background(), mock, opts, "github")
+	if err == nil {
+		t.Error("expected error when FetchReport fails")
+	}
+	if !strings.Contains(err.Error(), "API connection failed") {
+		t.Errorf("error = %q, want to contain %q", err.Error(), "API connection failed")
+	}
+}
+
+func TestFetchWithClient_ZeroCoverage(t *testing.T) {
+	mock := &mockFetcher{
+		reportResp: &ReportResponse{
+			Totals: Totals{Coverage: 0.0},
+		},
+		reportURL: "https://app.codecov.io/github/myorg/myrepo",
+	}
+
+	s := &Source{}
+	opts := sources.Options{
+		Project: "myorg/myrepo",
+	}
+
+	report, err := s.FetchWithClient(context.Background(), mock, opts, "github")
+	if err != nil {
+		t.Fatalf("FetchWithClient() error = %v", err)
+	}
+
+	if report.Score != 0 {
+		t.Errorf("Score = %d, want 0", report.Score)
+	}
+}
+
+func TestFetchWithClient_FullCoverage(t *testing.T) {
+	mock := &mockFetcher{
+		reportResp: &ReportResponse{
+			Totals: Totals{Coverage: 100.0},
+		},
+		reportURL: "https://app.codecov.io/github/myorg/myrepo",
+	}
+
+	s := &Source{}
+	opts := sources.Options{
+		Project: "myorg/myrepo",
+	}
+
+	report, err := s.FetchWithClient(context.Background(), mock, opts, "github")
+	if err != nil {
+		t.Fatalf("FetchWithClient() error = %v", err)
+	}
+
+	if report.Score != 100 {
+		t.Errorf("Score = %d, want 100", report.Score)
+	}
+}
+
+func TestFetchWithClient_PartialCoverage(t *testing.T) {
+	mock := &mockFetcher{
+		reportResp: &ReportResponse{
+			Totals: Totals{Coverage: 55.7},
+		},
+		reportURL: "https://app.codecov.io/gitlab/mygroup/myproject",
+	}
+
+	s := &Source{}
+	opts := sources.Options{
+		Project: "mygroup/myproject",
+	}
+
+	report, err := s.FetchWithClient(context.Background(), mock, opts, "gitlab")
+	if err != nil {
+		t.Fatalf("FetchWithClient() error = %v", err)
+	}
+
+	// 55.7 truncates to 55
+	if report.Score != 55 {
+		t.Errorf("Score = %d, want 55", report.Score)
+	}
+}
+
+func TestFetchWithClient_TitleFallback(t *testing.T) {
+	mock := &mockFetcher{
+		reportResp: &ReportResponse{
+			Totals: Totals{Coverage: 80.0},
+		},
+		reportURL: "https://app.codecov.io/github/myorg/myrepo",
+	}
+
+	s := &Source{}
+	opts := sources.Options{
+		Project: "myorg/myrepo",
+		Title:   "", // Empty title should fall back to Project
+	}
+
+	report, err := s.FetchWithClient(context.Background(), mock, opts, "github")
+	if err != nil {
+		t.Fatalf("FetchWithClient() error = %v", err)
+	}
+
+	// Title should fall back to Project
+	if report.Title != "myorg/myrepo" {
+		t.Errorf("Title = %q, want %q", report.Title, "myorg/myrepo")
 	}
 }

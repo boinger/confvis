@@ -152,3 +152,33 @@ The gauge rendering is self-contained in `gauge.go`. Modify:
    ```
 
 The source will automatically be available via `confvis fetch codecov`.
+
+#### Testability Pattern
+
+For testable source implementations, use the `Fetcher` interface pattern:
+
+1. Define a `Fetcher` interface that your HTTP client satisfies:
+   ```go
+   type Fetcher interface {
+       FetchData(ctx context.Context, params string) (*Response, error)
+       DataURL(params string) string
+   }
+   ```
+
+2. Add a `FetchWithClient` method that accepts the interface:
+   ```go
+   func (s *Source) FetchWithClient(ctx context.Context, fetcher Fetcher, opts sources.Options) (*confidence.Report, error) {
+       // Core logic here - fully testable with mock fetcher
+   }
+   ```
+
+3. Have `Fetch` resolve configuration and delegate:
+   ```go
+   func (s *Source) Fetch(ctx context.Context, opts sources.Options) (*confidence.Report, error) {
+       // Resolve token, URL, etc. from opts and environment
+       client := NewClient(apiURL, token, timeout)
+       return s.FetchWithClient(ctx, client, opts)
+   }
+   ```
+
+This pattern (similar to `*WithFS` in `internal/cli/`) allows injecting mock clients in tests while keeping the public API unchanged. The existing `*Client` types automatically satisfy their `Fetcher` interfaces via Go's structural typing.

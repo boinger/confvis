@@ -13,6 +13,12 @@ import (
 
 const sourceName = "github-actions"
 
+// Fetcher defines the interface for fetching GitHub Actions data.
+type Fetcher interface {
+	FetchRuns(ctx context.Context, ownerRepo string, opts FetchRunsOptions) (*WorkflowRunsResponse, error)
+	ActionsURL(ownerRepo string) string
+}
+
 // Environment variable names for configuration.
 const (
 	EnvToken  = "GITHUB_TOKEN"
@@ -73,12 +79,18 @@ func (s *Source) Fetch(ctx context.Context, opts sources.Options) (*confidence.R
 	}
 	client := NewClient(apiURL, token, timeout)
 
-	// Fetch workflow runs
-	runsResp, err := client.FetchRuns(ctx, opts.Project, FetchRunsOptions{
+	return s.FetchWithClient(ctx, client, opts, FetchRunsOptions{
 		Workflow: workflow,
 		Event:    event,
 		Count:    runCount,
 	})
+}
+
+// FetchWithClient retrieves workflow metrics using the provided Fetcher.
+// This allows injecting mock clients for testing.
+func (s *Source) FetchWithClient(ctx context.Context, fetcher Fetcher, opts sources.Options, runOpts FetchRunsOptions) (*confidence.Report, error) {
+	// Fetch workflow runs
+	runsResp, err := fetcher.FetchRuns(ctx, opts.Project, runOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +125,7 @@ func (s *Source) Fetch(ctx context.Context, opts sources.Options) (*confidence.R
 			Score:       successRate,
 			Weight:      100,
 			Description: description,
-			URL:         client.ActionsURL(opts.Project),
+			URL:         fetcher.ActionsURL(opts.Project),
 		},
 	}
 
