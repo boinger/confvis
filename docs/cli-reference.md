@@ -86,6 +86,7 @@ confvis gauge -c <config> -o <output-file> [flags]
 | `--format` | `-f` | svg | Output format: `svg`, `json`, `text`, `markdown`, or `github-comment` |
 | `--badge-type` | | gauge | Badge type: `gauge`, `flat`, or `sparkline` |
 | `--label` | | | Custom label for flat badge (defaults to report title) |
+| `--icon` | | | SVG path data for flat badge icon |
 | `--history-file` | | | Path to history file for sparkline (JSON lines format) |
 | `--history-count` | | 10 | Number of historical points to show in sparkline |
 | `--width` | | 200 | Gauge width in pixels (gauge badge only) |
@@ -208,6 +209,9 @@ confvis gauge -c confidence.json -o badge.svg --style high-contrast
 # Shields.io-style flat badge
 confvis gauge -c confidence.json -o badge.svg --badge-type flat
 confvis gauge -c confidence.json -o badge.svg --badge-type flat --label "Quality"
+
+# Flat badge with custom icon (SVG path data)
+confvis gauge -c confidence.json -o badge.svg --badge-type flat --icon "M7 1 A6 6 0 1 1 6.2 1.05 L7 7 Z"
 
 # Output as markdown (for PR comments)
 confvis gauge -c confidence.json -o - -f markdown
@@ -353,6 +357,8 @@ confvis aggregate -c <config>[:weight] [-c <config>[:weight] ...] -o <output-dir
 
 | Flag | Default | Description |
 |------|---------|-------------|
+| `--badge-type` | gauge | Badge type: `gauge` or `flat` |
+| `--icon` | | SVG path data for flat badge icon |
 | `--dark` | false | Use dark mode colors |
 | `--fail-under` | 0 | Exit with code 1 if aggregate score is below this value |
 
@@ -395,6 +401,9 @@ confvis aggregate -c "services/*/confidence.json" -o ./output --fail-under 75
 
 # Verbose output showing weights
 confvis aggregate -c api.json:60 -c web.json:40 -o ./output -v
+
+# Flat badge with icon
+confvis aggregate -c api.json -c web.json -o ./output --badge-type flat --icon "M7 1 A6 6 0 1 1 6.2 1.05 L7 7 Z"
 ```
 
 ---

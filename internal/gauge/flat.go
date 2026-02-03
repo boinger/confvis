@@ -12,6 +12,7 @@ import (
 // FlatOptions configures flat badge generation.
 type FlatOptions struct {
 	Label       string // Label text (left side), defaults to report title
+	Icon        string // SVG path data for icon (rendered in label section)
 	DarkMode    bool
 	Style       string // Color scheme style
 	GreenAbove  int    // Score threshold for green color
@@ -46,7 +47,11 @@ func GenerateFlat(w io.Writer, report *confidence.Report, opts FlatOptions) erro
 
 	// Calculate widths based on text length
 	// Approximate: 7px per character + padding
-	labelWidth := len(label)*7 + 12
+	iconWidth := 0
+	if opts.Icon != "" {
+		iconWidth = 16 // 14px icon + 2px padding
+	}
+	labelWidth := len(label)*7 + 12 + iconWidth
 	scoreWidth := len(scoreText)*7 + 12
 	statusWidth := len(statusText)*7 + 12
 	totalWidth := labelWidth + scoreWidth + statusWidth
@@ -88,10 +93,24 @@ func GenerateFlat(w io.Writer, report *confidence.Report, opts FlatOptions) erro
 	textStyle := "font-family:Verdana,Geneva,DejaVu Sans,sans-serif;font-size:11px;fill:#fff"
 
 	// Label text (with shadow for readability)
+	// Shift text right if icon is present
 	labelX := labelWidth / 2
+	if opts.Icon != "" {
+		labelX = iconWidth + (labelWidth-iconWidth)/2
+	}
 	textY := 14
 	canvas.Text(labelX+1, textY+1, label, textStyle+";fill:#010101;fill-opacity:0.3;text-anchor:middle")
 	canvas.Text(labelX, textY, label, textStyle+";text-anchor:middle")
+
+	// Render icon if provided
+	if opts.Icon != "" {
+		// Icon is rendered at 14x14, positioned with padding
+		// Use a group with transform to scale from viewBox 0 0 14 14
+		canvas.Group(`transform="translate(4,3)"`)
+		canvas.Path(opts.Icon, "fill:#fff;fill-opacity:0.3", `transform="translate(0.5,0.5)"`)
+		canvas.Path(opts.Icon, "fill:#fff")
+		canvas.Gend()
+	}
 
 	// Score text
 	scoreX := labelWidth + scoreWidth/2

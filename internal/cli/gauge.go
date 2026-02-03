@@ -28,6 +28,7 @@ var (
 	gaugeFailOnRegression bool
 	gaugeBadgeType        string
 	gaugeLabel            string
+	gaugeIcon             string
 	gaugeInputFormat      string
 	gaugeHistoryFile      string
 	gaugeHistoryCount     int
@@ -56,6 +57,7 @@ func init() {
 	gaugeCmd.Flags().BoolVar(&gaugeFailOnRegression, "fail-on-regression", false, "exit non-zero if score decreased from baseline (requires --compare)")
 	gaugeCmd.Flags().StringVar(&gaugeBadgeType, "badge-type", "gauge", "badge type: gauge, flat, or sparkline")
 	gaugeCmd.Flags().StringVar(&gaugeLabel, "label", "", "custom label for flat badge (defaults to report title)")
+	gaugeCmd.Flags().StringVar(&gaugeIcon, "icon", "", "SVG path data for flat badge icon")
 	gaugeCmd.Flags().StringVar(&gaugeHistoryFile, "history-file", "", "path to history file for sparkline (JSON lines format)")
 	gaugeCmd.Flags().IntVar(&gaugeHistoryCount, "history-count", 10, "number of historical points to show in sparkline")
 
@@ -86,6 +88,7 @@ type GaugeDeps struct {
 	Style            string
 	BadgeType        string
 	Label            string
+	Icon             string
 	InputFormat      string
 	Compare          string
 	HistoryFile      string
@@ -116,6 +119,7 @@ func runGauge(_ *cobra.Command, _ []string) error {
 		Style:            gaugeStyle,
 		BadgeType:        gaugeBadgeType,
 		Label:            gaugeLabel,
+		Icon:             gaugeIcon,
 		InputFormat:      gaugeInputFormat,
 		Compare:          gaugeCompare,
 		HistoryFile:      gaugeHistoryFile,
@@ -321,6 +325,7 @@ func generateSVGBadge(w io.Writer, report *confidence.Report, deps *GaugeDeps) e
 	case "flat":
 		flatOpts := gauge.FlatOptions{
 			Label:       deps.Label,
+			Icon:        deps.Icon,
 			DarkMode:    deps.Dark,
 			Style:       deps.Style,
 			GreenAbove:  deps.GreenAbove,

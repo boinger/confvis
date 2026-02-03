@@ -66,7 +66,7 @@ jobs:
             exit 0
           fi
 
-          ./confvis aggregate $CONFIGS -o ./badges --badge-type flat --fail-under 0
+          ./confvis aggregate $CONFIGS -o ./badges --badge-type flat --icon "M7 1 A6 6 0 1 1 6.2 1.05 L7 7 Z" --fail-under 0
 
       - name: Commit badge
         if: github.ref == 'refs/heads/main'
