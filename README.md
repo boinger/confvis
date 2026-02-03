@@ -24,52 +24,54 @@ go build -o confvis ./cmd/confvis
 
 ## Quick Start
 
-1. Create a confidence report (JSON or YAML):
+### 1. Fetch metrics from your tools
+
+confvis pulls metrics from tools you already use:
+
+```bash
+# Fetch coverage from Codecov
+export CODECOV_TOKEN=your_token
+confvis fetch codecov -p owner/repo -o coverage.json
+
+# Fetch code quality from SonarQube
+export SONARQUBE_URL=https://sonar.example.com
+export SONARQUBE_TOKEN=squ_xxx
+confvis fetch sonarqube -p myproject -o quality.json
+
+# Aggregate with weights and generate badge + dashboard
+confvis aggregate -c coverage.json:60 -c quality.json:40 -o ./output
+```
+
+**Other integrations:** GitHub Actions, Snyk, Trivy—see [Sources](docs/sources.md).
+
+### 2. Understand the output
+
+Each fetched report contains:
 
 ```json
 {
-  "title": "Code Quality",
-  "score": 85,
-  "threshold": 75,
+  "title": "Code Coverage",
+  "score": 87,
+  "threshold": 80,
   "factors": [
-    {"name": "Test Coverage", "score": 92, "weight": 30},
-    {"name": "Code Complexity", "score": 78, "weight": 25},
-    {"name": "Documentation", "score": 88, "weight": 20},
-    {"name": "Security Scan", "score": 80, "weight": 25}
+    {"name": "Line Coverage", "score": 89, "weight": 70},
+    {"name": "Branch Coverage", "score": 82, "weight": 30}
   ]
 }
 ```
 
-Or in YAML:
+- **score**: The metric value (0-100), auto-calculated from weighted factors
+- **threshold**: Minimum acceptable score—badge shows pass/fail status
+- **factors**: Breakdown of contributing metrics with weights
 
-```yaml
-title: Code Quality
-score: 85
-threshold: 75
-factors:
-  - name: Test Coverage
-    score: 92
-    weight: 30
-  - name: Code Complexity
-    score: 78
-    weight: 25
-```
+The `aggregate` command combines multiple reports into a weighted overall score. See [JSON Schema](docs/json-schema.md) for the full specification. YAML also supported.
 
-2. Generate visualizations:
+**Custom metrics?** Create your own JSON for metrics confvis doesn't fetch directly.
 
-```bash
-# Generate both badge and dashboard
-confvis generate -c confidence.json -o ./output
-confvis generate -c confidence.yaml -o ./output  # YAML works too
-
-# Generate just the gauge badge
-confvis gauge -c confidence.json -o badge.svg
-```
-
-3. Embed in your README:
+### 3. Embed in your README
 
 ```markdown
-![Confidence](./output/badge.svg)
+![Confidence](./badge.svg)
 ```
 
 ## CI/CD Integration
