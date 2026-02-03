@@ -5,8 +5,8 @@
      xmlns:xlink="http://www.w3.org/1999/xlink">
 <rect x="0" y="0" width="200" height="120" style="fill:#ffffff" />
 <path d="M 20 100 A 80 80 0 0 1 180 100" style="fill:none;stroke:#e1e4e8;stroke-width:12;stroke-linecap:round" />
-<path d="M 20 100 A 80 80 0 0 1 180 100" style="fill:none;stroke:#9a6700;stroke-width:12;stroke-linecap:round;stroke-dasharray:185.98 251.33" />
+<path d="M 20 100 A 80 80 0 0 1 180 100" style="fill:none;stroke:#1a7f37;stroke-width:12;stroke-linecap:round;stroke-dasharray:188.50 251.33" />
 <circle cx="156" cy="44" r="4" style="fill:#57606a" />
-<text x="100" y="74" style="text-anchor:middle;font-family:system-ui,-apple-system,sans-serif;font-size:40px;font-weight:bold;fill:#24292f" >74</text>
-<text x="100" y="95" style="text-anchor:middle;font-family:system-ui,-apple-system,sans-serif;font-size:12px;font-weight:600;fill:#cf222e" >FAIL</text>
+<text x="100" y="74" style="text-anchor:middle;font-family:system-ui,-apple-system,sans-serif;font-size:40px;font-weight:bold;fill:#24292f" >75</text>
+<text x="100" y="95" style="text-anchor:middle;font-family:system-ui,-apple-system,sans-serif;font-size:12px;font-weight:600;fill:#1a7f37" >PASS</text>
 </svg>
