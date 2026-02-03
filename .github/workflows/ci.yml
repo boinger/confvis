@@ -61,18 +61,34 @@ jobs:
     needs: test
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     steps:
+      - name: Check for SONAR_TOKEN
+        id: check-token
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          if [ -z "$SONAR_TOKEN" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "::notice::Skipping SonarCloud scan - SONAR_TOKEN not available"
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
       - uses: actions/checkout@v6
+        if: steps.check-token.outputs.skip != 'true'
         with:
           fetch-depth: 0
 
       - uses: actions/setup-go@v6
+        if: steps.check-token.outputs.skip != 'true'
         with:
           go-version: '1.23'
 
       - name: Run tests with coverage
+        if: steps.check-token.outputs.skip != 'true'
         run: go test -coverprofile=coverage.out -covermode=atomic ./...
 
       - name: SonarCloud Scan
+        if: steps.check-token.outputs.skip != 'true'
         uses: SonarSource/sonarqube-scan-action@v6
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
