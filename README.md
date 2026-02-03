@@ -6,7 +6,7 @@
 
 Generate visual confidence badges and dashboards from JSON metrics.
 
-confvis transforms JSON confidence reports into SVG gauge badges and HTML dashboards, making it easy to visualize code quality, test coverage, security scores, or any metric you track.
+confvis transforms JSON confidence reports into SVG gauge badges and HTML dashboards, in order to more easily visualize code quality, test coverage, security scores, or any metric you track.
 
 ## Installation
 
