@@ -933,7 +933,7 @@ func TestGenerateAggregateBadge_Basic(t *testing.T) {
 		Threshold: 75,
 	}
 
-	err := generateAggregateBadge(badgePath, report, false, "gauge", "", false)
+	err := generateAggregateBadge(badgePath, report, false, "gauge", "", "", false)
 	if err != nil {
 		t.Fatalf("generateAggregateBadge() error = %v", err)
 	}
@@ -959,7 +959,7 @@ func TestGenerateAggregateBadge_FlatType(t *testing.T) {
 		Threshold: 75,
 	}
 
-	err := generateAggregateBadge(badgePath, report, false, "flat", "", false)
+	err := generateAggregateBadge(badgePath, report, false, "flat", "", "", false)
 	if err != nil {
 		t.Fatalf("generateAggregateBadge() error = %v", err)
 	}
@@ -991,7 +991,7 @@ func TestGenerateAggregateBadge_FlatWithIcon(t *testing.T) {
 
 	// Test with icon path data
 	icon := "M7 1 A6 6 0 1 1 4 1.8 L7 7 Z"
-	err := generateAggregateBadge(badgePath, report, false, "flat", icon, false)
+	err := generateAggregateBadge(badgePath, report, false, "flat", icon, "", false)
 	if err != nil {
 		t.Fatalf("generateAggregateBadge() error = %v", err)
 	}
@@ -1011,6 +1011,33 @@ func TestGenerateAggregateBadge_FlatWithIcon(t *testing.T) {
 	}
 }
 
+func TestGenerateAggregateBadge_FlatWithLabel(t *testing.T) {
+	tmpDir := t.TempDir()
+	badgePath := filepath.Join(tmpDir, "aggregate.svg")
+
+	report := &confidence.Report{
+		Title:     "Aggregate",
+		Score:     80,
+		Threshold: 75,
+	}
+
+	// Test with custom label
+	err := generateAggregateBadge(badgePath, report, false, "flat", "", "confvis", false)
+	if err != nil {
+		t.Fatalf("generateAggregateBadge() error = %v", err)
+	}
+
+	content, err := os.ReadFile(badgePath)
+	if err != nil {
+		t.Fatalf("reading badge file: %v", err)
+	}
+
+	svg := string(content)
+	if !strings.Contains(svg, "confvis") {
+		t.Error("badge should contain custom label 'confvis'")
+	}
+}
+
 func TestGenerateAggregateBadge_DarkMode(t *testing.T) {
 	tmpDir := t.TempDir()
 	badgePath := filepath.Join(tmpDir, "aggregate.svg")
@@ -1021,7 +1048,7 @@ func TestGenerateAggregateBadge_DarkMode(t *testing.T) {
 		Threshold: 75,
 	}
 
-	err := generateAggregateBadge(badgePath, report, true, "gauge", "", false)
+	err := generateAggregateBadge(badgePath, report, true, "gauge", "", "", false)
 	if err != nil {
 		t.Fatalf("generateAggregateBadge() error = %v", err)
 	}
@@ -1046,7 +1073,7 @@ func TestGenerateAggregateBadge_InvalidPath(t *testing.T) {
 		Threshold: 75,
 	}
 
-	err := generateAggregateBadge(badgePath, report, false, "gauge", "", false)
+	err := generateAggregateBadge(badgePath, report, false, "gauge", "", "", false)
 	if err == nil {
 		t.Error("expected error for invalid path")
 	}
@@ -1218,7 +1245,7 @@ func TestGenerateAggregateBadge_Verbose(t *testing.T) {
 	}
 
 	// Verbose mode should not error
-	err := generateAggregateBadge(badgePath, report, false, "gauge", "", true)
+	err := generateAggregateBadge(badgePath, report, false, "gauge", "", "", true)
 	if err != nil {
 		t.Fatalf("generateAggregateBadge() error = %v", err)
 	}
@@ -1327,7 +1354,7 @@ func TestGenerateAggregateBadge_FailingScore(t *testing.T) {
 		Threshold: 75,
 	}
 
-	err := generateAggregateBadge(badgePath, report, false, "gauge", "", false)
+	err := generateAggregateBadge(badgePath, report, false, "gauge", "", "", false)
 	if err != nil {
 		t.Fatalf("generateAggregateBadge() error = %v", err)
 	}

@@ -22,6 +22,7 @@ var (
 	aggFailUnder int
 	aggBadgeType string
 	aggIcon      string
+	aggLabel     string
 )
 
 var aggregateCmd = &cobra.Command{
@@ -50,6 +51,7 @@ func init() {
 	aggregateCmd.Flags().IntVar(&aggFailUnder, "fail-under", 0, "exit non-zero if aggregate score is below this value")
 	aggregateCmd.Flags().StringVar(&aggBadgeType, "badge-type", "gauge", "badge type: gauge or flat")
 	aggregateCmd.Flags().StringVar(&aggIcon, "icon", "", "SVG path data for flat badge icon")
+	aggregateCmd.Flags().StringVar(&aggLabel, "label", "", "custom label for flat badge (defaults to 'Aggregate')")
 
 	if err := aggregateCmd.MarkFlagRequired("config"); err != nil {
 		panic(err)
@@ -81,6 +83,7 @@ type AggregateDeps struct {
 	FailUnder int
 	BadgeType string
 	Icon      string
+	Label     string
 }
 
 func runAggregate(_ *cobra.Command, _ []string) error {
@@ -96,6 +99,7 @@ func runAggregate(_ *cobra.Command, _ []string) error {
 		FailUnder: aggFailUnder,
 		BadgeType: aggBadgeType,
 		Icon:      aggIcon,
+		Label:     aggLabel,
 	})
 }
 
@@ -154,7 +158,7 @@ func aggregateImpl(deps *AggregateDeps) error {
 
 	// Generate aggregate badge
 	badgePath := filepath.Join(deps.Output, "badge.svg")
-	if err := generateAggregateBadgeWithFS(deps.FS, badgePath, aggregateReport, deps.Dark, deps.BadgeType, deps.Icon, showVerbose); err != nil {
+	if err := generateAggregateBadgeWithFS(deps.FS, badgePath, aggregateReport, deps.Dark, deps.BadgeType, deps.Icon, deps.Label, showVerbose); err != nil {
 		return err
 	}
 
@@ -164,14 +168,14 @@ func aggregateImpl(deps *AggregateDeps) error {
 		return err
 	}
 
-	// Generate individual badges (without icon - icon is only for aggregate)
+	// Generate individual badges (without icon/label override - use report title)
 	for i, r := range reports {
 		safeName := sanitizeFilename(r.Report.Title)
 		if safeName == "" {
 			safeName = fmt.Sprintf("report_%d", i)
 		}
 		individualBadgePath := filepath.Join(deps.Output, fmt.Sprintf("%s.svg", safeName))
-		if err := generateAggregateBadgeWithFS(deps.FS, individualBadgePath, r.Report, deps.Dark, deps.BadgeType, "", showVerbose); err != nil {
+		if err := generateAggregateBadgeWithFS(deps.FS, individualBadgePath, r.Report, deps.Dark, deps.BadgeType, "", "", showVerbose); err != nil {
 			return err
 		}
 	}
@@ -244,11 +248,11 @@ func parseConfigsWithWeightsFS(fs FileSystem, configs []string) ([]reportWithWei
 	return results, nil
 }
 
-func generateAggregateBadge(path string, report *confidence.Report, dark bool, badgeType, icon string, verbose bool) error {
-	return generateAggregateBadgeWithFS(DefaultFileSystem, path, report, dark, badgeType, icon, verbose)
+func generateAggregateBadge(path string, report *confidence.Report, dark bool, badgeType, icon, label string, verbose bool) error {
+	return generateAggregateBadgeWithFS(DefaultFileSystem, path, report, dark, badgeType, icon, label, verbose)
 }
 
-func generateAggregateBadgeWithFS(fs FileSystem, path string, report *confidence.Report, dark bool, badgeType, icon string, verbose bool) error {
+func generateAggregateBadgeWithFS(fs FileSystem, path string, report *confidence.Report, dark bool, badgeType, icon, label string, verbose bool) error {
 	f, err := fs.Create(path)
 	if err != nil {
 		return fmt.Errorf("creating badge file: %w", err)
@@ -258,6 +262,7 @@ func generateAggregateBadgeWithFS(fs FileSystem, path string, report *confidence
 	if badgeType == "flat" {
 		flatOpts := gauge.FlatOptions{
 			Icon:     icon,
+			Label:    label,
 			DarkMode: dark,
 		}
 		genErr = gauge.GenerateFlat(f, report, flatOpts)

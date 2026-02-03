@@ -359,6 +359,7 @@ confvis aggregate -c <config>[:weight] [-c <config>[:weight] ...] -o <output-dir
 |------|---------|-------------|
 | `--badge-type` | gauge | Badge type: `gauge` or `flat` |
 | `--icon` | | SVG path data for flat badge icon |
+| `--label` | | Custom label for flat badge (defaults to 'Aggregate') |
 | `--dark` | false | Use dark mode colors |
 | `--fail-under` | 0 | Exit with code 1 if aggregate score is below this value |
 
@@ -402,8 +403,8 @@ confvis aggregate -c "services/*/confidence.json" -o ./output --fail-under 75
 # Verbose output showing weights
 confvis aggregate -c api.json:60 -c web.json:40 -o ./output -v
 
-# Flat badge with icon
-confvis aggregate -c api.json -c web.json -o ./output --badge-type flat --icon "M7 1 A6 6 0 1 1 4 1.8 L7 7 Z"
+# Flat badge with icon and custom label
+confvis aggregate -c api.json -c web.json -o ./output --badge-type flat --icon "M7 1 A6 6 0 1 1 4 1.8 L7 7 Z" --label "My Project"
 ```
 
 ---

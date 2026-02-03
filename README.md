@@ -1,8 +1,13 @@
 # confvis
 
-[![Confidence](./badges/badge.svg)](./badges/dashboard/index.html)
+[![confvis](./badges/badge.svg)](./badges/dashboard/index.html)
 [![CI](https://github.com/boinger/confvis/actions/workflows/ci.yml/badge.svg)](https://github.com/boinger/confvis/actions/workflows/ci.yml)
 [![Coverage](https://codecov.io/gh/boinger/confvis/graph/badge.svg)](https://codecov.io/gh/boinger/confvis)
+
+[![Code Coverage](./badges/code-coverage.svg)](./badges/dashboard/index.html)
+[![Code Quality](./badges/code-quality.svg)](./badges/dashboard/index.html)
+[![CI Status](./badges/ci-status.svg)](./badges/dashboard/index.html)
+[![Security](./badges/security.svg)](./badges/dashboard/index.html)
 
 Generate visual confidence badges and dashboards from JSON metrics.
 
