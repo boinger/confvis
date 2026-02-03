@@ -211,7 +211,7 @@ confvis gauge -c confidence.json -o badge.svg --badge-type flat
 confvis gauge -c confidence.json -o badge.svg --badge-type flat --label "Quality"
 
 # Flat badge with custom icon (SVG path data)
-confvis gauge -c confidence.json -o badge.svg --badge-type flat --icon "M7 1 A6 6 0 1 1 5.4 1.2 L7 7 Z"
+confvis gauge -c confidence.json -o badge.svg --badge-type flat --icon "M7 1 A6 6 0 1 1 4 1.8 L7 7 Z"
 
 # Output as markdown (for PR comments)
 confvis gauge -c confidence.json -o - -f markdown
@@ -403,7 +403,7 @@ confvis aggregate -c "services/*/confidence.json" -o ./output --fail-under 75
 confvis aggregate -c api.json:60 -c web.json:40 -o ./output -v
 
 # Flat badge with icon
-confvis aggregate -c api.json -c web.json -o ./output --badge-type flat --icon "M7 1 A6 6 0 1 1 5.4 1.2 L7 7 Z"
+confvis aggregate -c api.json -c web.json -o ./output --badge-type flat --icon "M7 1 A6 6 0 1 1 4 1.8 L7 7 Z"
 ```
 
 ---
