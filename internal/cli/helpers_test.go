@@ -933,7 +933,7 @@ func TestGenerateAggregateBadge_Basic(t *testing.T) {
 		Threshold: 75,
 	}
 
-	err := generateAggregateBadge(badgePath, report, false, false)
+	err := generateAggregateBadge(badgePath, report, false, "gauge", false)
 	if err != nil {
 		t.Fatalf("generateAggregateBadge() error = %v", err)
 	}
@@ -949,6 +949,36 @@ func TestGenerateAggregateBadge_Basic(t *testing.T) {
 	}
 }
 
+func TestGenerateAggregateBadge_FlatType(t *testing.T) {
+	tmpDir := t.TempDir()
+	badgePath := filepath.Join(tmpDir, "aggregate.svg")
+
+	report := &confidence.Report{
+		Title:     "Aggregate",
+		Score:     80,
+		Threshold: 75,
+	}
+
+	err := generateAggregateBadge(badgePath, report, false, "flat", false)
+	if err != nil {
+		t.Fatalf("generateAggregateBadge() error = %v", err)
+	}
+
+	content, err := os.ReadFile(badgePath)
+	if err != nil {
+		t.Fatalf("reading badge file: %v", err)
+	}
+
+	svg := string(content)
+	if !strings.Contains(svg, "<svg") {
+		t.Error("badge should contain SVG content")
+	}
+	// Flat badges have smaller dimensions
+	if !strings.Contains(svg, `height="20"`) {
+		t.Error("flat badge should have height=20")
+	}
+}
+
 func TestGenerateAggregateBadge_DarkMode(t *testing.T) {
 	tmpDir := t.TempDir()
 	badgePath := filepath.Join(tmpDir, "aggregate.svg")
@@ -959,7 +989,7 @@ func TestGenerateAggregateBadge_DarkMode(t *testing.T) {
 		Threshold: 75,
 	}
 
-	err := generateAggregateBadge(badgePath, report, true, false)
+	err := generateAggregateBadge(badgePath, report, true, "gauge", false)
 	if err != nil {
 		t.Fatalf("generateAggregateBadge() error = %v", err)
 	}
@@ -984,7 +1014,7 @@ func TestGenerateAggregateBadge_InvalidPath(t *testing.T) {
 		Threshold: 75,
 	}
 
-	err := generateAggregateBadge(badgePath, report, false, false)
+	err := generateAggregateBadge(badgePath, report, false, "gauge", false)
 	if err == nil {
 		t.Error("expected error for invalid path")
 	}
@@ -1156,7 +1186,7 @@ func TestGenerateAggregateBadge_Verbose(t *testing.T) {
 	}
 
 	// Verbose mode should not error
-	err := generateAggregateBadge(badgePath, report, false, true)
+	err := generateAggregateBadge(badgePath, report, false, "gauge", true)
 	if err != nil {
 		t.Fatalf("generateAggregateBadge() error = %v", err)
 	}
@@ -1265,7 +1295,7 @@ func TestGenerateAggregateBadge_FailingScore(t *testing.T) {
 		Threshold: 75,
 	}
 
-	err := generateAggregateBadge(badgePath, report, false, false)
+	err := generateAggregateBadge(badgePath, report, false, "gauge", false)
 	if err != nil {
 		t.Fatalf("generateAggregateBadge() error = %v", err)
 	}
