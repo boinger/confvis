@@ -64,7 +64,7 @@ Each fetched report contains:
 - **threshold**: Minimum acceptable score—badge shows pass/fail status
 - **factors**: Breakdown of contributing metrics with weights
 
-The `aggregate` command (from Step 1) combines multiple reports into a weighted overall score. See [JSON Schema](docs/json-schema.md) for the full specification. YAML also supported.
+The `aggregate` command (from Step 1) combines multiple reports into a weighted overall score. See [Schema Reference](docs/schema.md) for the full specification.
 
 **Custom metrics?** Create your own JSON for metrics confvis doesn't fetch directly.
 
@@ -223,7 +223,7 @@ Each factor:
 
 - [Installation Guide](docs/installation.md)
 - [CLI Reference](docs/cli-reference.md)
-- [JSON Schema](docs/json-schema.md)
+- [Schema Reference](docs/schema.md)
 - [Integration Guide](docs/integration.md)
 - [External Sources](docs/sources.md)
 - [Architecture](docs/architecture.md)

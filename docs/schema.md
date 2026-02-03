@@ -1,6 +1,6 @@
-# JSON Schema
+# Schema Reference
 
-confvis reads confidence reports in JSON format. This document describes the schema.
+confvis reads confidence reports in JSON or YAML format. This document describes the schema.
 
 ## Schema Overview
 
@@ -210,6 +210,55 @@ Custom labels replace the default "PASS"/"FAIL" text in the gauge.
 
 Factor URLs can link to detailed reports or external tools.
 
+## YAML Format
+
+All examples above can be written in YAML. confvis auto-detects the format based on file extension (`.yaml` or `.yml`) or content.
+
+### Minimal Report
+
+```yaml
+title: Build Status
+score: 80
+threshold: 70
+```
+
+### Full Report with Factors
+
+```yaml
+title: Code Quality Report
+score: 85
+threshold: 75
+description: Overall code quality assessment for the project.
+factors:
+  - name: Test Coverage
+    score: 92
+    weight: 30
+    description: Percentage of code covered by tests
+  - name: Code Complexity
+    score: 78
+    weight: 25
+    description: Cyclomatic complexity within acceptable range
+  - name: Documentation
+    score: 88
+    weight: 20
+    description: API documentation completeness
+  - name: Security Scan
+    score: 80
+    weight: 25
+    description: No critical vulnerabilities detected
+```
+
+### Report with Custom Thresholds
+
+```yaml
+title: High Standards Report
+score: 85
+threshold: 80
+thresholds:
+  greenAbove: 90
+  yellowAbove: 70
+```
+
 ## Score Thresholds
 
 The gauge uses color coding based on score. Default thresholds:
@@ -236,4 +285,4 @@ The pass/fail indicator is based solely on `score >= threshold` (separate from c
 - `thresholds.yellowAbove` must be between 0 and 100
 - `thresholds.greenAbove` must be >= `thresholds.yellowAbove`
 
-Invalid JSON or missing required fields will cause confvis to exit with an error.
+Invalid input or missing required fields will cause confvis to exit with an error.
