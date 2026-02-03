@@ -18,6 +18,7 @@ ignore:
   - "**/*_test.go"
   - "**/testdata/**"
   - "cmd/confvis/main.go"  # Entry point, minimal logic
+  - "internal/cli/filesystem.go"  # Thin pass-throughs to os.* - tested via mock FS
 
 # Comment configuration for PRs
 comment:
