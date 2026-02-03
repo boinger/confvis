@@ -45,16 +45,22 @@ Usage:
   confvis [command]
 
 Available Commands:
+  aggregate   Aggregate multiple reports into a single dashboard
+  completion  Generate the autocompletion script for the specified shell
+  fetch       Fetch metrics from an external source
   gauge       Generate an SVG gauge badge
   generate    Generate badge and dashboard
   help        Help about any command
 
 Flags:
   -h, --help      help for confvis
+  -q, --quiet     suppress non-error output
   -v, --verbose   verbose output
+
+Use "confvis [command] --help" for more information about a command.
 ```
 
 ## Requirements
 
-- Go 1.21 or later (for building)
+- Go 1.23 or later (for building)
 - No runtime dependencies - the binary is self-contained

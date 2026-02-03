@@ -11,7 +11,7 @@ git clone https://github.com/boinger/confvis.git
 cd confvis
 ```
 
-2. Ensure you have Go 1.21+ installed:
+2. Ensure you have Go 1.23+ installed:
 
 ```bash
 go version
