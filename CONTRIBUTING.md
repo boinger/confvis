@@ -154,6 +154,26 @@ ci: add SonarCloud analysis to workflow
 
 The commitlint hook will validate your messages automatically.
 
+## CI Pipeline
+
+The CI pipeline runs on all pushes and pull requests to `main`. It includes:
+
+| Job | Description | Runs On |
+|-----|-------------|---------|
+| **test** | Runs test suite with coverage, enforces 80% threshold | All PRs |
+| **lint** | Runs golangci-lint with strict settings | All PRs |
+| **sonarcloud** | Static analysis and code quality metrics | Same-repo PRs only |
+
+### SonarCloud Analysis
+
+SonarCloud analysis requires a `SONAR_TOKEN` secret, which GitHub does not expose to:
+- Pull requests from forks (security restriction)
+- Dependabot PRs (runs in a restricted context)
+
+For these PRs, the SonarCloud job **skips gracefully** with a notice message rather than failing. This is expected behavior—your PR is not broken. SonarCloud analysis runs on:
+- Direct pushes to `main`
+- PRs from branches within this repository
+
 ## Pull Request Guidelines
 
 1. Fork the repository
