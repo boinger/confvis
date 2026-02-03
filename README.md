@@ -33,7 +33,7 @@ confvis pulls metrics from tools you already use:
 export CODECOV_TOKEN=your_token
 confvis fetch codecov -p owner/repo -o coverage.json
 
-# Fetch code quality from SonarQube
+# Fetch code quality from SonarQube (self-hosted or SaaS)
 export SONARQUBE_URL=https://sonar.example.com
 export SONARQUBE_TOKEN=squ_xxx
 confvis fetch sonarqube -p myproject -o quality.json
@@ -64,7 +64,7 @@ Each fetched report contains:
 - **threshold**: Minimum acceptable score—badge shows pass/fail status
 - **factors**: Breakdown of contributing metrics with weights
 
-The `aggregate` command combines multiple reports into a weighted overall score. See [JSON Schema](docs/json-schema.md) for the full specification. YAML also supported.
+The `aggregate` command (from Step 1) combines multiple reports into a weighted overall score. See [JSON Schema](docs/json-schema.md) for the full specification. YAML also supported.
 
 **Custom metrics?** Create your own JSON for metrics confvis doesn't fetch directly.
 
