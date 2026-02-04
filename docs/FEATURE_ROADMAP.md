@@ -7,7 +7,7 @@ This document outlines planned features for confvis, organized by implementation
 | # | Feature | Effort | Dependencies | Status |
 |---|---------|--------|--------------|--------|
 | 2 | GitHub Comment Format | Low | None | **Done** |
-| 4 | Config File Support | Low | None | Planned |
+| 4 | Config File Support | Low | None | **Done** |
 | 5 | Auto History Management | Medium | None | Planned |
 | 3 | Baseline Storage/Comparison | Medium | #5 (shared history concepts) | Planned |
 | 6 | Direct GitHub Check Creation | Medium-High | None | Planned |
@@ -532,7 +532,7 @@ Recommended sequence based on dependencies:
 - [x] `make test` - all pass
 - [x] Coverage maintained at 80%+
 - [x] `confvis gauge --format github-comment` outputs valid markdown
-- [ ] `.confvis.yaml` is read and merged with flags
+- [x] `.confvis.yaml` is read and merged with flags
 - [ ] `--history-auto` persists to git ref
 - [ ] `confvis baseline save/show` works
 - [ ] `--compare-baseline --fail-on-regression` detects regressions

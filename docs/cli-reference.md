@@ -1,5 +1,69 @@
 # CLI Reference
 
+## Configuration File
+
+confvis supports a YAML configuration file to set default values for flags. This eliminates the need to specify common flags repeatedly.
+
+### Config File Locations
+
+Config files are searched in the following order (first found wins):
+
+1. `.confvis.yaml` in current directory
+2. `.confvis.yml` in current directory
+3. `~/.config/confvis/config.yaml`
+
+### Precedence
+
+Configuration values are applied in this order (later overrides earlier):
+
+1. **Defaults** - Built-in default values
+2. **Config file** - Values from `.confvis.yaml`
+3. **Environment variables** - `CONFVIS_<SECTION>_<KEY>` format
+4. **Command-line flags** - Explicit flag values
+
+### Sample Config
+
+```yaml
+# Gauge command defaults
+gauge:
+  width: 200
+  height: 120
+  style: github        # github, minimal, corporate, high-contrast
+  dark: false
+  fail_under: 75
+  badge_type: gauge    # gauge, flat, sparkline
+  history_file: .confvis-history.jsonl
+  history_count: 10
+  green_above: 75
+  yellow_above: 50
+
+# Fetch command defaults
+fetch:
+  timeout: 30
+  threshold: 75
+
+# Source-specific defaults
+sources:
+  codecov:
+    service: github    # github, gitlab, bitbucket
+  snyk:
+    org: my-org-id
+  sonarqube:
+    url: https://sonar.example.com
+```
+
+### Environment Variables
+
+All config values can be overridden with environment variables using the format:
+`CONFVIS_<SECTION>_<KEY>`
+
+Examples:
+- `CONFVIS_GAUGE_STYLE=minimal`
+- `CONFVIS_GAUGE_FAIL_UNDER=80`
+- `CONFVIS_FETCH_TIMEOUT=60`
+
+---
+
 ## Global Flags
 
 | Flag | Short | Description |

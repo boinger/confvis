@@ -80,22 +80,26 @@ Examples:
 
 func init() {
 	// Common flags
+	// Note: defaults set to 0/"" here; actual defaults come from config.go getters
 	fetchCmd.Flags().StringVarP(&fetchURL, "url", "u", "", "source server URL (or use environment variable)")
 	fetchCmd.Flags().StringVarP(&fetchProject, "project", "p", "", "project key/identifier (required)")
 	fetchCmd.Flags().StringVarP(&fetchToken, "token", "t", "", "API token (or use environment variable)")
 	fetchCmd.Flags().StringVarP(&fetchBranch, "branch", "b", "", "branch to query")
 	fetchCmd.Flags().StringVar(&fetchTitle, "title", "", "report title (defaults to project name)")
-	fetchCmd.Flags().IntVar(&fetchThreshold, "threshold", 75, "pass/fail threshold")
-	fetchCmd.Flags().IntVar(&fetchTimeout, "timeout", 30, "HTTP timeout in seconds")
+	fetchCmd.Flags().IntVar(&fetchThreshold, "threshold", 0, "pass/fail threshold")
+	fetchCmd.Flags().IntVar(&fetchTimeout, "timeout", 0, "HTTP timeout in seconds")
 	fetchCmd.Flags().StringVarP(&fetchOutput, "output", "o", "", "output file path, or - for stdout (required)")
 
 	// Source-specific flags
-	fetchCmd.Flags().StringVar(&fetchService, "service", "github", "codecov: git provider (github, gitlab, bitbucket)")
+	fetchCmd.Flags().StringVar(&fetchService, "service", "", "codecov: git provider (github, gitlab, bitbucket)")
 	fetchCmd.Flags().StringVar(&fetchWorkflow, "workflow", "", "github-actions: workflow file or ID to filter")
 	fetchCmd.Flags().StringVar(&fetchEvent, "event", "", "github-actions: trigger event to filter (push, pull_request)")
 	fetchCmd.Flags().IntVar(&fetchCount, "count", 20, "github-actions: number of recent runs to analyze")
 	fetchCmd.Flags().StringVar(&fetchOrg, "org", "", "snyk: organization ID")
 	fetchCmd.Flags().StringVar(&fetchTrivyCmd, "trivy-cmd", "", "trivy: command to run (default: trivy)")
+
+	// Bind flags to viper for config file support
+	bindFetchFlags(fetchCmd)
 
 	if err := fetchCmd.MarkFlagRequired("project"); err != nil {
 		panic(err)
@@ -128,7 +132,34 @@ type FetchDeps struct {
 }
 
 func runFetch(_ *cobra.Command, args []string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(fetchTimeout)*time.Second)
+	sourceName := args[0]
+
+	// Get config values with proper precedence (config < env < flag)
+	timeout := getFetchTimeout()
+	threshold := getFetchThreshold()
+
+	// Get source-specific URL from config if not provided via flag
+	url := fetchURL
+	if url == "" {
+		url = getSourceURL(sourceName)
+	}
+
+	// Get source-specific org from config if not provided via flag
+	org := fetchOrg
+	if org == "" {
+		org = getSourceOrg(sourceName)
+	}
+
+	// Get source-specific service from config if not provided via flag
+	service := fetchService
+	if service == "" {
+		service = getSourceService(sourceName)
+	}
+	if service == "" {
+		service = "github" // default for codecov
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
 	defer cancel()
 
 	return fetchImpl(ctx, &FetchDeps{
@@ -138,21 +169,21 @@ func runFetch(_ *cobra.Command, args []string) error {
 		Verbose:      verbose,
 		Quiet:        quiet,
 		SourceGetter: sources.Get,
-		SourceName:   args[0],
-		URL:          fetchURL,
+		SourceName:   sourceName,
+		URL:          url,
 		Project:      fetchProject,
 		Token:        fetchToken,
 		Branch:       fetchBranch,
 		Title:        fetchTitle,
-		Threshold:    fetchThreshold,
-		Timeout:      fetchTimeout,
+		Threshold:    threshold,
+		Timeout:      timeout,
 		Output:       fetchOutput,
 		Extra: map[string]string{
-			"service":   fetchService,
+			"service":   service,
 			"workflow":  fetchWorkflow,
 			"event":     fetchEvent,
 			"count":     strconv.Itoa(fetchCount),
-			"org":       fetchOrg,
+			"org":       org,
 			"trivy-cmd": fetchTrivyCmd,
 		},
 	})

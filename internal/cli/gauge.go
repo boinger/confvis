@@ -46,20 +46,24 @@ func init() {
 	gaugeCmd.Flags().StringVar(&gaugeInputFormat, "input-format", "auto", "input format: auto, json, or yaml (auto-detects from extension)")
 	gaugeCmd.Flags().StringVarP(&gaugeOutput, "output", "o", "", "output file path, or - for stdout (required)")
 	gaugeCmd.Flags().StringVarP(&gaugeFormat, "format", "f", "svg", "output format: svg, json, text, markdown, or github-comment")
-	gaugeCmd.Flags().IntVar(&gaugeWidth, "width", 200, "gauge width in pixels (svg only)")
-	gaugeCmd.Flags().IntVar(&gaugeHeight, "height", 120, "gauge height in pixels (svg only)")
-	gaugeCmd.Flags().StringVar(&gaugeStyle, "style", "github", "color scheme: github, minimal, corporate, high-contrast (svg only)")
+	// Note: defaults are set to 0/"" here; actual defaults come from config.go getters
+	gaugeCmd.Flags().IntVar(&gaugeWidth, "width", 0, "gauge width in pixels (svg only)")
+	gaugeCmd.Flags().IntVar(&gaugeHeight, "height", 0, "gauge height in pixels (svg only)")
+	gaugeCmd.Flags().StringVar(&gaugeStyle, "style", "", "color scheme: github, minimal, corporate, high-contrast (svg only)")
 	gaugeCmd.Flags().BoolVar(&gaugeDark, "dark", false, "use dark mode colors (svg only)")
 	gaugeCmd.Flags().IntVar(&gaugeFailUnder, "fail-under", 0, "exit non-zero if score is below this value")
 	gaugeCmd.Flags().IntVar(&gaugeGreenAbove, "green-above", 0, "score threshold for green color (overrides JSON config)")
 	gaugeCmd.Flags().IntVar(&gaugeYellowAbove, "yellow-above", 0, "score threshold for yellow color (overrides JSON config)")
 	gaugeCmd.Flags().StringVar(&gaugeCompare, "compare", "", "path to baseline report JSON for comparison")
 	gaugeCmd.Flags().BoolVar(&gaugeFailOnRegression, "fail-on-regression", false, "exit non-zero if score decreased from baseline (requires --compare)")
-	gaugeCmd.Flags().StringVar(&gaugeBadgeType, "badge-type", "gauge", "badge type: gauge, flat, or sparkline")
+	gaugeCmd.Flags().StringVar(&gaugeBadgeType, "badge-type", "", "badge type: gauge, flat, or sparkline")
 	gaugeCmd.Flags().StringVar(&gaugeLabel, "label", "", "custom label for flat badge (defaults to report title)")
 	gaugeCmd.Flags().StringVar(&gaugeIcon, "icon", "", "SVG path data for flat badge icon")
 	gaugeCmd.Flags().StringVar(&gaugeHistoryFile, "history-file", "", "path to history file for sparkline (JSON lines format)")
-	gaugeCmd.Flags().IntVar(&gaugeHistoryCount, "history-count", 10, "number of historical points to show in sparkline")
+	gaugeCmd.Flags().IntVar(&gaugeHistoryCount, "history-count", 0, "number of historical points to show in sparkline")
+
+	// Bind flags to viper for config file support
+	bindGaugeFlags(gaugeCmd)
 
 	if err := gaugeCmd.MarkFlagRequired("config"); err != nil {
 		panic(err)
@@ -103,6 +107,7 @@ type GaugeDeps struct {
 }
 
 func runGauge(_ *cobra.Command, _ []string) error {
+	// Use config getters which handle config < env < flag precedence
 	return gaugeImpl(&GaugeDeps{
 		FS:               DefaultFileSystem,
 		Stdin:            os.Stdin,
@@ -116,20 +121,20 @@ func runGauge(_ *cobra.Command, _ []string) error {
 		Config:           gaugeConfig,
 		Output:           gaugeOutput,
 		Format:           gaugeFormat,
-		Style:            gaugeStyle,
-		BadgeType:        gaugeBadgeType,
+		Style:            getGaugeStyle(),
+		BadgeType:        getGaugeBadgeType(),
 		Label:            gaugeLabel,
 		Icon:             gaugeIcon,
 		InputFormat:      gaugeInputFormat,
 		Compare:          gaugeCompare,
-		HistoryFile:      gaugeHistoryFile,
-		Width:            gaugeWidth,
-		Height:           gaugeHeight,
-		FailUnder:        gaugeFailUnder,
-		GreenAbove:       gaugeGreenAbove,
-		YellowAbove:      gaugeYellowAbove,
-		HistoryCount:     gaugeHistoryCount,
-		Dark:             gaugeDark,
+		HistoryFile:      getGaugeHistoryFile(),
+		Width:            getGaugeWidth(),
+		Height:           getGaugeHeight(),
+		FailUnder:        getGaugeFailUnder(),
+		GreenAbove:       getGaugeGreenAbove(),
+		YellowAbove:      getGaugeYellowAbove(),
+		HistoryCount:     getGaugeHistoryCount(),
+		Dark:             getGaugeDark(),
 		FailOnRegression: gaugeFailOnRegression,
 	})
 }

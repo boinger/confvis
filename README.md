@@ -88,6 +88,27 @@ The `aggregate` command (from Step 1) combines multiple reports into a weighted 
 ![Confidence](./badge.svg)
 ```
 
+## Configuration File
+
+Create a `.confvis.yaml` to set defaults and avoid repetitive flags:
+
+```yaml
+gauge:
+  style: github
+  fail_under: 80
+  badge_type: gauge
+
+sources:
+  sonarqube:
+    url: https://sonar.example.com
+  snyk:
+    org: my-org-id
+```
+
+Config is loaded from `.confvis.yaml` in the current directory or `~/.config/confvis/`. Precedence: config < environment < flags.
+
+See [CLI Reference](docs/cli-reference.md#configuration-file) for full documentation.
+
 ## CI/CD Integration
 
 Use `--fail-under` to enforce minimum scores, or `--fail-on-regression` to detect quality degradation:
