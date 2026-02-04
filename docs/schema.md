@@ -349,3 +349,50 @@ The pass/fail indicator is based solely on `score >= threshold` (separate from c
 - `thresholds.greenAbove` must be >= `thresholds.yellowAbove`
 
 Invalid input or missing required fields will cause confvis to exit with an error.
+
+## JSON Schema
+
+A machine-readable JSON Schema is available at [`schema.json`](./schema.json) for editor autocompletion and CI validation.
+
+### Validate with ajv-cli
+
+```bash
+# Install ajv-cli
+npm install -g ajv-cli
+
+# Validate a confidence report
+npx ajv validate -s docs/schema.json -d confidence.json
+
+# Validate with verbose output
+npx ajv validate -s docs/schema.json -d confidence.json --verbose
+```
+
+### VS Code Integration
+
+Add to your `.vscode/settings.json` for autocompletion and validation:
+
+```json
+{
+  "json.schemas": [
+    {
+      "fileMatch": ["**/confidence.json", "**/*-confidence.json"],
+      "url": "./docs/schema.json"
+    }
+  ]
+}
+```
+
+### Programmatic Validation
+
+```javascript
+const Ajv = require('ajv');
+const schema = require('./docs/schema.json');
+
+const ajv = new Ajv({ allErrors: true });
+const validate = ajv.compile(schema);
+
+const report = JSON.parse(fs.readFileSync('confidence.json'));
+if (!validate(report)) {
+  console.error(validate.errors);
+}
+```

@@ -65,7 +65,84 @@ sources:
     org: my-org-id
   sonarqube:
     url: https://sonar.example.com
+
+# Check command defaults (GitHub)
+check:
+  github:
+    name: "Confidence Score"
+    api_url: https://api.github.example.com  # For GitHub Enterprise
+
+# Comment command defaults (GitHub)
+comment:
+  github:
+    mode: update
+    api_url: https://api.github.example.com  # For GitHub Enterprise
 ```
+
+### Complete Config Reference
+
+#### gauge section
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `width` | int | 200 | Gauge width in pixels |
+| `height` | int | 120 | Gauge height in pixels |
+| `style` | string | github | Color scheme: `github`, `minimal`, `corporate`, `high-contrast` |
+| `dark` | bool | false | Use dark mode colors |
+| `fail_under` | int | 0 | Exit non-zero if score below this value |
+| `badge_type` | string | gauge | Badge type: `gauge`, `flat`, `sparkline` |
+| `history_file` | string | - | Path to history file for sparkline (JSON lines format) |
+| `history_ref` | string | - | Git ref for history storage (e.g., `refs/confvis/history`) |
+| `history_auto` | bool | false | Auto-detect history storage: git ref if in repo, else file |
+| `history_count` | int | 10 | Number of historical points to show in sparkline |
+| `green_above` | int | 75 | Score threshold for green color |
+| `yellow_above` | int | 50 | Score threshold for yellow color |
+| `compare_baseline` | bool | false | Compare against stored baseline |
+| `baseline_ref` | string | refs/confvis/baseline | Git ref for baseline storage |
+| `baseline_file` | string | - | File path for baseline (alternative to git ref) |
+| `factor_thresholds` | map | - | Per-factor thresholds (e.g., `Coverage: 80`) |
+
+#### fetch section
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `timeout` | int | 30 | HTTP timeout in seconds |
+| `threshold` | int | 75 | Default pass/fail threshold |
+
+#### baseline section
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `ref` | string | refs/confvis/baseline | Git ref for baseline storage |
+| `file` | string | - | File path alternative to git ref |
+
+#### check.github section
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `owner` | string | auto | Repository owner (auto-detected in GitHub Actions) |
+| `repo` | string | auto | Repository name (auto-detected in GitHub Actions) |
+| `name` | string | Confidence Score | Check run name displayed in GitHub |
+| `api_url` | string | auto | GitHub API URL (for GitHub Enterprise) |
+
+#### comment.github section
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `owner` | string | auto | Repository owner (auto-detected in GitHub Actions) |
+| `repo` | string | auto | Repository name (auto-detected in GitHub Actions) |
+| `mode` | string | update | Comment mode: `create`, `update`, or `replace` |
+| `api_url` | string | auto | GitHub API URL (for GitHub Enterprise) |
+
+#### sources.\<name\> section
+
+Source-specific settings for the `fetch` command.
+
+| Key | Type | Sources | Description |
+|-----|------|---------|-------------|
+| `url` | string | sonarqube | Source server URL |
+| `org` | string | snyk | Organization ID |
+| `service` | string | codecov | Git provider: `github`, `gitlab`, `bitbucket` |
 
 ### Environment Variables
 

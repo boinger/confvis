@@ -230,6 +230,34 @@ See [docs/contributing-sources.md](docs/contributing-sources.md) for the complet
 - Testing patterns
 - Scoring guidelines
 
+## Local Development with SonarQube
+
+A `docker-compose.yml` is provided for local SonarQube testing:
+
+```bash
+docker-compose up -d
+# Access at http://localhost:9000 (default: admin/admin)
+```
+
+This is optional—CI uses SonarCloud for analysis. Local SonarQube is useful for:
+- Testing the `sonarqube` fetch source locally
+- Debugging quality gate configurations
+- Development without network access
+
+Stop with `docker-compose down`. Data persists in Docker volumes.
+
+## Releases
+
+Releases are automated via [GoReleaser](https://goreleaser.com/). The process:
+
+1. **Tag a release:** `git tag v1.2.3 && git push --tags`
+2. **Automatic build:** The `release.yml` workflow triggers on `v*` tags
+3. **Artifacts:** GoReleaser builds binaries for Linux/macOS/Windows (amd64/arm64)
+4. **GitHub Release:** Created automatically with changelog from conventional commits
+5. **Action tag:** Major version tag (e.g., `v1`) is updated to point to the new release
+
+Only maintainers can push tags to trigger releases.
+
 ## Questions?
 
 Open an issue for questions or discussion.
