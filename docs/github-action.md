@@ -1,5 +1,7 @@
 # GitHub Action
 
+[![GitHub Marketplace](https://img.shields.io/badge/Marketplace-confvis-blue?logo=github)](https://github.com/marketplace/actions/confvis)
+
 confvis provides a native GitHub Action for zero-install usage in your workflows.
 
 ## Quick Start

@@ -1,5 +1,6 @@
 # confvis
 
+[![GitHub Marketplace](https://img.shields.io/badge/Marketplace-confvis-blue?logo=github)](https://github.com/marketplace/actions/confvis)
 [![confvis](./badges/badge.svg)](./badges/dashboard/index.html)
 
 (instead of)
