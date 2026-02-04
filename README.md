@@ -1,9 +1,10 @@
-# confvis
+# confvis  [![GitHub Marketplace](https://img.shields.io/badge/Marketplace-confvis-blue?logo=github)](https://github.com/marketplace/actions/confvis)
 
-[![GitHub Marketplace](https://img.shields.io/badge/Marketplace-confvis-blue?logo=github)](https://github.com/marketplace/actions/confvis)
+Why not:
+
 [![confvis](./badges/badge.svg)](./badges/dashboard/index.html)
 
-(instead of)
+instead of:
 
 [![CI](https://github.com/boinger/confvis/actions/workflows/ci.yml/badge.svg)](https://github.com/boinger/confvis/actions/workflows/ci.yml)
 [![Coverage](https://codecov.io/gh/boinger/confvis/graph/badge.svg)](https://codecov.io/gh/boinger/confvis)
