@@ -19,8 +19,7 @@ type Client struct {
 
 // NewClient creates a new SonarQube API client.
 func NewClient(baseURL, token string, timeout time.Duration) *Client {
-	// Ensure baseURL doesn't have trailing slash
-	baseURL = strings.TrimRight(baseURL, "/")
+	baseURL = httpclient.NormalizeBaseURL(baseURL, "")
 
 	return &Client{
 		baseURL: baseURL,
@@ -37,8 +36,7 @@ func NewClient(baseURL, token string, timeout time.Duration) *Client {
 // NewClientWithHTTP creates a new client with a custom HTTP client.
 // This is primarily intended for testing.
 func NewClientWithHTTP(baseURL, token string, httpClient *http.Client) *Client {
-	// Ensure baseURL doesn't have trailing slash
-	baseURL = strings.TrimRight(baseURL, "/")
+	baseURL = httpclient.NormalizeBaseURL(baseURL, "")
 
 	return &Client{
 		baseURL: baseURL,

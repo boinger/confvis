@@ -1,7 +1,6 @@
 package semgrep
 
 import (
-	"bytes"
 	"context"
 	"os"
 	"os/exec"
@@ -208,7 +207,7 @@ func TestCheckSemgrepError(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			stderr := bytes.NewBufferString(tt.stderr)
+			stderr := []byte(tt.stderr)
 			err := checkSemgrepError(tt.err, stderr)
 			if (err == nil) != tt.wantNilErr {
 				t.Errorf("checkSemgrepError() returned error = %v, wantNilErr = %v", err, tt.wantNilErr)

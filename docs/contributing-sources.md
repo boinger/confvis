@@ -121,6 +121,7 @@ import (
 
     "github.com/boinger/confvis/internal/confidence"
     "github.com/boinger/confvis/internal/sources"
+    "github.com/boinger/confvis/internal/sources/scoring"
 )
 
 const sourceName = "mysource"
@@ -186,63 +187,27 @@ func (s *Source) Fetch(ctx context.Context, opts sources.Options) (*confidence.R
         return nil, err
     }
 
-    // Build factors with severity-based scoring
-    factors := []confidence.Factor{
-        {
-            Name:        "Critical Issues",
-            Score:       SeverityScore(data.Metrics.Critical, PenaltyCritical),
-            Weight:      WeightCritical,
-            Description: fmt.Sprintf("%d critical", data.Metrics.Critical),
-        },
-        {
-            Name:        "High Issues",
-            Score:       SeverityScore(data.Metrics.High, PenaltyHigh),
-            Weight:      WeightHigh,
-            Description: fmt.Sprintf("%d high", data.Metrics.High),
-        },
-        {
-            Name:        "Medium Issues",
-            Score:       SeverityScore(data.Metrics.Medium, PenaltyMedium),
-            Weight:      WeightMedium,
-            Description: fmt.Sprintf("%d medium", data.Metrics.Medium),
-        },
-        {
-            Name:        "Low Issues",
-            Score:       SeverityScore(data.Metrics.Low, PenaltyLow),
-            Weight:      WeightLow,
-            Description: fmt.Sprintf("%d low", data.Metrics.Low),
-        },
-    }
-
     // Determine title
     title := opts.Title
     if title == "" {
         title = opts.Project
     }
 
-    // Build and return report
-    report := &confidence.Report{
-        Title:       title,
-        Threshold:   opts.Threshold,
-        Source:      sourceName,
-        GeneratedAt: time.Now().UTC().Format(time.RFC3339),
-        Factors:     factors,
+    // Build factors using the shared scoring package
+    severityCounts := scoring.SeverityCounts{
+        Critical: data.Metrics.Critical,
+        High:     data.Metrics.High,
+        Medium:   data.Metrics.Medium,
+        Low:      data.Metrics.Low,
     }
+    penalties := [4]int{PenaltyCritical, PenaltyHigh, PenaltyMedium, PenaltyLow}
+    weights := [4]int{WeightCritical, WeightHigh, WeightMedium, WeightLow}
 
-    // Calculate weighted score from factors
-    report.Score = report.CalculateScore()
+    configs := scoring.VulnSeverityConfigs(severityCounts, penalties, weights)
+    factors := scoring.BuildSeverityFactors(configs, "") // Pass URL if available
 
-    return report, nil
-}
-
-// SeverityScore calculates a 0-100 score based on issue count and penalty.
-// Returns 100 minus (count * penalty), capped at 0.
-func SeverityScore(count, penalty int) int {
-    score := 100 - (count * penalty)
-    if score < 0 {
-        return 0
-    }
-    return score
+    // Build and return report using the shared helper
+    return scoring.BuildReport(title, sourceName, opts.Threshold, factors), nil
 }
 ```
 
@@ -257,7 +222,6 @@ import (
     "context"
     "fmt"
     "net/http"
-    "strings"
     "time"
 
     "github.com/boinger/confvis/internal/sources/httpclient"
@@ -273,10 +237,8 @@ type Client struct {
 
 // NewClient creates a new API client.
 func NewClient(baseURL, token string, timeout time.Duration) *Client {
-    if baseURL == "" {
-        baseURL = defaultBaseURL
-    }
-    baseURL = strings.TrimRight(baseURL, "/")
+    // Use shared URL normalization (handles empty URL and trailing slashes)
+    baseURL = httpclient.NormalizeBaseURL(baseURL, defaultBaseURL)
 
     return &Client{
         baseURL: baseURL,
@@ -292,10 +254,7 @@ func NewClient(baseURL, token string, timeout time.Duration) *Client {
 
 // NewClientWithHTTP creates a client with a custom http.Client (for testing).
 func NewClientWithHTTP(baseURL, token string, httpClient *http.Client) *Client {
-    if baseURL == "" {
-        baseURL = defaultBaseURL
-    }
-    baseURL = strings.TrimRight(baseURL, "/")
+    baseURL = httpclient.NormalizeBaseURL(baseURL, defaultBaseURL)
 
     return &Client{
         baseURL: baseURL,
@@ -485,20 +444,22 @@ func (s *Source) Fetch(ctx context.Context, opts sources.Options) (*confidence.R
 }
 ```
 
-### Command-Based Source (like Trivy)
+### Command-Based Source (like Trivy, Grype, Semgrep)
 
-For sources that run local commands:
+For sources that run local commands, use the `cmdrun` package:
 
 ```go
 package scanner
 
 import (
-    "bytes"
     "context"
     "encoding/json"
     "fmt"
-    "os/exec"
+
+    "github.com/boinger/confvis/internal/sources/cmdrun"
 )
+
+const DefaultCommand = "default-scanner"
 
 // Client executes commands and parses output.
 type Client struct {
@@ -508,7 +469,7 @@ type Client struct {
 // NewClient creates a command executor.
 func NewClient(command string) *Client {
     if command == "" {
-        command = "default-scanner"
+        command = DefaultCommand
     }
     return &Client{command: command}
 }
@@ -517,23 +478,26 @@ func NewClient(command string) *Client {
 func (c *Client) Scan(ctx context.Context, target string) (*ScanReport, error) {
     args := []string{"--format", "json", target}
 
-    cmd := exec.CommandContext(ctx, c.command, args...)
-    var stdout, stderr bytes.Buffer
-    cmd.Stdout = &stdout
-    cmd.Stderr = &stderr
-
-    if err := cmd.Run(); err != nil {
-        return nil, fmt.Errorf("running scanner: %w (stderr: %s)", err, stderr.String())
+    // cmdrun.Run handles command parsing (e.g., "docker run image")
+    // and returns both stdout and stderr
+    result, err := cmdrun.Run(ctx, c.command, args, "scanner")
+    if err != nil {
+        // FormatError includes stderr in the error message for debugging
+        return nil, cmdrun.FormatError(err, result.Stderr, "scanner", "scan")
     }
 
     var report ScanReport
-    if err := json.Unmarshal(stdout.Bytes(), &report); err != nil {
+    if err := json.Unmarshal(result.Stdout, &report); err != nil {
         return nil, fmt.Errorf("parsing output: %w", err)
     }
 
     return &report, nil
 }
 ```
+
+The `cmdrun` package provides:
+- **`Run(ctx, command, args, toolName)`**: Executes commands, handling compound commands like `docker run image`. Returns `*Result` with `Stdout` and `Stderr` bytes.
+- **`FormatError(err, stderr, toolName, action)`**: Creates informative error messages that include stderr output for debugging.
 
 ## Checklist
 
@@ -542,6 +506,9 @@ Before submitting a PR for a new source:
 - [ ] Implement the `Source` interface (`Name()`, `Fetch()`)
 - [ ] Use `ConfigResolver` for token/URL handling with environment variable fallbacks
 - [ ] Use `httpclient` package for HTTP calls (for API-based sources)
+- [ ] Use `httpclient.NormalizeBaseURL()` for URL normalization
+- [ ] Use `cmdrun` package for command execution (for CLI-based sources)
+- [ ] Use `scoring` package for severity-based scoring (vulnerability sources)
 - [ ] Register in `init()` with `sources.Register()`
 - [ ] Add blank import to `internal/cli/fetch.go`
 - [ ] Add source-specific flags if needed (in `fetch.go`)
@@ -557,17 +524,27 @@ Before submitting a PR for a new source:
 
 ### Severity-Based Scoring
 
-For vulnerability/issue scanners, use severity-based scoring:
+For vulnerability/issue scanners, use the shared `scoring` package:
 
 ```go
-// Score = 100 - (count * penalty), minimum 0
-func SeverityScore(count, penalty int) int {
-    score := 100 - (count * penalty)
-    if score < 0 {
-        return 0
-    }
-    return score
+import "github.com/boinger/confvis/internal/sources/scoring"
+
+// Use the shared SeverityScore function
+score := scoring.SeverityScore(count, penalty)
+
+// Or use the full helper chain for standard vulnerability sources
+severityCounts := scoring.SeverityCounts{
+    Critical: data.Critical,
+    High:     data.High,
+    Medium:   data.Medium,
+    Low:      data.Low,
 }
+penalties := [4]int{PenaltyCritical, PenaltyHigh, PenaltyMedium, PenaltyLow}
+weights := [4]int{WeightCritical, WeightHigh, WeightMedium, WeightLow}
+
+configs := scoring.VulnSeverityConfigs(severityCounts, penalties, weights)
+factors := scoring.BuildSeverityFactors(configs, optionalURL)
+report := scoring.BuildReport(title, sourceName, threshold, factors)
 ```
 
 Suggested penalty values:

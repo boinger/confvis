@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/boinger/confvis/internal/sources/httpclient"
@@ -24,10 +23,7 @@ type Client struct {
 
 // NewClient creates a new Snyk API client.
 func NewClient(baseURL, token string, timeout time.Duration) *Client {
-	if baseURL == "" {
-		baseURL = defaultBaseURL
-	}
-	baseURL = strings.TrimRight(baseURL, "/")
+	baseURL = httpclient.NormalizeBaseURL(baseURL, defaultBaseURL)
 
 	return &Client{
 		baseURL: baseURL,
@@ -44,10 +40,7 @@ func NewClient(baseURL, token string, timeout time.Duration) *Client {
 // NewClientWithHTTP creates a new client with a custom HTTP client.
 // This is primarily intended for testing.
 func NewClientWithHTTP(baseURL, token string, httpClient *http.Client) *Client {
-	if baseURL == "" {
-		baseURL = defaultBaseURL
-	}
-	baseURL = strings.TrimRight(baseURL, "/")
+	baseURL = httpclient.NormalizeBaseURL(baseURL, defaultBaseURL)
 
 	return &Client{
 		baseURL: baseURL,

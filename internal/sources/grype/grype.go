@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/boinger/confvis/internal/confidence"
 	"github.com/boinger/confvis/internal/sources"
@@ -69,46 +68,19 @@ func (s *Source) Fetch(ctx context.Context, opts sources.Options) (*confidence.R
 	}
 
 	// Build factors with severity-based scoring
-	factors := []confidence.Factor{
-		{
-			Name:        "Critical Vulnerabilities",
-			Score:       scoring.SeverityScore(counts.Critical, PenaltyCritical),
-			Weight:      WeightCritical,
-			Description: fmt.Sprintf("%d critical", counts.Critical),
-		},
-		{
-			Name:        "High Vulnerabilities",
-			Score:       scoring.SeverityScore(counts.High, PenaltyHigh),
-			Weight:      WeightHigh,
-			Description: fmt.Sprintf("%d high", counts.High),
-		},
-		{
-			Name:        "Medium Vulnerabilities",
-			Score:       scoring.SeverityScore(counts.Medium, PenaltyMedium),
-			Weight:      WeightMedium,
-			Description: fmt.Sprintf("%d medium", counts.Medium),
-		},
-		{
-			Name:        "Low Vulnerabilities",
-			Score:       scoring.SeverityScore(counts.Low, PenaltyLow),
-			Weight:      WeightLow,
-			Description: fmt.Sprintf("%d low", counts.Low),
-		},
+	severityCounts := scoring.SeverityCounts{
+		Critical: counts.Critical,
+		High:     counts.High,
+		Medium:   counts.Medium,
+		Low:      counts.Low,
 	}
+	penalties := [4]int{PenaltyCritical, PenaltyHigh, PenaltyMedium, PenaltyLow}
+	weights := [4]int{WeightCritical, WeightHigh, WeightMedium, WeightLow}
 
-	// Build report
-	result := &confidence.Report{
-		Title:       title,
-		Threshold:   opts.Threshold,
-		Source:      sourceName,
-		GeneratedAt: time.Now().UTC().Format(time.RFC3339),
-		Factors:     factors,
-	}
+	configs := scoring.VulnSeverityConfigs(severityCounts, penalties, weights)
+	factors := scoring.BuildSeverityFactors(configs, "")
 
-	// Calculate weighted score
-	result.Score = result.CalculateScore()
-
-	return result, nil
+	return scoring.BuildReport(title, sourceName, opts.Threshold, factors), nil
 }
 
 // deriveTitle creates a title from the target path or image name.

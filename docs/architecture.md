@@ -33,12 +33,22 @@ confvis/
 │       ├── source.go       # Source interface and registry
 │       ├── config.go       # Configuration resolver helper
 │       ├── httpclient/     # Common HTTP client
-│       │   └── client.go   # Configurable HTTP client (auth, headers)
+│       │   ├── client.go   # Configurable HTTP client (auth, headers)
+│       │   └── url.go      # URL normalization utilities
+│       ├── scoring/        # Shared scoring utilities
+│       │   ├── scoring.go  # SeverityScore calculation
+│       │   ├── factors.go  # Factor building helpers
+│       │   └── report.go   # Report building helper
+│       ├── cmdrun/         # CLI command execution
+│       │   └── cmdrun.go   # Run() and FormatError()
 │       ├── sonarqube/      # SonarQube implementation
 │       ├── codecov/        # Codecov implementation
 │       ├── ghactions/      # GitHub Actions implementation
 │       ├── snyk/           # Snyk implementation
-│       └── trivy/          # Trivy implementation
+│       ├── dependabot/     # GitHub Dependabot implementation
+│       ├── trivy/          # Trivy implementation
+│       ├── grype/          # Grype implementation
+│       └── semgrep/        # Semgrep implementation
 └── testdata/               # Test fixtures
 ```
 
@@ -135,7 +145,24 @@ Common HTTP client used by API-based sources:
 - Configurable authentication: Bearer, Token, Basic, or None
 - Custom Accept headers and extra headers (e.g., API version)
 - Centralized error handling and JSON decoding
+- `NormalizeBaseURL()` helper for consistent URL handling
 - Reduces duplication across source clients
+
+### `internal/sources/scoring`
+
+Shared scoring utilities used by vulnerability/issue sources:
+- `SeverityScore()` - Calculate score from issue count and penalty
+- `SeverityCounts` - Standard struct for critical/high/medium/low counts
+- `VulnSeverityConfigs()` - Build severity config arrays for standard vulnerability sources
+- `BuildSeverityFactors()` - Generate confidence factors from severity configs
+- `BuildReport()` - Create complete report with calculated score
+
+### `internal/sources/cmdrun`
+
+CLI command execution utilities for command-based sources:
+- `Run()` - Execute commands with context, handling compound commands
+- `FormatError()` - Format errors with stderr output for debugging
+- Used by trivy, grype, and semgrep sources
 
 ### `internal/sources/sonarqube`
 

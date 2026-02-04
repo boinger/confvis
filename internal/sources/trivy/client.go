@@ -1,12 +1,11 @@
 package trivy
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"os/exec"
-	"strings"
+
+	"github.com/boinger/confvis/internal/sources/cmdrun"
 )
 
 // DefaultCommand is the default trivy command.
@@ -28,36 +27,17 @@ func NewClient(command string) *Client {
 
 // Scan runs trivy fs on the specified path and returns the parsed report.
 func (c *Client) Scan(ctx context.Context, path string) (*Report, error) {
-	// Build command arguments
-	// trivy fs --format json --scanners vuln <path>
+	// Build command arguments: trivy fs --format json --scanners vuln <path>
 	args := []string{"fs", "--format", "json", "--scanners", "vuln", path}
 
-	// Parse command (may be "trivy" or "docker run aquasec/trivy")
-	cmdParts := strings.Fields(c.command)
-	if len(cmdParts) == 0 {
-		return nil, fmt.Errorf("empty trivy command")
-	}
-
-	cmdName := cmdParts[0]
-	cmdArgs := append(cmdParts[1:], args...)
-
-	cmd := exec.CommandContext(ctx, cmdName, cmdArgs...)
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		// Include stderr in error message for debugging
-		stderrStr := strings.TrimSpace(stderr.String())
-		if stderrStr != "" {
-			return nil, fmt.Errorf("trivy scan failed: %w: %s", err, stderrStr)
-		}
-		return nil, fmt.Errorf("trivy scan failed: %w", err)
+	result, err := cmdrun.Run(ctx, c.command, args, "trivy")
+	if err != nil {
+		return nil, cmdrun.FormatError(err, result.Stderr, "trivy", "scan")
 	}
 
 	// Parse JSON output
 	var report Report
-	if err := json.Unmarshal(stdout.Bytes(), &report); err != nil {
+	if err := json.Unmarshal(result.Stdout, &report); err != nil {
 		return nil, fmt.Errorf("parsing trivy output: %w", err)
 	}
 

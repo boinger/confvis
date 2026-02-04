@@ -1,13 +1,13 @@
 package semgrep
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os/exec"
-	"strings"
+
+	"github.com/boinger/confvis/internal/sources/cmdrun"
 )
 
 // DefaultCommand is the default semgrep command.
@@ -29,8 +29,7 @@ func NewClient(command string) *Client {
 
 // Scan runs semgrep on the specified path and returns the parsed report.
 func (c *Client) Scan(ctx context.Context, path string, config string) (*Report, error) {
-	// Build command arguments
-	// semgrep scan --json --config <config> <path>
+	// Build command arguments: semgrep scan --json --config <config> <path>
 	args := []string{"scan", "--json"}
 	if config != "" {
 		args = append(args, "--config", config)
@@ -39,30 +38,17 @@ func (c *Client) Scan(ctx context.Context, path string, config string) (*Report,
 	}
 	args = append(args, path)
 
-	// Parse command (may be "semgrep" or "docker run returntocorp/semgrep")
-	cmdParts := strings.Fields(c.command)
-	if len(cmdParts) == 0 {
-		return nil, fmt.Errorf("empty semgrep command")
-	}
-
-	cmdName := cmdParts[0]
-	cmdArgs := append(cmdParts[1:], args...)
-
-	cmd := exec.CommandContext(ctx, cmdName, cmdArgs...)
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
+	result, err := cmdrun.Run(ctx, c.command, args, "semgrep")
 	// Semgrep returns exit code 1 when findings exist, which is not an error for us
-	if err := cmd.Run(); err != nil {
-		if fatalErr := checkSemgrepError(err, &stderr); fatalErr != nil {
+	if err != nil {
+		if fatalErr := checkSemgrepError(err, result.Stderr); fatalErr != nil {
 			return nil, fatalErr
 		}
 	}
 
 	// Parse JSON output
 	var report Report
-	if err := json.Unmarshal(stdout.Bytes(), &report); err != nil {
+	if err := json.Unmarshal(result.Stdout, &report); err != nil {
 		return nil, fmt.Errorf("parsing semgrep output: %w", err)
 	}
 
@@ -71,7 +57,7 @@ func (c *Client) Scan(ctx context.Context, path string, config string) (*Report,
 
 // checkSemgrepError returns nil if the error is acceptable (exit code 1 = findings found),
 // otherwise returns a formatted error.
-func checkSemgrepError(err error, stderr *bytes.Buffer) error {
+func checkSemgrepError(err error, stderr []byte) error {
 	exitError, ok := err.(*exec.ExitError)
 	if !ok {
 		return fmt.Errorf("semgrep scan failed: %w", err)
@@ -82,11 +68,7 @@ func checkSemgrepError(err error, stderr *bytes.Buffer) error {
 		return nil
 	}
 
-	stderrStr := strings.TrimSpace(stderr.String())
-	if stderrStr != "" {
-		return fmt.Errorf("semgrep scan failed: %w: %s", err, stderrStr)
-	}
-	return fmt.Errorf("semgrep scan failed: %w", err)
+	return cmdrun.FormatError(err, stderr, "semgrep", "scan")
 }
 
 // ParseFromReader parses semgrep JSON output from a reader.
