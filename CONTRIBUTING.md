@@ -215,6 +215,21 @@ confvis/
 └── badges/             # Auto-generated confidence badges
 ```
 
+## Adding New Sources
+
+confvis supports pluggable metric sources. To add a new source:
+
+1. Implement the `Source` interface (`Name()`, `Fetch()`)
+2. Create a package under `internal/sources/`
+3. Register via `init()` function
+4. Add import to `internal/cli/fetch.go`
+
+See [docs/contributing-sources.md](docs/contributing-sources.md) for the complete guide including:
+- Architecture overview
+- Step-by-step tutorial with code examples
+- Testing patterns
+- Scoring guidelines
+
 ## Questions?
 
 Open an issue for questions or discussion.
