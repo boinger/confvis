@@ -100,7 +100,7 @@ runs:
 
         if [ "$VERSION" = "latest" ]; then
           # Get latest release tag from GitHub API
-          LATEST_TAG=$(curl -sSL "https://api.github.com/repos/boinger/confvis/releases/latest" | jq -r '.tag_name')
+          LATEST_TAG=$(curl -sSL --proto =https "https://api.github.com/repos/boinger/confvis/releases/latest" | jq -r '.tag_name')
           VERSION_NUM="${LATEST_TAG#v}"
           DOWNLOAD_URL="https://github.com/boinger/confvis/releases/download/${LATEST_TAG}/confvis_${VERSION_NUM}_${OS}_${ARCH}.tar.gz"
         else
@@ -114,12 +114,12 @@ runs:
 
         # Download and extract
         if [ "$OS" = "windows" ]; then
-          curl -sSL "${DOWNLOAD_URL%.tar.gz}.zip" -o /tmp/confvis.zip
+          curl -sSL --proto =https "${DOWNLOAD_URL%.tar.gz}.zip" -o /tmp/confvis.zip
           unzip -q /tmp/confvis.zip -d /tmp
           mv /tmp/confvis.exe "$ACTION_PATH/confvis.exe"
           echo "$ACTION_PATH" >> $GITHUB_PATH
         else
-          curl -sSL "$DOWNLOAD_URL" | tar xz -C /tmp
+          curl -sSL --proto =https "$DOWNLOAD_URL" | tar xz -C /tmp
           chmod +x /tmp/confvis
           sudo mv /tmp/confvis /usr/local/bin/confvis
         fi
