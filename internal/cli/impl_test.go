@@ -2843,3 +2843,257 @@ func TestFetchImpl_FileCloseError_CurrentBehavior(t *testing.T) {
 		t.Fatalf("fetchImpl() should succeed despite close error (current behavior), got: %v", err)
 	}
 }
+
+// ============================================================================
+// errWriter - helper for testing write error paths
+// ============================================================================
+
+// errWriter is a writer that returns an error after n successful writes.
+// Use n=0 to fail immediately on first write.
+type errWriter struct {
+	n   int
+	err error
+}
+
+func (e *errWriter) Write(p []byte) (int, error) {
+	if e.n <= 0 {
+		return 0, e.err
+	}
+	e.n--
+	return len(p), nil
+}
+
+// ============================================================================
+// Write Error Path Tests - writeGitHubComment and related functions
+// ============================================================================
+
+func TestWriteGitHubComment_WriteErrors(t *testing.T) {
+	report := &confidence.Report{
+		Title:     "Test Report",
+		Score:     85,
+		Threshold: 75,
+		Version:   "1.0.0",
+		Factors: []confidence.Factor{
+			{Name: "Factor1", Score: 90, Weight: 50, Description: "First factor"},
+		},
+	}
+
+	// Test error at various write points through the function
+	for i := 0; i < 15; i++ {
+		w := &errWriter{n: i, err: errors.New("write failed")}
+		err := writeGitHubComment(w, report, nil)
+		if i < 12 && err == nil {
+			// The function has many writes; we expect errors for early failures
+			t.Errorf("expected error at write %d, got nil", i)
+		}
+	}
+}
+
+func TestWriteGitHubCommentHeader_WriteErrors(t *testing.T) {
+	report := &confidence.Report{
+		Title:     "Test Report",
+		Score:     85,
+		Threshold: 75,
+	}
+
+	// Test error at each write point in writeGitHubCommentHeader
+	// The function has 6 Fprintf/Fprintln calls
+	for i := 0; i < 6; i++ {
+		w := &errWriter{n: i, err: errors.New("write failed")}
+		err := writeGitHubCommentHeader(w, report)
+		if err == nil {
+			t.Errorf("expected error at write %d, got nil", i)
+		}
+	}
+}
+
+func TestWriteGitHubCommentHeader_WriteErrors_FailedReport(t *testing.T) {
+	report := &confidence.Report{
+		Title:     "Failing Report",
+		Score:     50,
+		Threshold: 75,
+	}
+
+	// Test with failing report (different emoji/text paths)
+	w := &errWriter{n: 0, err: errors.New("write failed")}
+	err := writeGitHubCommentHeader(w, report)
+	if err == nil {
+		t.Error("expected error for header write failure")
+	}
+}
+
+func TestWriteGitHubCommentFactors_WriteErrors(t *testing.T) {
+	factors := []confidence.Factor{
+		{Name: "Factor1", Score: 90, Weight: 50, Description: "First factor"},
+		{Name: "Factor2", Score: 80, Weight: 50, Description: ""},
+	}
+
+	// Test error at each write point in writeGitHubCommentFactors
+	// The function has: details open, summary, table header, separator, 2 factor rows, details close = 7 writes
+	for i := 0; i < 7; i++ {
+		w := &errWriter{n: i, err: errors.New("write failed")}
+		err := writeGitHubCommentFactors(w, factors)
+		if err == nil {
+			t.Errorf("expected error at write %d, got nil", i)
+		}
+	}
+}
+
+func TestWriteGitHubCommentFactors_EmptyFactors(t *testing.T) {
+	// Empty factors should not write anything and should not error
+	var buf bytes.Buffer
+	err := writeGitHubCommentFactors(&buf, nil)
+	if err != nil {
+		t.Errorf("empty factors should not error, got: %v", err)
+	}
+	if buf.Len() != 0 {
+		t.Errorf("empty factors should not write anything, got: %s", buf.String())
+	}
+}
+
+func TestWriteGitHubCommentFooter_WriteError(t *testing.T) {
+	w := &errWriter{n: 0, err: errors.New("write failed")}
+	err := writeGitHubCommentFooter(w, "1.0.0")
+	if err == nil {
+		t.Error("expected error for footer write failure")
+	}
+}
+
+func TestWriteGitHubCommentBaseline_WriteError(t *testing.T) {
+	report := &confidence.Report{Score: 85}
+	baseline := &confidence.Report{Score: 80}
+
+	w := &errWriter{n: 0, err: errors.New("write failed")}
+	err := writeGitHubCommentBaseline(w, report, baseline)
+	if err == nil {
+		t.Error("expected error for baseline write failure")
+	}
+}
+
+func TestWriteGitHubCommentBaseline_NilBaseline(t *testing.T) {
+	report := &confidence.Report{Score: 85}
+
+	// Nil baseline should not write anything
+	var buf bytes.Buffer
+	err := writeGitHubCommentBaseline(&buf, report, nil)
+	if err != nil {
+		t.Errorf("nil baseline should not error, got: %v", err)
+	}
+	if buf.Len() != 0 {
+		t.Errorf("nil baseline should not write anything, got: %s", buf.String())
+	}
+}
+
+// ============================================================================
+// Write Error Path Tests - writeMarkdown
+// ============================================================================
+
+func TestWriteMarkdown_WriteErrors(t *testing.T) {
+	report := &confidence.Report{
+		Title:       "Test Report",
+		Score:       85,
+		Threshold:   75,
+		Description: "A description",
+		Factors: []confidence.Factor{
+			{Name: "Factor1", Score: 90, Weight: 50, URL: "https://example.com"},
+		},
+	}
+
+	// Test error at various write points
+	// The function has: header, description, table header, separator, factor row = 5 writes
+	for i := 0; i < 5; i++ {
+		w := &errWriter{n: i, err: errors.New("write failed")}
+		err := writeMarkdown(w, report, nil, 0)
+		if err == nil {
+			t.Errorf("expected error at write %d, got nil", i)
+		}
+	}
+}
+
+func TestWriteMarkdown_WriteErrors_WithBaseline(t *testing.T) {
+	report := &confidence.Report{
+		Title:     "Test Report",
+		Score:     85,
+		Threshold: 75,
+	}
+	baseline := &confidence.Report{Score: 80}
+
+	// Test with baseline (different header format)
+	w := &errWriter{n: 0, err: errors.New("write failed")}
+	err := writeMarkdown(w, report, baseline, 5)
+	if err == nil {
+		t.Error("expected error for markdown header write failure with baseline")
+	}
+}
+
+func TestWriteMarkdown_WriteErrors_NoDescription(t *testing.T) {
+	report := &confidence.Report{
+		Title:     "Test Report",
+		Score:     85,
+		Threshold: 75,
+		// No description
+		Factors: []confidence.Factor{
+			{Name: "Factor1", Score: 90, Weight: 50},
+		},
+	}
+
+	// Error on factor table header
+	w := &errWriter{n: 1, err: errors.New("write failed")}
+	err := writeMarkdown(w, report, nil, 0)
+	if err == nil {
+		t.Error("expected error for factor table header write failure")
+	}
+}
+
+// ============================================================================
+// Write Error Path Tests - writeText
+// ============================================================================
+
+func TestWriteText_WriteErrors(t *testing.T) {
+	// Test without baseline
+	w := &errWriter{n: 0, err: errors.New("write failed")}
+	err := writeText(w, 85, nil, 0)
+	if err == nil {
+		t.Error("expected error for text write failure")
+	}
+}
+
+func TestWriteText_WriteErrors_WithBaseline(t *testing.T) {
+	baseline := &confidence.Report{Score: 80}
+
+	// Test with baseline (different format)
+	w := &errWriter{n: 0, err: errors.New("write failed")}
+	err := writeText(w, 85, baseline, 5)
+	if err == nil {
+		t.Error("expected error for text write failure with baseline")
+	}
+}
+
+func TestWriteText_WriteErrors_NegativeDelta(t *testing.T) {
+	baseline := &confidence.Report{Score: 90}
+
+	// Test with negative delta
+	w := &errWriter{n: 0, err: errors.New("write failed")}
+	err := writeText(w, 85, baseline, -5)
+	if err == nil {
+		t.Error("expected error for text write failure with negative delta")
+	}
+}
+
+// ============================================================================
+// Write Error Path Tests - writeJSON
+// ============================================================================
+
+func TestWriteJSON_WriteError(t *testing.T) {
+	report := &confidence.Report{
+		Title:     "Test Report",
+		Score:     85,
+		Threshold: 75,
+	}
+
+	w := &errWriter{n: 0, err: errors.New("write failed")}
+	err := writeJSON(w, report, nil, 0)
+	if err == nil {
+		t.Error("expected error for JSON write failure")
+	}
+}

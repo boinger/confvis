@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"bytes"
+	"errors"
 	"strings"
 	"testing"
 
@@ -569,5 +570,118 @@ func TestGenerateMulti_MultipleReportsWithMixedPassFail(t *testing.T) {
 	// Aggregate should show fail (70 < 75)
 	if !strings.Contains(html, "badge-fail") {
 		t.Error("aggregate badge should show fail for score 70 with threshold 75")
+	}
+}
+
+// ============================================================================
+// errWriter - helper for testing write error paths
+// ============================================================================
+
+// errWriter is a writer that returns an error after n successful writes.
+type errWriter struct {
+	n   int
+	err error
+}
+
+func (e *errWriter) Write(p []byte) (int, error) {
+	if e.n <= 0 {
+		return 0, e.err
+	}
+	e.n--
+	return len(p), nil
+}
+
+// ============================================================================
+// Write Error Path Tests - Generate and GenerateMulti
+// ============================================================================
+
+func TestGenerate_WriteError(t *testing.T) {
+	report := &confidence.Report{
+		Title:     "Test Report",
+		Score:     85,
+		Threshold: 75,
+	}
+
+	// Test error during template execution (writing to errWriter)
+	w := &errWriter{n: 0, err: errors.New("write failed")}
+	err := Generate(w, report, Options{})
+	if err == nil {
+		t.Error("expected error for write failure")
+	}
+}
+
+func TestGenerate_WriteError_MidStream(t *testing.T) {
+	report := &confidence.Report{
+		Title:     "Test Report",
+		Score:     85,
+		Threshold: 75,
+		Factors: []confidence.Factor{
+			{Name: "Factor1", Score: 90, Weight: 50},
+		},
+	}
+
+	// Test error after some successful writes
+	for i := 1; i < 5; i++ {
+		w := &errWriter{n: i, err: errors.New("write failed")}
+		err := Generate(w, report, Options{})
+		if err == nil {
+			t.Errorf("expected error at write %d, got nil", i)
+		}
+	}
+}
+
+func TestGenerateMulti_WriteError(t *testing.T) {
+	reports := []ReportSummary{
+		{
+			Report: &confidence.Report{
+				Title:     "Test Report",
+				Score:     85,
+				Threshold: 75,
+			},
+			Weight: 100,
+			Path:   "test.json",
+		},
+	}
+
+	aggregate := &confidence.Report{
+		Title:     "Aggregate",
+		Score:     85,
+		Threshold: 75,
+	}
+
+	// Test error during template execution
+	w := &errWriter{n: 0, err: errors.New("write failed")}
+	err := GenerateMulti(w, reports, aggregate, MultiOptions{})
+	if err == nil {
+		t.Error("expected error for write failure")
+	}
+}
+
+func TestGenerateMulti_WriteError_MidStream(t *testing.T) {
+	reports := []ReportSummary{
+		{
+			Report: &confidence.Report{
+				Title:     "Test Report",
+				Score:     85,
+				Threshold: 75,
+			},
+			Weight: 100,
+			Path:   "test.json",
+		},
+	}
+
+	aggregate := &confidence.Report{
+		Title:     "Aggregate",
+		Score:     85,
+		Threshold: 75,
+	}
+
+	// Test error after some successful writes
+	for i := 1; i < 5; i++ {
+		w := &errWriter{n: i, err: errors.New("write failed")}
+		err := GenerateMulti(w, reports, aggregate, MultiOptions{})
+		if err == nil {
+			t.Errorf("expected error at write %d, got nil", i)
+		}
 	}
 }
