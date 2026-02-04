@@ -92,7 +92,8 @@ jobs:
         if: steps.check-token.outputs.skip != 'true'
         id: version
         run: |
-          VERSION=$(git describe --tags --always 2>/dev/null || echo "dev")
+          # Only use exact tag matches so non-release commits don't get versions
+          VERSION=$(git describe --tags --exact-match 2>/dev/null || echo "")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: SonarCloud Scan
@@ -102,4 +103,4 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           args: >
-            -Dsonar.projectVersion=${{ steps.version.outputs.version }}
+            ${{ steps.version.outputs.version != '' && format('-Dsonar.projectVersion={0}', steps.version.outputs.version) || '' }}
