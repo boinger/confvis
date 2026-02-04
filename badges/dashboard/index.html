@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aggregate Confidence Report</title>
     <style>
+
         :root {
             --bg-primary: #ffffff;
             --bg-secondary: #f6f8fa;
@@ -49,12 +50,6 @@
             min-height: 100vh;
         }
 
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
-            padding: 24px;
-        }
-
         .header {
             display: flex;
             align-items: center;
@@ -89,6 +84,49 @@
             color: var(--danger-color);
         }
 
+        .gauge-container {
+            display: flex;
+            justify-content: center;
+        }
+
+        .factor-name {
+            font-weight: 500;
+        }
+
+        .factor-link {
+            color: var(--text-primary);
+            text-decoration: none;
+        }
+
+        .factor-link:hover {
+            text-decoration: underline;
+            color: var(--success-color);
+        }
+
+        .theme-toggle {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 8px 12px;
+            cursor: pointer;
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+
+        .theme-toggle:hover {
+            background: var(--border-color);
+        }
+
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
         .aggregate-section {
             background-color: var(--bg-secondary);
             border: 1px solid var(--border-color);
@@ -110,8 +148,6 @@
         }
 
         .gauge-container {
-            display: flex;
-            justify-content: center;
             margin: 16px 0;
         }
 
@@ -181,39 +217,8 @@
             font-size: 14px;
         }
 
-        .factor-name {
-            color: var(--text-primary);
-        }
-
-        .factor-link {
-            color: var(--text-primary);
-            text-decoration: none;
-        }
-
-        .factor-link:hover {
-            text-decoration: underline;
-            color: var(--success-color);
-        }
-
         .factor-score {
             color: var(--text-muted);
-        }
-
-        .theme-toggle {
-            position: fixed;
-            top: 16px;
-            right: 16px;
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            padding: 8px 12px;
-            cursor: pointer;
-            color: var(--text-primary);
-            font-size: 14px;
-        }
-
-        .theme-toggle:hover {
-            background: var(--border-color);
         }
 
         .section-title {
@@ -224,9 +229,11 @@
     </style>
 </head>
 <body>
+
     <button class="theme-toggle" onclick="document.body.classList.toggle('dark')">
         Toggle Theme
     </button>
+
 
     <div class="container">
         <header class="header">
