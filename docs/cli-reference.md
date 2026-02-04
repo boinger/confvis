@@ -497,6 +497,7 @@ confvis fetch <source> -p <project> -o <output> [flags]
 | `DEPENDABOT_TOKEN` | dependabot | API token (fallback: GITHUB_TOKEN) |
 | `GITHUB_TOKEN` | dependabot, github-actions | Personal access token |
 | `GITHUB_API_URL` | dependabot, github-actions | API URL (for Enterprise) |
+| `GRYPE_CMD` | grype | Grype command to execute |
 | `SNYK_TOKEN` | snyk | API token |
 | `SNYK_ORG_ID` | snyk | Organization ID |
 | `SNYK_API_URL` | snyk | API URL |
@@ -517,6 +518,10 @@ confvis fetch codecov -p myorg/myrepo -o confidence.json
 # Fetch from Dependabot (GitHub vulnerability alerts)
 export GITHUB_TOKEN=xxx
 confvis fetch dependabot -p myorg/myrepo -o dependabot.json
+
+# Fetch from Grype (filesystem or container image scan)
+confvis fetch grype -p . -o grype.json
+confvis fetch grype -p alpine:latest -o grype.json
 
 # Fetch from GitHub Actions with workflow filter
 export GITHUB_TOKEN=xxx

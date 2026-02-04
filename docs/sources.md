@@ -10,6 +10,7 @@ confvis can fetch metrics directly from external systems using the `confvis fetc
 | `codecov` | Coverage metrics from Codecov | Available |
 | `dependabot` | Vulnerability alerts from GitHub Dependabot | Available |
 | `github-actions` | CI/CD workflow metrics from GitHub Actions | Available |
+| `grype` | Security vulnerability scanning with Grype | Available |
 | `snyk` | Security vulnerability metrics from Snyk | Available |
 | `trivy` | Local security vulnerability scanning with Trivy | Available |
 
@@ -314,6 +315,96 @@ confvis fetch github-actions -p myorg/myrepo -o confidence.json
 ### Authentication
 
 Use a Personal Access Token with `repo` scope, or the automatic `GITHUB_TOKEN` in GitHub Actions workflows.
+
+## Grype
+
+Scans containers and filesystems for security vulnerabilities using Grype.
+
+Similar to Trivy, Grype runs locally and scans your codebase or container images for vulnerabilities.
+
+### Configuration
+
+| Flag | Environment Variable | Description |
+|------|---------------------|-------------|
+| `--grype-cmd` | `GRYPE_CMD` | Grype command (default: `grype`) |
+
+**Note:** The `--project` flag specifies the target to scan - can be a path (`.`), container image (`alpine:latest`), or SBOM file.
+
+### Prerequisites
+
+Grype must be installed on the system. Install via:
+
+```bash
+# macOS
+brew install grype
+
+# Linux
+curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
+
+# Docker (no installation required)
+confvis fetch grype -p . --grype-cmd "docker run --rm -v $(pwd):/scan anchore/grype /scan" -o security.json
+```
+
+### Metric Mapping
+
+Vulnerability counts are converted to scores using severity-based penalties (same as Trivy/Snyk):
+
+| Factor Name | Scoring Formula | Weight |
+|-------------|-----------------|--------|
+| Critical Vulnerabilities | 100 if 0, else max(0, 100 - count×33) | 40% |
+| High Vulnerabilities | 100 if 0, else max(0, 100 - count×20) | 30% |
+| Medium Vulnerabilities | 100 if 0, else max(0, 100 - count×10) | 20% |
+| Low Vulnerabilities | 100 if 0, else max(0, 100 - count×5) | 10% |
+
+### Example Output
+
+```json
+{
+  "title": "alpine:3.18",
+  "score": 85,
+  "threshold": 75,
+  "source": "grype",
+  "generatedAt": "2026-02-01T15:30:00Z",
+  "factors": [
+    {"name": "Critical Vulnerabilities", "score": 100, "weight": 40, "description": "0 critical"},
+    {"name": "High Vulnerabilities", "score": 80, "weight": 30, "description": "1 high"},
+    {"name": "Medium Vulnerabilities", "score": 70, "weight": 20, "description": "3 medium"},
+    {"name": "Low Vulnerabilities", "score": 95, "weight": 10, "description": "1 low"}
+  ]
+}
+```
+
+### Examples
+
+```bash
+# Scan current directory
+confvis fetch grype -p . -o security.json
+
+# Scan a container image
+confvis fetch grype -p alpine:3.18 -o security.json
+
+# Scan with Docker (no local grype install needed)
+confvis fetch grype -p . --grype-cmd "docker run --rm -v $(pwd):/scan anchore/grype /scan" -o security.json
+
+# Custom title
+confvis fetch grype -p . --title "Security Scan" -o security.json
+
+# Pipe to badge generation
+confvis fetch grype -p . -o - | confvis gauge -c - -o security-badge.svg
+```
+
+### CI/CD Integration
+
+Grype is commonly used in CI/CD pipelines. Here's a GitHub Actions example:
+
+```yaml
+- name: Install Grype
+  run: |
+    curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
+
+- name: Fetch Grype metrics
+  run: confvis fetch grype -p . -o security.json
+```
 
 ## Snyk
 

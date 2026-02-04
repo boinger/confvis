@@ -18,6 +18,7 @@ import (
 	_ "github.com/boinger/confvis/internal/sources/codecov"
 	_ "github.com/boinger/confvis/internal/sources/dependabot"
 	_ "github.com/boinger/confvis/internal/sources/ghactions"
+	_ "github.com/boinger/confvis/internal/sources/grype"
 	_ "github.com/boinger/confvis/internal/sources/snyk"
 	_ "github.com/boinger/confvis/internal/sources/sonarqube"
 	_ "github.com/boinger/confvis/internal/sources/trivy"
@@ -37,6 +38,7 @@ var (
 	fetchWorkflow string // github-actions: workflow filter
 	fetchEvent    string // github-actions: event filter
 	fetchCount    int    // github-actions: run count
+	fetchGrypeCmd string // grype: command to run
 	fetchOrg      string // snyk: organization ID
 	fetchTrivyCmd string // trivy: command to run
 )
@@ -51,6 +53,7 @@ Available sources:
   codecov        Coverage metrics from Codecov
   dependabot     Vulnerability alerts from GitHub Dependabot
   github-actions CI/CD workflow metrics from GitHub Actions
+  grype          Security vulnerability scanning with Grype
   snyk           Vulnerability metrics from Snyk
   trivy          Security vulnerability scanning with Trivy
 
@@ -69,6 +72,10 @@ Examples:
   # Fetch from GitHub Actions
   export GITHUB_TOKEN=xxx
   confvis fetch github-actions -p myorg/myrepo --workflow ci.yml --count 20 -o confidence.json
+
+  # Fetch from Grype (container/filesystem scan)
+  confvis fetch grype -p . -o grype.json
+  confvis fetch grype -p alpine:latest -o grype.json
 
   # Fetch from Snyk
   export SNYK_TOKEN=xxx
@@ -101,6 +108,7 @@ func init() {
 	fetchCmd.Flags().StringVar(&fetchWorkflow, "workflow", "", "github-actions: workflow file or ID to filter")
 	fetchCmd.Flags().StringVar(&fetchEvent, "event", "", "github-actions: trigger event to filter (push, pull_request)")
 	fetchCmd.Flags().IntVar(&fetchCount, "count", 20, "github-actions: number of recent runs to analyze")
+	fetchCmd.Flags().StringVar(&fetchGrypeCmd, "grype-cmd", "", "grype: command to run (default: grype)")
 	fetchCmd.Flags().StringVar(&fetchOrg, "org", "", "snyk: organization ID")
 	fetchCmd.Flags().StringVar(&fetchTrivyCmd, "trivy-cmd", "", "trivy: command to run (default: trivy)")
 
@@ -189,6 +197,7 @@ func runFetch(_ *cobra.Command, args []string) error {
 			"workflow":  fetchWorkflow,
 			"event":     fetchEvent,
 			"count":     strconv.Itoa(fetchCount),
+			"grype-cmd": fetchGrypeCmd,
 			"org":       org,
 			"trivy-cmd": fetchTrivyCmd,
 		},
