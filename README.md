@@ -13,9 +13,9 @@
 [![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=boinger_confvis&metric=code_smells)](https://sonarcloud.io/summary/new_code?id=boinger_confvis)
 [![Duplicated Lines](https://sonarcloud.io/api/project_badges/measure?project=boinger_confvis&metric=duplicated_lines_density)](https://sonarcloud.io/summary/new_code?id=boinger_confvis)
 
-Generate visual confidence badges and dashboards from JSON metrics.
+Generate visual confidence badges and dashboards from aggregated code metrics.
 
-confvis transforms JSON confidence reports into SVG gauge badges and HTML dashboards, in order to more easily visualize code quality, test coverage, security scores, or any metric you track.
+confvis transforms JSON or YAML confidence reports into SVG gauge badges and HTML dashboards, in order to more easily visualize code quality, test coverage, security scores, or any metric you track.
 
 ## Installation
 
