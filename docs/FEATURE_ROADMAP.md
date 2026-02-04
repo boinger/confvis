@@ -10,7 +10,7 @@ This document outlines planned features for confvis, organized by implementation
 | 4 | Config File Support | Low | None | **Done** |
 | 5 | Auto History Management | Medium | None | **Done** |
 | 3 | Baseline Storage/Comparison | Medium | #5 (shared history concepts) | **Done** |
-| 6 | Direct GitHub Check Creation | Medium-High | None | Planned |
+| 6 | Direct GitHub Check Creation | Medium-High | None | **Done** |
 | 1 | Native GitHub Action | Medium | #2, #3, #6 (benefits from them) | Planned |
 
 ---
@@ -536,5 +536,5 @@ Recommended sequence based on dependencies:
 - [x] `--history-auto` persists to git ref
 - [x] `confvis baseline save/show` works
 - [x] `--compare-baseline --fail-on-regression` detects regressions
-- [ ] `confvis check github` creates valid GitHub Check
+- [x] `confvis check github` creates valid GitHub Check
 - [ ] `uses: boinger/confvis-action@v1` works in test workflow

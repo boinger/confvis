@@ -254,6 +254,25 @@ confvis baseline save -c confidence.json --file baseline.json
 
 Use `--compare-baseline` with `confvis gauge` to automatically fetch and compare against the stored baseline.
 
+### `confvis check`
+
+Create check runs on CI platforms directly from confidence reports.
+
+```bash
+# Auto-detect from GitHub Actions environment
+confvis check github -c confidence.json
+
+# Explicit options
+confvis check github -c confidence.json \
+  --owner myorg --repo myrepo --sha abc123 \
+  --token $GITHUB_TOKEN
+
+# Custom check name
+confvis check github -c confidence.json --name "Code Quality"
+```
+
+In GitHub Actions, most options are auto-detected from environment variables. Requires `checks: write` permission.
+
 ## JSON Schema
 
 | Field | Type | Required | Description |

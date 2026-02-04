@@ -82,6 +82,72 @@ The `github-comment` format produces output with:
 - Delta arrows when comparing against baseline (:arrow_up: / :arrow_down:)
 - Clean formatting optimized for GitHub's markdown renderer
 
+## GitHub Checks Integration
+
+Create native GitHub Check Runs that appear directly in the PR checks tab:
+
+```yaml
+name: Confidence Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  confidence:
+    runs-on: ubuntu-latest
+    permissions:
+      checks: write  # Required for creating check runs
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Install confvis
+        run: go install github.com/boinger/confvis/cmd/confvis@latest
+
+      - name: Create confidence check
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: confvis check github -c confidence.json
+```
+
+The check run shows:
+- Pass/fail status based on threshold
+- Score percentage and threshold
+- Factor breakdown table
+
+### Combined with Fetching
+
+Fetch metrics from external sources and create a check in one pipeline:
+
+```yaml
+- name: Fetch and create check
+  env:
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    SONARQUBE_URL: ${{ vars.SONARQUBE_URL }}
+    SONARQUBE_TOKEN: ${{ secrets.SONARQUBE_TOKEN }}
+  run: |
+    confvis fetch sonarqube -p myproject -o confidence.json
+    confvis check github -c confidence.json --name "SonarQube Quality"
+```
+
+### Custom Check Names
+
+Use different names for different aspects:
+
+```yaml
+- name: Create coverage check
+  run: confvis check github -c coverage.json --name "Test Coverage"
+
+- name: Create security check
+  run: confvis check github -c security.json --name "Security Scan"
+```
+
 ## Baseline Management for Regression Detection
 
 Baselines let you track score changes across commits. On merge to main, save the current score; on PRs, compare against it.

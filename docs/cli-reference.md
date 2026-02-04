@@ -582,6 +582,120 @@ confvis aggregate -c api.json -c web.json -o ./output --badge-type flat --icon "
 
 ---
 
+### `confvis check`
+
+Create check runs on CI platforms directly from confidence reports.
+
+```bash
+confvis check <platform> [flags]
+```
+
+#### Available Platforms
+
+| Platform | Description |
+|----------|-------------|
+| `github` | Create a GitHub Check Run |
+
+#### `confvis check github`
+
+Create a GitHub Check Run for your confidence score.
+
+```bash
+confvis check github -c <config> [flags]
+```
+
+##### Required Flags
+
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--config` | `-c` | Path to confidence report (JSON/YAML), or `-` for stdin |
+
+##### Optional Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--owner` | | Repository owner (auto-detected in GitHub Actions) |
+| `--repo` | | Repository name (auto-detected in GitHub Actions) |
+| `--sha` | | Commit SHA (auto-detected in GitHub Actions) |
+| `--name` | Confidence Score | Check run name |
+| `--token` | | GitHub token (or `GITHUB_TOKEN` env var) |
+| `--api-url` | | GitHub API URL (auto-detected in GitHub Actions) |
+| `--auto-detect` | true | Auto-detect values from GitHub Actions environment |
+
+##### Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `GITHUB_TOKEN` | GitHub API token (required) |
+| `GITHUB_REPOSITORY` | Repository in `owner/repo` format |
+| `GITHUB_SHA` | Commit SHA |
+| `GITHUB_API_URL` | API URL (for GitHub Enterprise) |
+
+##### Examples
+
+```bash
+# Auto-detect from GitHub Actions environment
+confvis check github -c confidence.json
+
+# Explicit options
+confvis check github -c confidence.json \
+  --owner myorg --repo myrepo --sha abc123 \
+  --token $GITHUB_TOKEN
+
+# Custom check name
+confvis check github -c confidence.json --name "Code Quality"
+
+# Pipe from fetch
+confvis fetch sonarqube -p myproject -o - | confvis check github -c -
+
+# With verbose output
+confvis check github -c confidence.json -v
+```
+
+##### GitHub Actions Integration
+
+```yaml
+name: Confidence Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  confidence:
+    runs-on: ubuntu-latest
+    permissions:
+      checks: write  # Required for creating check runs
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Install confvis
+        run: go install github.com/boinger/confvis/cmd/confvis@latest
+
+      - name: Create confidence check
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: confvis check github -c confidence.json
+```
+
+##### Config File Support
+
+```yaml
+# .confvis.yaml
+check:
+  github:
+    name: "Code Quality"
+    api_url: https://api.github.example.com  # For GitHub Enterprise
+```
+
+---
+
 ## Exit Codes
 
 | Code | Meaning |

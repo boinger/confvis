@@ -11,7 +11,9 @@ confvis/
 │   │   ├── gauge.go        # gauge subcommand
 │   │   ├── generate.go     # generate subcommand
 │   │   ├── aggregate.go    # aggregate subcommand
-│   │   └── fetch.go        # fetch subcommand (external sources)
+│   │   ├── fetch.go        # fetch subcommand (external sources)
+│   │   ├── baseline.go     # baseline save/show subcommands
+│   │   └── check.go        # check github subcommand
 │   ├── confidence/         # Core data types and parsing
 │   │   ├── types.go        # Report, Factor structs
 │   │   └── parser.go       # JSON parsing logic
@@ -23,6 +25,10 @@ confvis/
 │   │   └── templates/      # Embedded HTML templates
 │   ├── history/            # Score history tracking
 │   │   └── history.go      # JSON lines format handling
+│   ├── baseline/           # Baseline storage for regression detection
+│   │   └── baseline.go     # Git ref and file storage
+│   ├── checks/             # CI platform check integrations
+│   │   └── github.go       # GitHub Checks API client
 │   └── sources/            # External source modules
 │       ├── source.go       # Source interface and registry
 │       ├── config.go       # Configuration resolver helper
@@ -51,17 +57,17 @@ confvis/
       │   Report        │
       └────────┬────────┘
                │
-          ┌────┴────┐
-          │         │
-          ▼         ▼
-      ┌───────┐ ┌───────────┐
-      │ gauge │ │ dashboard │
-      └───┬───┘ └─────┬─────┘
-          │           │
-          ▼           ▼
-      ┌───────┐ ┌───────────┐
-      │  SVG  │ │   HTML    │
-      └───────┘ └───────────┘
+     ┌─────────┼─────────┐
+     │         │         │
+     ▼         ▼         ▼
+ ┌───────┐ ┌───────────┐ ┌────────┐
+ │ gauge │ │ dashboard │ │ checks │
+ └───┬───┘ └─────┬─────┘ └───┬────┘
+     │           │           │
+     ▼           ▼           ▼
+ ┌───────┐ ┌───────────┐ ┌────────────┐
+ │  SVG  │ │   HTML    │ │ GitHub API │
+ └───────┘ └───────────┘ └────────────┘
 ```
 
 ## Package Responsibilities
@@ -98,6 +104,22 @@ HTML dashboard generation:
 - Uses Go's `html/template` with embedded templates
 - Renders full report with factor breakdown
 - Embeds the gauge SVG inline
+
+### `internal/baseline`
+
+Baseline storage for regression detection in CI/CD:
+- `Baseline` - Extends Report with save metadata (timestamp, commit, branch)
+- Git ref storage - Stores baselines in git refs without commits
+- File storage - Alternative for non-git environments
+- Used by `confvis baseline save/show` and `--compare-baseline`
+
+### `internal/checks`
+
+CI platform check integrations:
+- `GitHubClient` - Creates GitHub Check Runs via the Checks API
+- Supports pass/fail status based on threshold
+- Generates markdown summary with factor breakdown
+- Auto-detects GitHub Actions environment variables
 
 ### `internal/sources`
 
