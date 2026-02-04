@@ -11,47 +11,55 @@ import (
 	"github.com/boinger/confvis/internal/confidence"
 )
 
-func TestParseBaselineConfig_FromStdin(t *testing.T) {
-	deps := &BaselineDeps{
-		FS:     NewMockFileSystem(),
-		Stdin:  strings.NewReader(`{"title": "Test", "score": 85, "threshold": 75}`),
-		Config: "-",
+func TestParseBaselineConfig(t *testing.T) {
+	tests := []struct {
+		name        string
+		config      string
+		fileContent map[string]string
+		stdin       string
+		wantScore   int
+	}{
+		{
+			name:      "from stdin",
+			config:    "-",
+			stdin:     `{"title": "Test", "score": 85, "threshold": 75}`,
+			wantScore: 85,
+		},
+		{
+			name:        "from file",
+			config:      "report.json",
+			fileContent: map[string]string{"report.json": `{"title": "File", "score": 90, "threshold": 75}`},
+			wantScore:   90,
+		},
 	}
 
-	report, err := parseBaselineConfig(deps)
-	if err != nil {
-		t.Fatalf("parseBaselineConfig() error = %v", err)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockFS := NewMockFileSystem()
+			for path, content := range tt.fileContent {
+				mockFS.SetFileContent(path, content)
+			}
 
-	if report.Score != 85 {
-		t.Errorf("Score = %d, want 85", report.Score)
-	}
-}
+			deps := &BaselineDeps{
+				FS:     mockFS,
+				Stdin:  strings.NewReader(tt.stdin),
+				Config: tt.config,
+			}
 
-func TestParseBaselineConfig_FromFile(t *testing.T) {
-	mockFS := NewMockFileSystem()
-	mockFS.SetFileContent("report.json", `{"title": "File", "score": 90, "threshold": 75}`)
-
-	deps := &BaselineDeps{
-		FS:     mockFS,
-		Stdin:  strings.NewReader(""),
-		Config: "report.json",
-	}
-
-	report, err := parseBaselineConfig(deps)
-	if err != nil {
-		t.Fatalf("parseBaselineConfig() error = %v", err)
-	}
-
-	if report.Score != 90 {
-		t.Errorf("Score = %d, want 90", report.Score)
+			report, err := parseBaselineConfig(deps)
+			if err != nil {
+				t.Fatalf("parseBaselineConfig() error = %v", err)
+			}
+			if report.Score != tt.wantScore {
+				t.Errorf("Score = %d, want %d", report.Score, tt.wantScore)
+			}
+		})
 	}
 }
 
 func TestTruncateCommit(t *testing.T) {
 	tests := []struct {
-		input string
-		want  string
+		input, want string
 	}{
 		{"abcdefghij", "abcdefg"},
 		{"abc", "abc"},
@@ -91,193 +99,193 @@ func TestGetBaselineFile(t *testing.T) {
 	}
 }
 
-func TestOutputBaseline_Text(t *testing.T) {
-	var buf bytes.Buffer
-	deps := &BaselineDeps{
-		Stdout: &buf,
-		Format: "text",
+func TestOutputBaseline(t *testing.T) {
+	tests := []struct {
+		name     string
+		format   string
+		baseline *baseline.Baseline
+		contains string
+	}{
+		{
+			name:   "text format",
+			format: "text",
+			baseline: &baseline.Baseline{
+				Report:  confidence.Report{Score: 85},
+				SavedAt: "2024-01-01T00:00:00Z",
+				Commit:  "abc1234567890",
+				Branch:  "main",
+			},
+			contains: "85%",
+		},
+		{
+			name:     "json format",
+			format:   "json",
+			baseline: &baseline.Baseline{Report: confidence.Report{Score: 85}},
+			contains: `"score": 85`,
+		},
 	}
 
-	b := &baseline.Baseline{
-		Report:  confidence.Report{Score: 85},
-		SavedAt: "2024-01-01T00:00:00Z",
-		Commit:  "abc1234567890",
-		Branch:  "main",
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			deps := &BaselineDeps{Stdout: &buf, Format: tt.format}
 
-	err := outputBaseline(deps, b)
-	if err != nil {
-		t.Fatalf("outputBaseline() error = %v", err)
-	}
-
-	output := buf.String()
-	if !strings.Contains(output, "85%") {
-		t.Error("output should contain score")
-	}
-	if !strings.Contains(output, "abc1234") {
-		t.Error("output should contain truncated commit")
-	}
-}
-
-func TestOutputBaseline_JSON(t *testing.T) {
-	var buf bytes.Buffer
-	deps := &BaselineDeps{
-		Stdout: &buf,
-		Format: "json",
-	}
-
-	b := &baseline.Baseline{
-		Report: confidence.Report{Score: 85},
-	}
-
-	err := outputBaseline(deps, b)
-	if err != nil {
-		t.Fatalf("outputBaseline() error = %v", err)
-	}
-
-	if !strings.Contains(buf.String(), `"score": 85`) {
-		t.Error("JSON output should contain score")
+			if err := outputBaseline(deps, tt.baseline); err != nil {
+				t.Fatalf("outputBaseline() error = %v", err)
+			}
+			if !strings.Contains(buf.String(), tt.contains) {
+				t.Errorf("output should contain %q", tt.contains)
+			}
+		})
 	}
 }
 
 func TestBaselineShowImpl_InvalidFormat(t *testing.T) {
-	deps := &BaselineDeps{
-		Format: "invalid",
-	}
-
-	err := baselineShowImpl(deps)
-	if err == nil {
+	deps := &BaselineDeps{Format: "invalid"}
+	if err := baselineShowImpl(deps); err == nil {
 		t.Error("expected error for invalid format")
 	}
 }
 
-func TestLoadBaseline_NotInGitRepo(t *testing.T) {
-	deps := &BaselineDeps{
-		File:      "",
-		IsGitRepo: func() bool { return false },
-	}
-
-	_, _, err := loadBaseline(deps)
-	if err == nil {
-		t.Error("expected error when not in git repo and no file specified")
-	}
-}
-
-func TestLoadBaseline_FromFile(t *testing.T) {
-	deps := &BaselineDeps{
-		File: "baseline.json",
-		FileReader: func(path string) (*baseline.Baseline, error) {
-			return &baseline.Baseline{Report: confidence.Report{Score: 75}}, nil
+func TestLoadBaseline(t *testing.T) {
+	tests := []struct {
+		name         string
+		file         string
+		ref          string
+		isGitRepo    func() bool
+		fileReader   func(string) (*baseline.Baseline, error)
+		gitRefReader func(string) (*baseline.Baseline, error)
+		wantScore    int
+		wantSource   string
+		wantErr      bool
+	}{
+		{
+			name:      "not in git repo",
+			isGitRepo: func() bool { return false },
+			wantErr:   true,
+		},
+		{
+			name: "from file",
+			file: "baseline.json",
+			fileReader: func(string) (*baseline.Baseline, error) {
+				return &baseline.Baseline{Report: confidence.Report{Score: 75}}, nil
+			},
+			wantScore:  75,
+			wantSource: "baseline.json",
+		},
+		{
+			name:      "from git ref",
+			ref:       "refs/confvis/baseline",
+			isGitRepo: func() bool { return true },
+			gitRefReader: func(string) (*baseline.Baseline, error) {
+				return &baseline.Baseline{Report: confidence.Report{Score: 80}}, nil
+			},
+			wantScore:  80,
+			wantSource: "refs/confvis/baseline",
 		},
 	}
 
-	b, source, err := loadBaseline(deps)
-	if err != nil {
-		t.Fatalf("loadBaseline() error = %v", err)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			deps := &BaselineDeps{
+				File:         tt.file,
+				Ref:          tt.ref,
+				IsGitRepo:    tt.isGitRepo,
+				FileReader:   tt.fileReader,
+				GitRefReader: tt.gitRefReader,
+			}
 
-	if b.Score != 75 {
-		t.Errorf("Score = %d, want 75", b.Score)
-	}
-	if source != "baseline.json" {
-		t.Errorf("source = %q, want %q", source, "baseline.json")
+			b, source, err := loadBaseline(deps)
+			if tt.wantErr {
+				if err == nil {
+					t.Error("expected error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("loadBaseline() error = %v", err)
+			}
+			if b.Score != tt.wantScore {
+				t.Errorf("Score = %d, want %d", b.Score, tt.wantScore)
+			}
+			if source != tt.wantSource {
+				t.Errorf("source = %q, want %q", source, tt.wantSource)
+			}
+		})
 	}
 }
 
-func TestLoadBaseline_FromGitRef(t *testing.T) {
-	deps := &BaselineDeps{
-		File:      "",
-		Ref:       "refs/confvis/baseline",
-		IsGitRepo: func() bool { return true },
-		GitRefReader: func(ref string) (*baseline.Baseline, error) {
-			return &baseline.Baseline{Report: confidence.Report{Score: 80}}, nil
+func TestSaveBaseline(t *testing.T) {
+	tests := []struct {
+		name       string
+		dryRun     bool
+		file       string
+		ref        string
+		verbose    bool
+		fileWriter func(string, *baseline.Baseline) error
+		gitWriter  func(string, *baseline.Baseline) error
+		baseline   *baseline.Baseline
+		contains   string
+		checkSaved func(t *testing.T, path, ref string)
+	}{
+		{
+			name:     "dry run",
+			dryRun:   true,
+			file:     "baseline.json",
+			baseline: &baseline.Baseline{Report: confidence.Report{Score: 85, Title: "Test"}},
+			contains: "DRY RUN",
+		},
+		{
+			name:    "to file",
+			file:    "baseline.json",
+			verbose: true,
+			baseline: &baseline.Baseline{
+				Report: confidence.Report{Score: 85},
+				Commit: "abc123",
+			},
+		},
+		{
+			name:     "to git ref",
+			ref:      "refs/confvis/baseline",
+			verbose:  true,
+			baseline: &baseline.Baseline{Report: confidence.Report{Score: 85}},
 		},
 	}
 
-	b, source, err := loadBaseline(deps)
-	if err != nil {
-		t.Fatalf("loadBaseline() error = %v", err)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			var savedPath, savedRef string
 
-	if b.Score != 80 {
-		t.Errorf("Score = %d, want 80", b.Score)
-	}
-	if source != "refs/confvis/baseline" {
-		t.Errorf("source = %q, want %q", source, "refs/confvis/baseline")
-	}
-}
+			deps := &BaselineDeps{
+				Stdout:  &buf,
+				DryRun:  tt.dryRun,
+				File:    tt.file,
+				Ref:     tt.ref,
+				Verbose: tt.verbose,
+				FileWriter: func(path string, b *baseline.Baseline) error {
+					savedPath = path
+					return nil
+				},
+				GitRefWriter: func(ref string, b *baseline.Baseline) error {
+					savedRef = ref
+					return nil
+				},
+			}
 
-func TestSaveBaseline_DryRun(t *testing.T) {
-	var buf bytes.Buffer
-	deps := &BaselineDeps{
-		Stdout: &buf,
-		DryRun: true,
-		File:   "baseline.json",
-	}
+			if err := saveBaseline(deps, tt.baseline, tt.file != ""); err != nil {
+				t.Fatalf("saveBaseline() error = %v", err)
+			}
 
-	b := &baseline.Baseline{Report: confidence.Report{Score: 85, Title: "Test"}}
-
-	err := saveBaseline(deps, b, true)
-	if err != nil {
-		t.Fatalf("saveBaseline() error = %v", err)
-	}
-
-	if !strings.Contains(buf.String(), "DRY RUN") {
-		t.Error("output should contain DRY RUN")
-	}
-}
-
-func TestSaveBaseline_ToFile(t *testing.T) {
-	var savedPath string
-	var savedBaseline *baseline.Baseline
-
-	deps := &BaselineDeps{
-		Stdout:  &bytes.Buffer{},
-		File:    "baseline.json",
-		Verbose: true,
-		FileWriter: func(path string, b *baseline.Baseline) error {
-			savedPath = path
-			savedBaseline = b
-			return nil
-		},
-	}
-
-	b := &baseline.Baseline{Report: confidence.Report{Score: 85}, Commit: "abc123"}
-
-	err := saveBaseline(deps, b, true)
-	if err != nil {
-		t.Fatalf("saveBaseline() error = %v", err)
-	}
-
-	if savedPath != "baseline.json" {
-		t.Errorf("saved to %q, want %q", savedPath, "baseline.json")
-	}
-	if savedBaseline.Score != 85 {
-		t.Errorf("saved score = %d, want 85", savedBaseline.Score)
-	}
-}
-
-func TestSaveBaseline_ToGitRef(t *testing.T) {
-	var savedRef string
-
-	deps := &BaselineDeps{
-		Stdout:  &bytes.Buffer{},
-		Ref:     "refs/confvis/baseline",
-		Verbose: true,
-		GitRefWriter: func(ref string, b *baseline.Baseline) error {
-			savedRef = ref
-			return nil
-		},
-	}
-
-	b := &baseline.Baseline{Report: confidence.Report{Score: 85}}
-
-	err := saveBaseline(deps, b, false)
-	if err != nil {
-		t.Fatalf("saveBaseline() error = %v", err)
-	}
-
-	if savedRef != "refs/confvis/baseline" {
-		t.Errorf("saved to %q, want %q", savedRef, "refs/confvis/baseline")
+			if tt.contains != "" && !strings.Contains(buf.String(), tt.contains) {
+				t.Errorf("output should contain %q", tt.contains)
+			}
+			if tt.file != "" && !tt.dryRun && savedPath != tt.file {
+				t.Errorf("saved to %q, want %q", savedPath, tt.file)
+			}
+			if tt.ref != "" && !tt.dryRun && savedRef != tt.ref {
+				t.Errorf("saved ref %q, want %q", savedRef, tt.ref)
+			}
+		})
 	}
 }
