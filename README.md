@@ -3,11 +3,14 @@
 [![confvis](./badges/badge.svg)](./badges/dashboard/index.html)
 [![CI](https://github.com/boinger/confvis/actions/workflows/ci.yml/badge.svg)](https://github.com/boinger/confvis/actions/workflows/ci.yml)
 [![Coverage](https://codecov.io/gh/boinger/confvis/graph/badge.svg)](https://codecov.io/gh/boinger/confvis)
-
-[![Code Coverage](./badges/code-coverage.svg)](./badges/dashboard/index.html)
-[![Code Quality](./badges/code-quality.svg)](./badges/dashboard/index.html)
-[![CI Status](./badges/ci-status.svg)](./badges/dashboard/index.html)
-[![Security](./badges/security.svg)](./badges/dashboard/index.html)
+[![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=boinger_confvis&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=boinger_confvis)
+[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=boinger_confvis&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=boinger_confvis)
+[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=boinger_confvis&metric=reliability_rating)](https://sonarcloud.io/summary/new_code?id=boinger_confvis)
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=boinger_confvis&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=boinger_confvis)
+[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=boinger_confvis&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=boinger_confvis)
+[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=boinger_confvis&metric=bugs)](https://sonarcloud.io/summary/new_code?id=boinger_confvis)
+[![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=boinger_confvis&metric=code_smells)](https://sonarcloud.io/summary/new_code?id=boinger_confvis)
+[![Duplicated Lines](https://sonarcloud.io/api/project_badges/measure?project=boinger_confvis&metric=duplicated_lines_density)](https://sonarcloud.io/summary/new_code?id=boinger_confvis)
 
 Generate visual confidence badges and dashboards from JSON metrics.
 

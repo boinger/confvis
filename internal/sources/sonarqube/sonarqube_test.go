@@ -35,6 +35,55 @@ func TestRatingToScore(t *testing.T) {
 	}
 }
 
+func TestCountToScore(t *testing.T) {
+	tests := []struct {
+		count int
+		want  int
+	}{
+		{0, 100},  // Perfect
+		{1, 80},   // 1-5 issues
+		{5, 80},   // Upper bound of first tier
+		{6, 60},   // 6-10 issues
+		{10, 60},  // Upper bound of second tier
+		{11, 40},  // 11-25 issues
+		{25, 40},  // Upper bound of third tier
+		{26, 20},  // 26-50 issues
+		{50, 20},  // Upper bound of fourth tier
+		{51, 0},   // 51+ issues
+		{100, 0},  // Many issues
+		{1000, 0}, // Very many issues
+	}
+
+	for _, tt := range tests {
+		got := CountToScore(tt.count)
+		if got != tt.want {
+			t.Errorf("CountToScore(%d) = %d, want %d", tt.count, got, tt.want)
+		}
+	}
+}
+
+func TestDuplicationToScore(t *testing.T) {
+	tests := []struct {
+		pct  float64
+		want int
+	}{
+		{0.0, 100},  // No duplication
+		{10.0, 90},  // 10% duplication
+		{25.5, 75},  // 25.5% duplication → int(25.5) = 25 → 100 - 25 = 75
+		{50.0, 50},  // 50% duplication
+		{75.0, 25},  // 75% duplication
+		{100.0, 0},  // Full duplication
+		{110.0, 0},  // Over 100% (edge case, clamped to 0)
+	}
+
+	for _, tt := range tests {
+		got := DuplicationToScore(tt.pct)
+		if got != tt.want {
+			t.Errorf("DuplicationToScore(%v) = %d, want %d", tt.pct, got, tt.want)
+		}
+	}
+}
+
 func TestSource_Name(t *testing.T) {
 	s := &Source{}
 	if got := s.Name(); got != "sonarqube" {
@@ -58,9 +107,13 @@ func TestSource_Fetch_Success(t *testing.T) {
 					Name: "My Project",
 					Measures: []Measure{
 						{Metric: "coverage", Value: "83.5"},
-						{Metric: "reliability_rating", Value: "2.0"},   // B = 75
-						{Metric: "security_rating", Value: "1.0"},     // A = 100
-						{Metric: "sqale_rating", Value: "1.0"},        // A = 100
+						{Metric: "reliability_rating", Value: "2.0"},          // B = 75
+						{Metric: "security_rating", Value: "1.0"},             // A = 100
+						{Metric: "sqale_rating", Value: "1.0"},                // A = 100
+						{Metric: "vulnerabilities", Value: "0"},               // 0 = 100
+						{Metric: "bugs", Value: "3"},                          // 1-5 = 80
+						{Metric: "code_smells", Value: "12"},                  // 11-25 = 40
+						{Metric: "duplicated_lines_density", Value: "5.2"},    // 100 - 5 = 94
 					},
 				},
 			}
@@ -111,16 +164,23 @@ func TestSource_Fetch_Success(t *testing.T) {
 	if report.Threshold != 75 {
 		t.Errorf("Threshold = %d, want %d", report.Threshold, 75)
 	}
-	if len(report.Factors) != 4 {
-		t.Errorf("len(Factors) = %d, want %d", len(report.Factors), 4)
+	if len(report.Factors) != 8 {
+		t.Errorf("len(Factors) = %d, want %d", len(report.Factors), 8)
 	}
 
-	// Verify factors
-	expectedFactors := map[string]int{
-		"Test Coverage":   83,  // 83.5 truncated
-		"Reliability":     75,  // B rating
-		"Security":        100, // A rating
-		"Maintainability": 100, // A rating
+	// Verify factors with their expected scores and weights
+	expectedFactors := map[string]struct {
+		score  int
+		weight int
+	}{
+		"Test Coverage":   {83, 20},  // 83.5 truncated, weight 20
+		"Reliability":     {75, 20},  // B rating, weight 20
+		"Security":        {100, 20}, // A rating, weight 20
+		"Maintainability": {100, 20}, // A rating, weight 20
+		"Vulnerabilities": {100, 10}, // 0 issues = 100, weight 10
+		"Bugs":            {80, 10},  // 3 issues (1-5) = 80, weight 10
+		"Code Smells":     {40, 5},   // 12 issues (11-25) = 40, weight 5
+		"Duplication":     {95, 5},   // 100 - int(5.2) = 100 - 5 = 95, weight 5
 	}
 
 	for _, f := range report.Factors {
@@ -129,19 +189,24 @@ func TestSource_Fetch_Success(t *testing.T) {
 			t.Errorf("unexpected factor: %q", f.Name)
 			continue
 		}
-		if f.Score != expected {
-			t.Errorf("factor %q score = %d, want %d", f.Name, f.Score, expected)
+		if f.Score != expected.score {
+			t.Errorf("factor %q score = %d, want %d", f.Name, f.Score, expected.score)
 		}
-		if f.Weight != 25 {
-			t.Errorf("factor %q weight = %d, want %d", f.Name, f.Weight, 25)
+		if f.Weight != expected.weight {
+			t.Errorf("factor %q weight = %d, want %d", f.Name, f.Weight, expected.weight)
 		}
 		if f.URL == "" {
 			t.Errorf("factor %q URL is empty", f.Name)
 		}
 	}
 
-	// Verify weighted score: (83*25 + 75*25 + 100*25 + 100*25) / 100 = 89.5 → 90 (rounded)
-	expectedScore := (83*25 + 75*25 + 100*25 + 100*25 + 50) / 100 // with rounding
+	// Verify weighted score calculation
+	// (83*20 + 75*20 + 100*20 + 100*20 + 100*10 + 80*10 + 40*5 + 95*5) / 110
+	// = (1660 + 1500 + 2000 + 2000 + 1000 + 800 + 200 + 475) / 110
+	// = 9635 / 110 = 87.59... → 88 (rounded)
+	totalWeight := 20 + 20 + 20 + 20 + 10 + 10 + 5 + 5 // 110
+	weightedSum := 83*20 + 75*20 + 100*20 + 100*20 + 100*10 + 80*10 + 40*5 + 95*5
+	expectedScore := (weightedSum + totalWeight/2) / totalWeight // with rounding
 	if report.Score != expectedScore {
 		t.Errorf("Score = %d, want %d", report.Score, expectedScore)
 	}

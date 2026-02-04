@@ -47,10 +47,14 @@ SonarQube metrics are converted to confidence factors:
 
 | SonarQube Metric | Factor Name | Weight | Conversion |
 |------------------|-------------|--------|------------|
-| `coverage` | Test Coverage | 25% | Direct percentage |
-| `reliability_rating` | Reliability | 25% | A=100, B=75, C=50, D=25, E=0 |
-| `security_rating` | Security | 25% | A=100, B=75, C=50, D=25, E=0 |
-| `sqale_rating` | Maintainability | 25% | A=100, B=75, C=50, D=25, E=0 |
+| `coverage` | Test Coverage | 20% | Direct percentage |
+| `reliability_rating` | Reliability | 20% | A=100, B=75, C=50, D=25, E=0 |
+| `security_rating` | Security | 20% | A=100, B=75, C=50, D=25, E=0 |
+| `sqale_rating` | Maintainability | 20% | A=100, B=75, C=50, D=25, E=0 |
+| `vulnerabilities` | Vulnerabilities | 10% | 0=100, 1-5=80, 6-10=60, 11-25=40, 26-50=20, 51+=0 |
+| `bugs` | Bugs | 10% | 0=100, 1-5=80, 6-10=60, 11-25=40, 26-50=20, 51+=0 |
+| `code_smells` | Code Smells | 5% | 0=100, 1-5=80, 6-10=60, 11-25=40, 26-50=20, 51+=0 |
+| `duplicated_lines_density` | Duplication | 5% | 100 - percentage (linear inverse) |
 
 ### Example Output
 
@@ -62,10 +66,14 @@ SonarQube metrics are converted to confidence factors:
   "source": "sonarqube",
   "generatedAt": "2026-02-01T15:30:00Z",
   "factors": [
-    {"name": "Test Coverage", "score": 85, "weight": 25, "url": "https://sonar.example.com/..."},
-    {"name": "Reliability", "score": 100, "weight": 25, "url": "..."},
-    {"name": "Security", "score": 100, "weight": 25, "url": "..."},
-    {"name": "Maintainability", "score": 75, "weight": 25, "url": "..."}
+    {"name": "Test Coverage", "score": 85, "weight": 20, "url": "https://sonar.example.com/..."},
+    {"name": "Reliability", "score": 100, "weight": 20, "url": "..."},
+    {"name": "Security", "score": 100, "weight": 20, "url": "..."},
+    {"name": "Maintainability", "score": 75, "weight": 20, "url": "..."},
+    {"name": "Vulnerabilities", "score": 100, "weight": 10, "url": "..."},
+    {"name": "Bugs", "score": 80, "weight": 10, "url": "..."},
+    {"name": "Code Smells", "score": 60, "weight": 5, "url": "..."},
+    {"name": "Duplication", "score": 95, "weight": 5, "url": "..."}
   ]
 }
 ```

@@ -41,10 +41,14 @@ type Condition struct {
 
 // Metrics we fetch from SonarQube.
 const (
-	MetricCoverage         = "coverage"
-	MetricReliabilityRating = "reliability_rating"
-	MetricSecurityRating   = "security_rating"
-	MetricSqaleRating      = "sqale_rating" // Maintainability
+	MetricCoverage              = "coverage"
+	MetricReliabilityRating     = "reliability_rating"
+	MetricSecurityRating        = "security_rating"
+	MetricSqaleRating           = "sqale_rating" // Maintainability
+	MetricVulnerabilities       = "vulnerabilities"
+	MetricBugs                  = "bugs"
+	MetricCodeSmells            = "code_smells"
+	MetricDuplicatedLinesDensity = "duplicated_lines_density"
 )
 
 // AllMetrics lists all metrics to fetch from SonarQube.
@@ -53,6 +57,10 @@ var AllMetrics = []string{
 	MetricReliabilityRating,
 	MetricSecurityRating,
 	MetricSqaleRating,
+	MetricVulnerabilities,
+	MetricBugs,
+	MetricCodeSmells,
+	MetricDuplicatedLinesDensity,
 }
 
 // RatingToScore converts a SonarQube rating (1.0-5.0 for A-E) to a score (0-100).
@@ -71,4 +79,33 @@ func RatingToScore(rating float64) int {
 	default:
 		return 0
 	}
+}
+
+// CountToScore converts an issue count (vulnerabilities, bugs, code_smells) to a score.
+// 0 issues = 100, then diminishing returns as count increases.
+func CountToScore(count int) int {
+	switch {
+	case count == 0:
+		return 100
+	case count <= 5:
+		return 80
+	case count <= 10:
+		return 60
+	case count <= 25:
+		return 40
+	case count <= 50:
+		return 20
+	default:
+		return 0
+	}
+}
+
+// DuplicationToScore converts duplicated lines density (0-100%) to a score.
+// 0% duplication = 100, 100% duplication = 0 (linear inverse).
+func DuplicationToScore(pct float64) int {
+	score := 100 - int(pct)
+	if score < 0 {
+		return 0
+	}
+	return score
 }

@@ -99,6 +99,8 @@ func (s *Source) measuresToFactors(measures *MeasuresResponse, client *Client, p
 
 	var factors []confidence.Factor
 
+	// High priority metrics (weight 20 each)
+
 	// Test Coverage (direct percentage)
 	if val, ok := measureMap[MetricCoverage]; ok {
 		coverage, err := strconv.ParseFloat(val, 64)
@@ -106,7 +108,7 @@ func (s *Source) measuresToFactors(measures *MeasuresResponse, client *Client, p
 			factors = append(factors, confidence.Factor{
 				Name:   "Test Coverage",
 				Score:  int(coverage),
-				Weight: 25,
+				Weight: 20,
 				URL:    client.MeasureURL(project, MetricCoverage, branch),
 			})
 		}
@@ -119,7 +121,7 @@ func (s *Source) measuresToFactors(measures *MeasuresResponse, client *Client, p
 			factors = append(factors, confidence.Factor{
 				Name:   "Reliability",
 				Score:  RatingToScore(rating),
-				Weight: 25,
+				Weight: 20,
 				URL:    client.MeasureURL(project, MetricReliabilityRating, branch),
 			})
 		}
@@ -132,7 +134,7 @@ func (s *Source) measuresToFactors(measures *MeasuresResponse, client *Client, p
 			factors = append(factors, confidence.Factor{
 				Name:   "Security",
 				Score:  RatingToScore(rating),
-				Weight: 25,
+				Weight: 20,
 				URL:    client.MeasureURL(project, MetricSecurityRating, branch),
 			})
 		}
@@ -145,8 +147,64 @@ func (s *Source) measuresToFactors(measures *MeasuresResponse, client *Client, p
 			factors = append(factors, confidence.Factor{
 				Name:   "Maintainability",
 				Score:  RatingToScore(rating),
-				Weight: 25,
+				Weight: 20,
 				URL:    client.MeasureURL(project, MetricSqaleRating, branch),
+			})
+		}
+	}
+
+	// Medium priority metrics (weight 10 each)
+
+	// Vulnerabilities (count converted to score)
+	if val, ok := measureMap[MetricVulnerabilities]; ok {
+		count, err := strconv.Atoi(val)
+		if err == nil {
+			factors = append(factors, confidence.Factor{
+				Name:   "Vulnerabilities",
+				Score:  CountToScore(count),
+				Weight: 10,
+				URL:    client.MeasureURL(project, MetricVulnerabilities, branch),
+			})
+		}
+	}
+
+	// Bugs (count converted to score)
+	if val, ok := measureMap[MetricBugs]; ok {
+		count, err := strconv.Atoi(val)
+		if err == nil {
+			factors = append(factors, confidence.Factor{
+				Name:   "Bugs",
+				Score:  CountToScore(count),
+				Weight: 10,
+				URL:    client.MeasureURL(project, MetricBugs, branch),
+			})
+		}
+	}
+
+	// Low priority metrics (weight 5 each)
+
+	// Code Smells (count converted to score)
+	if val, ok := measureMap[MetricCodeSmells]; ok {
+		count, err := strconv.Atoi(val)
+		if err == nil {
+			factors = append(factors, confidence.Factor{
+				Name:   "Code Smells",
+				Score:  CountToScore(count),
+				Weight: 5,
+				URL:    client.MeasureURL(project, MetricCodeSmells, branch),
+			})
+		}
+	}
+
+	// Duplicated Lines Density (percentage inverted to score)
+	if val, ok := measureMap[MetricDuplicatedLinesDensity]; ok {
+		pct, err := strconv.ParseFloat(val, 64)
+		if err == nil {
+			factors = append(factors, confidence.Factor{
+				Name:   "Duplication",
+				Score:  DuplicationToScore(pct),
+				Weight: 5,
+				URL:    client.MeasureURL(project, MetricDuplicatedLinesDensity, branch),
 			})
 		}
 	}
