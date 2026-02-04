@@ -11,6 +11,9 @@ import (
 	"github.com/boinger/confvis/internal/baseline"
 )
 
+// configKeySourcesPrefix is the viper config key prefix for source settings.
+const configKeySourcesPrefix = "sources."
+
 // initConfig initializes the viper configuration from config files and environment.
 // It searches for config files in the following order:
 // 1. .confvis.yaml or .confvis.yml in current directory
@@ -180,17 +183,17 @@ func getFetchThreshold() int {
 
 // getSourceURL returns the source-specific URL from config.
 func getSourceURL(source string) string {
-	return viper.GetString("sources." + source + ".url")
+	return viper.GetString(configKeySourcesPrefix + source + ".url")
 }
 
 // getSourceOrg returns the source-specific org from config.
 func getSourceOrg(source string) string {
-	return viper.GetString("sources." + source + ".org")
+	return viper.GetString(configKeySourcesPrefix + source + ".org")
 }
 
 // getSourceService returns the source-specific service from config.
 func getSourceService(source string) string {
-	return viper.GetString("sources." + source + ".service")
+	return viper.GetString(configKeySourcesPrefix + source + ".service")
 }
 
 // GetConfigFile returns the config file being used, if any.

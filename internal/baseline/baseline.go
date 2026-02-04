@@ -44,6 +44,9 @@ const DefaultBaselineFile = ".confvis-baseline.json"
 // gitCommandTimeout is the timeout for git commands.
 const gitCommandTimeout = 30 * time.Second
 
+// gitCmdRevParse is the git rev-parse subcommand.
+const gitCmdRevParse = "rev-parse"
+
 // Baseline extends a confidence Report with save metadata.
 type Baseline struct {
 	confidence.Report
@@ -180,7 +183,7 @@ func GetCurrentCommit() string {
 	ctx, cancel := context.WithTimeout(context.Background(), gitCommandTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, resolveGitPath(), "rev-parse", "HEAD")
+	cmd := exec.CommandContext(ctx, resolveGitPath(), gitCmdRevParse, "HEAD")
 	var stdout bytes.Buffer
 	cmd.Stdout = &stdout
 
@@ -196,7 +199,7 @@ func GetCurrentBranch() string {
 	ctx, cancel := context.WithTimeout(context.Background(), gitCommandTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, resolveGitPath(), "rev-parse", "--abbrev-ref", "HEAD")
+	cmd := exec.CommandContext(ctx, resolveGitPath(), gitCmdRevParse, "--abbrev-ref", "HEAD")
 	var stdout bytes.Buffer
 	cmd.Stdout = &stdout
 
@@ -217,7 +220,7 @@ func IsGitRepo() bool {
 	ctx, cancel := context.WithTimeout(context.Background(), gitCommandTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, resolveGitPath(), "rev-parse", "--git-dir")
+	cmd := exec.CommandContext(ctx, resolveGitPath(), gitCmdRevParse, "--git-dir")
 	return cmd.Run() == nil
 }
 
