@@ -118,18 +118,12 @@ func (s *Source) FetchWithClient(ctx context.Context, fetcher Fetcher, opts sour
 	}
 
 	// Build factors with severity-based scoring
-	severityCounts := scoring.SeverityCounts{
-		Critical: counts.Critical,
-		High:     counts.High,
-		Medium:   counts.Medium,
-		Low:      counts.Low,
-	}
-	penalties := [4]int{PenaltyCritical, PenaltyHigh, PenaltyMedium, PenaltyLow}
-	weights := [4]int{WeightCritical, WeightHigh, WeightMedium, WeightLow}
-
-	configs := scoring.VulnSeverityConfigs(severityCounts, penalties, weights)
-	projectURL := fetcher.ProjectURL(orgID, projectID)
-	factors := scoring.BuildSeverityFactors(configs, projectURL)
+	factors := scoring.BuildVulnFactors(
+		scoring.SeverityCounts{Critical: counts.Critical, High: counts.High, Medium: counts.Medium, Low: counts.Low},
+		[4]int{PenaltyCritical, PenaltyHigh, PenaltyMedium, PenaltyLow},
+		[4]int{WeightCritical, WeightHigh, WeightMedium, WeightLow},
+		fetcher.ProjectURL(orgID, projectID),
+	)
 
 	return scoring.BuildReport(title, sourceName, opts.Threshold, factors), nil
 }

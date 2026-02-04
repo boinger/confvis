@@ -102,6 +102,58 @@ func TestBuildSeverityFactors_NoURL(t *testing.T) {
 	}
 }
 
+func TestBuildVulnFactors(t *testing.T) {
+	counts := SeverityCounts{Critical: 1, High: 2, Medium: 0, Low: 5}
+	penalties := [4]int{33, 20, 10, 5}
+	weights := [4]int{40, 30, 20, 10}
+
+	factors := BuildVulnFactors(counts, penalties, weights, "")
+
+	if len(factors) != 4 {
+		t.Fatalf("len(factors) = %d, want 4", len(factors))
+	}
+
+	// Verify scores and weights match expected values
+	tests := []struct {
+		idx    int
+		score  int
+		weight int
+		desc   string
+	}{
+		{0, 67, 40, "1 critical"},  // 100 - (1 * 33) = 67
+		{1, 60, 30, "2 high"},      // 100 - (2 * 20) = 60
+		{2, 100, 20, "0 medium"},   // 0 issues = 100
+		{3, 75, 10, "5 low"},       // 100 - (5 * 5) = 75
+	}
+
+	for _, tt := range tests {
+		if factors[tt.idx].Score != tt.score {
+			t.Errorf("factors[%d].Score = %d, want %d", tt.idx, factors[tt.idx].Score, tt.score)
+		}
+		if factors[tt.idx].Weight != tt.weight {
+			t.Errorf("factors[%d].Weight = %d, want %d", tt.idx, factors[tt.idx].Weight, tt.weight)
+		}
+		if factors[tt.idx].Description != tt.desc {
+			t.Errorf("factors[%d].Description = %q, want %q", tt.idx, factors[tt.idx].Description, tt.desc)
+		}
+	}
+}
+
+func TestBuildVulnFactors_WithURL(t *testing.T) {
+	counts := SeverityCounts{Critical: 0, High: 0, Medium: 0, Low: 0}
+	penalties := [4]int{33, 20, 10, 5}
+	weights := [4]int{40, 30, 20, 10}
+	url := "https://example.com/vulnerabilities"
+
+	factors := BuildVulnFactors(counts, penalties, weights, url)
+
+	for i, f := range factors {
+		if f.URL != url {
+			t.Errorf("factors[%d].URL = %q, want %q", i, f.URL, url)
+		}
+	}
+}
+
 func TestExtractSeverity(t *testing.T) {
 	tests := []struct {
 		name string

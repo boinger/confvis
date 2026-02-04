@@ -58,6 +58,13 @@ func formatDescription(name string, count int) string {
 	return fmt.Sprintf("%d %s", count, severity)
 }
 
+// BuildVulnFactors creates factors from vulnerability counts using severity-based scoring.
+// This consolidates the common pattern used by vulnerability scanners (trivy, grype, snyk, dependabot).
+func BuildVulnFactors(counts SeverityCounts, penalties, weights [4]int, url string) []confidence.Factor {
+	configs := VulnSeverityConfigs(counts, penalties, weights)
+	return BuildSeverityFactors(configs, url)
+}
+
 // extractSeverity extracts the severity level from a factor name.
 func extractSeverity(name string) string {
 	switch name {
