@@ -59,8 +59,8 @@ func Generate(w io.Writer, report *confidence.Report, opts Options) error {
 		return err
 	}
 
-	// Parse and execute template
-	tmpl, err := template.ParseFS(templateFS, "templates/dashboard.html")
+	// Parse and execute template (include base.html for shared styles)
+	tmpl, err := template.ParseFS(templateFS, "templates/base.html", "templates/dashboard.html")
 	if err != nil {
 		return err
 	}
@@ -71,7 +71,7 @@ func Generate(w io.Writer, report *confidence.Report, opts Options) error {
 		DarkMode: opts.DarkMode,
 	}
 
-	return tmpl.Execute(w, data)
+	return tmpl.ExecuteTemplate(w, "dashboard.html", data)
 }
 
 // GenerateMulti creates an HTML dashboard for multiple reports with an aggregate view.
@@ -97,8 +97,8 @@ func GenerateMulti(w io.Writer, reports []ReportSummary, aggregate *confidence.R
 		return err
 	}
 
-	// Parse and execute template
-	tmpl, err := template.ParseFS(templateFS, "templates/multi-dashboard.html")
+	// Parse and execute template (include base.html for shared styles)
+	tmpl, err := template.ParseFS(templateFS, "templates/base.html", "templates/multi-dashboard.html")
 	if err != nil {
 		return err
 	}
@@ -110,5 +110,5 @@ func GenerateMulti(w io.Writer, reports []ReportSummary, aggregate *confidence.R
 		DarkMode:     opts.DarkMode,
 	}
 
-	return tmpl.Execute(w, data)
+	return tmpl.ExecuteTemplate(w, "multi-dashboard.html", data)
 }
