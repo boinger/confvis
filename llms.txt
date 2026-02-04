@@ -4,7 +4,7 @@
 
 ## What It Does
 
-confvis aggregates quality metrics from multiple sources (SonarQube, Codecov, Snyk, Trivy, GitHub Actions) into a single weighted confidence score, then visualizes it as badges or dashboards.
+confvis aggregates quality metrics from multiple sources (Codecov, Dependabot, GitHub Actions, Grype, Semgrep, Snyk, SonarQube, Trivy) into a single weighted confidence score, then visualizes it as badges or dashboards.
 
 ## GitHub Action Quick Start
 

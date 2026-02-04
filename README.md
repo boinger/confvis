@@ -196,7 +196,7 @@ Fetch metrics from an external source.
 confvis fetch <source> -p <project> -o <output> [source-specific-flags]
 ```
 
-Supported sources: `sonarqube`, `codecov`, `github-actions`, `snyk`, `trivy`
+Supported sources: `codecov`, `dependabot`, `github-actions`, `grype`, `semgrep`, `snyk`, `sonarqube`, `trivy`
 
 ### `confvis generate`
 
