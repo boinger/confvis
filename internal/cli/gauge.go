@@ -32,6 +32,8 @@ var (
 	gaugeInputFormat      string
 	gaugeHistoryFile      string
 	gaugeHistoryCount     int
+	gaugeHistoryRef       string
+	gaugeHistoryAuto      bool
 )
 
 var gaugeCmd = &cobra.Command{
@@ -61,6 +63,8 @@ func init() {
 	gaugeCmd.Flags().StringVar(&gaugeIcon, "icon", "", "SVG path data for flat badge icon")
 	gaugeCmd.Flags().StringVar(&gaugeHistoryFile, "history-file", "", "path to history file for sparkline (JSON lines format)")
 	gaugeCmd.Flags().IntVar(&gaugeHistoryCount, "history-count", 0, "number of historical points to show in sparkline")
+	gaugeCmd.Flags().StringVar(&gaugeHistoryRef, "history-ref", "", "git ref for storing history (default: refs/confvis/history)")
+	gaugeCmd.Flags().BoolVar(&gaugeHistoryAuto, "history-auto", false, "auto-detect history storage: use git ref if in repo, else file")
 
 	// Bind flags to viper for config file support
 	bindGaugeFlags(gaugeCmd)
@@ -77,33 +81,38 @@ func init() {
 
 // GaugeDeps contains dependencies for the gauge command.
 type GaugeDeps struct {
-	FS               FileSystem
-	Stdin            io.Reader
-	Stdout           io.Writer
-	Stderr           io.Writer
-	Verbose          bool
-	Quiet            bool
-	ExitFunc         func(int)
-	HistoryReader    func(string) (*history.History, error)
-	HistoryAppender  func(string, history.Entry) error
-	Config           string
-	Output           string
-	Format           string
-	Style            string
-	BadgeType        string
-	Label            string
-	Icon             string
-	InputFormat      string
-	Compare          string
-	HistoryFile      string
-	Width            int
-	Height           int
-	FailUnder        int
-	GreenAbove       int
-	YellowAbove      int
-	HistoryCount     int
-	Dark             bool
-	FailOnRegression bool
+	FS                  FileSystem
+	Stdin               io.Reader
+	Stdout              io.Writer
+	Stderr              io.Writer
+	Verbose             bool
+	Quiet               bool
+	ExitFunc            func(int)
+	HistoryReader       func(string) (*history.History, error)
+	HistoryAppender     func(string, history.Entry) error
+	GitRefReader        func(string) (*history.History, error)
+	GitRefAppender      func(string, history.Entry) error
+	IsGitRepo           func() bool
+	Config              string
+	Output              string
+	Format              string
+	Style               string
+	BadgeType           string
+	Label               string
+	Icon                string
+	InputFormat         string
+	Compare             string
+	HistoryFile         string
+	HistoryRef          string
+	Width               int
+	Height              int
+	FailUnder           int
+	GreenAbove          int
+	YellowAbove         int
+	HistoryCount        int
+	Dark                bool
+	FailOnRegression    bool
+	HistoryAuto         bool
 }
 
 func runGauge(_ *cobra.Command, _ []string) error {
@@ -118,6 +127,9 @@ func runGauge(_ *cobra.Command, _ []string) error {
 		ExitFunc:         os.Exit,
 		HistoryReader:    history.ReadFile,
 		HistoryAppender:  history.AppendToFile,
+		GitRefReader:     history.ReadFromGitRef,
+		GitRefAppender:   history.AppendToGitRef,
+		IsGitRepo:        history.IsGitRepo,
 		Config:           gaugeConfig,
 		Output:           gaugeOutput,
 		Format:           gaugeFormat,
@@ -128,6 +140,7 @@ func runGauge(_ *cobra.Command, _ []string) error {
 		InputFormat:      gaugeInputFormat,
 		Compare:          gaugeCompare,
 		HistoryFile:      getGaugeHistoryFile(),
+		HistoryRef:       getGaugeHistoryRef(),
 		Width:            getGaugeWidth(),
 		Height:           getGaugeHeight(),
 		FailUnder:        getGaugeFailUnder(),
@@ -136,6 +149,7 @@ func runGauge(_ *cobra.Command, _ []string) error {
 		HistoryCount:     getGaugeHistoryCount(),
 		Dark:             getGaugeDark(),
 		FailOnRegression: gaugeFailOnRegression,
+		HistoryAuto:      getGaugeHistoryAuto(),
 	})
 }
 
@@ -341,14 +355,25 @@ func generateSVGBadge(w io.Writer, report *confidence.Report, deps *GaugeDeps) e
 		}
 
 	case "sparkline":
+		// Determine history storage mode
+		useGitRef, historyRef, historyFile := resolveHistoryStorage(deps)
+
 		// Read history and generate sparkline
 		var scores []int
-		if deps.HistoryFile != "" {
-			hist, err := deps.HistoryReader(deps.HistoryFile)
+		if useGitRef && historyRef != "" {
+			hist, err := deps.GitRefReader(historyRef)
+			if err != nil {
+				return fmt.Errorf("reading history from git ref: %w", err)
+			}
+			entries := hist.Last(deps.HistoryCount - 1)
+			for _, e := range entries {
+				scores = append(scores, e.Score)
+			}
+		} else if historyFile != "" {
+			hist, err := deps.HistoryReader(historyFile)
 			if err != nil {
 				return fmt.Errorf("reading history: %w", err)
 			}
-			// Get last N entries plus current score
 			entries := hist.Last(deps.HistoryCount - 1)
 			for _, e := range entries {
 				scores = append(scores, e.Score)
@@ -377,10 +402,14 @@ func generateSVGBadge(w io.Writer, report *confidence.Report, deps *GaugeDeps) e
 			return fmt.Errorf("generating sparkline: %w", err)
 		}
 
-		// Append to history file if specified
-		if deps.HistoryFile != "" {
-			entry := history.NewEntry(report.Score)
-			if err := deps.HistoryAppender(deps.HistoryFile, entry); err != nil {
+		// Append to history storage
+		entry := history.NewEntry(report.Score)
+		if useGitRef && historyRef != "" {
+			if err := deps.GitRefAppender(historyRef, entry); err != nil {
+				return fmt.Errorf("appending to history git ref: %w", err)
+			}
+		} else if historyFile != "" {
+			if err := deps.HistoryAppender(historyFile, entry); err != nil {
 				return fmt.Errorf("appending to history: %w", err)
 			}
 		}
@@ -400,6 +429,42 @@ func generateSVGBadge(w io.Writer, report *confidence.Report, deps *GaugeDeps) e
 	}
 
 	return nil
+}
+
+// resolveHistoryStorage determines which history storage mode to use.
+// Returns: useGitRef (bool), historyRef (string), historyFile (string).
+// Logic:
+//   - If --history-ref is explicitly set, use git ref storage
+//   - If --history-auto is set, auto-detect: git ref if in repo, else file
+//   - If --history-file is set, use file storage
+//   - Otherwise, no history storage
+func resolveHistoryStorage(deps *GaugeDeps) (useGitRef bool, historyRef string, historyFile string) {
+	// Explicit --history-ref takes precedence
+	if deps.HistoryRef != "" {
+		return true, deps.HistoryRef, ""
+	}
+
+	// --history-auto: detect storage mode
+	if deps.HistoryAuto {
+		if deps.IsGitRepo != nil && deps.IsGitRepo() {
+			// In a git repo, use git ref storage with default ref
+			return true, history.DefaultHistoryRef, ""
+		}
+		// Not in a git repo, fall back to default file
+		defaultFile := ".confvis-history.jsonl"
+		if deps.HistoryFile != "" {
+			defaultFile = deps.HistoryFile
+		}
+		return false, "", defaultFile
+	}
+
+	// Explicit --history-file
+	if deps.HistoryFile != "" {
+		return false, "", deps.HistoryFile
+	}
+
+	// No history storage configured
+	return false, "", ""
 }
 
 // writeGitHubComment generates GitHub-flavored markdown output for PR comments.

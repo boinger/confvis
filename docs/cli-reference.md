@@ -33,6 +33,8 @@ gauge:
   fail_under: 75
   badge_type: gauge    # gauge, flat, sparkline
   history_file: .confvis-history.jsonl
+  history_ref: refs/confvis/history  # git ref for history storage
+  history_auto: true   # auto-detect: git ref if in repo, else file
   history_count: 10
   green_above: 75
   yellow_above: 50
@@ -152,6 +154,8 @@ confvis gauge -c <config> -o <output-file> [flags]
 | `--label` | | | Custom label for flat badge (defaults to report title) |
 | `--icon` | | | SVG path data for flat badge icon |
 | `--history-file` | | | Path to history file for sparkline (JSON lines format) |
+| `--history-ref` | | | Git ref for storing history (e.g., `refs/confvis/history`) |
+| `--history-auto` | | false | Auto-detect history storage: git ref if in repo, else file |
 | `--history-count` | | 10 | Number of historical points to show in sparkline |
 | `--width` | | 200 | Gauge width in pixels (gauge badge only) |
 | `--height` | | 120 | Gauge height in pixels (gauge badge only) |
@@ -298,11 +302,17 @@ confvis gauge -c confidence.yaml -o badge.svg
 # YAML from stdin (requires explicit format)
 cat confidence.yaml | confvis gauge -c - --input-format yaml -o badge.svg
 
-# Sparkline badge showing score trend
+# Sparkline badge showing score trend (file-based history)
 confvis gauge -c confidence.json -o sparkline.svg --badge-type sparkline --history-file .confvis-history.jsonl
 
 # Sparkline with custom history count
 confvis gauge -c confidence.json -o sparkline.svg --badge-type sparkline --history-file .confvis-history.jsonl --history-count 20
+
+# Sparkline with git ref storage (no file needed, persists in git)
+confvis gauge -c confidence.json -o sparkline.svg --badge-type sparkline --history-ref refs/confvis/history
+
+# Sparkline with auto-detection (uses git ref if in repo, else file)
+confvis gauge -c confidence.json -o sparkline.svg --badge-type sparkline --history-auto
 ```
 
 ---

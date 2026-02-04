@@ -52,6 +52,8 @@ func bindGaugeFlags(cmd *cobra.Command) {
 	_ = viper.BindPFlag("gauge.badge_type", cmd.Flags().Lookup("badge-type"))
 	_ = viper.BindPFlag("gauge.history_file", cmd.Flags().Lookup("history-file"))
 	_ = viper.BindPFlag("gauge.history_count", cmd.Flags().Lookup("history-count"))
+	_ = viper.BindPFlag("gauge.history_ref", cmd.Flags().Lookup("history-ref"))
+	_ = viper.BindPFlag("gauge.history_auto", cmd.Flags().Lookup("history-auto"))
 	_ = viper.BindPFlag("gauge.green_above", cmd.Flags().Lookup("green-above"))
 	_ = viper.BindPFlag("gauge.yellow_above", cmd.Flags().Lookup("yellow-above"))
 }
@@ -115,6 +117,16 @@ func getGaugeHistoryCount() int {
 		return v
 	}
 	return 10 // default
+}
+
+// getGaugeHistoryRef returns the history git ref from config/env/flag.
+func getGaugeHistoryRef() string {
+	return viper.GetString("gauge.history_ref")
+}
+
+// getGaugeHistoryAuto returns the history auto-detect setting from config/env/flag.
+func getGaugeHistoryAuto() bool {
+	return viper.GetBool("gauge.history_auto")
 }
 
 // getGaugeGreenAbove returns the green threshold from config/env/flag.

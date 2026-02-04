@@ -1079,6 +1079,182 @@ func TestGauge_BadgeType_Sparkline_Invalid(t *testing.T) {
 	}
 }
 
+func TestGauge_Sparkline_HistoryRef(t *testing.T) {
+	bin := buildBinary(t)
+
+	// Create a temporary git repo
+	tmpDir := t.TempDir()
+
+	// Initialize git repo
+	cmd := exec.Command("git", "init")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git init failed: %v", err)
+	}
+
+	// Configure git user
+	cmd = exec.Command("git", "config", "user.email", "test@example.com")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git config email failed: %v", err)
+	}
+
+	cmd = exec.Command("git", "config", "user.name", "Test User")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git config name failed: %v", err)
+	}
+
+	// Create sample report in the repo
+	reportPath := filepath.Join(tmpDir, "report.json")
+	if err := os.WriteFile(reportPath, []byte(`{"title": "Test", "score": 85, "threshold": 75}`), 0o644); err != nil {
+		t.Fatalf("writing report: %v", err)
+	}
+
+	// Run with --history-ref
+	cmd = exec.Command(bin, "gauge", "-c", "report.json", "-o", "-", "--badge-type", "sparkline", "--history-ref", "refs/confvis/test-history")
+	cmd.Dir = tmpDir
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("gauge sparkline with history-ref failed: %v\n%s", err, output)
+	}
+
+	if !strings.Contains(string(output), "<svg") {
+		t.Error("output should be an SVG")
+	}
+
+	// Verify the ref was created
+	cmd = exec.Command("git", "show-ref", "--verify", "refs/confvis/test-history")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Error("history ref should be created after sparkline generation")
+	}
+
+	// Run again to verify history is read and appended
+	cmd = exec.Command(bin, "gauge", "-c", "report.json", "-o", "-", "--badge-type", "sparkline", "--history-ref", "refs/confvis/test-history")
+	cmd.Dir = tmpDir
+
+	output, err = cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("second gauge sparkline with history-ref failed: %v\n%s", err, output)
+	}
+
+	// Verify the ref content has two entries
+	cmd = exec.Command("git", "cat-file", "-p", "refs/confvis/test-history")
+	cmd.Dir = tmpDir
+	refOutput, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("reading git ref: %v", err)
+	}
+
+	// Count entries (lines with score)
+	lines := strings.Split(string(refOutput), "\n")
+	entryCount := 0
+	for _, line := range lines {
+		if strings.Contains(line, `"score":85`) {
+			entryCount++
+		}
+	}
+	if entryCount != 2 {
+		t.Errorf("expected 2 history entries, got %d in:\n%s", entryCount, string(refOutput))
+	}
+}
+
+func TestGauge_Sparkline_HistoryAuto_InGitRepo(t *testing.T) {
+	bin := buildBinary(t)
+
+	// Create a temporary git repo
+	tmpDir := t.TempDir()
+
+	// Initialize git repo
+	cmd := exec.Command("git", "init")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git init failed: %v", err)
+	}
+
+	// Configure git user
+	cmd = exec.Command("git", "config", "user.email", "test@example.com")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git config email failed: %v", err)
+	}
+
+	cmd = exec.Command("git", "config", "user.name", "Test User")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git config name failed: %v", err)
+	}
+
+	// Create sample report in the repo
+	reportPath := filepath.Join(tmpDir, "report.json")
+	if err := os.WriteFile(reportPath, []byte(`{"title": "Test", "score": 85, "threshold": 75}`), 0o644); err != nil {
+		t.Fatalf("writing report: %v", err)
+	}
+
+	// Run with --history-auto (should use git ref since we're in a repo)
+	cmd = exec.Command(bin, "gauge", "-c", "report.json", "-o", "-", "--badge-type", "sparkline", "--history-auto")
+	cmd.Dir = tmpDir
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("gauge sparkline with history-auto failed: %v\n%s", err, output)
+	}
+
+	if !strings.Contains(string(output), "<svg") {
+		t.Error("output should be an SVG")
+	}
+
+	// Verify the default ref was created
+	cmd = exec.Command("git", "show-ref", "--verify", "refs/confvis/history")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Error("default history ref should be created with --history-auto in a git repo")
+	}
+}
+
+func TestGauge_Sparkline_HistoryAuto_NotInGitRepo(t *testing.T) {
+	bin := buildBinary(t)
+
+	// Create a temporary directory (NOT a git repo)
+	tmpDir := t.TempDir()
+
+	// Create sample report
+	reportPath := filepath.Join(tmpDir, "report.json")
+	if err := os.WriteFile(reportPath, []byte(`{"title": "Test", "score": 85, "threshold": 75}`), 0o644); err != nil {
+		t.Fatalf("writing report: %v", err)
+	}
+
+	// Run with --history-auto (should use file since we're not in a repo)
+	cmd := exec.Command(bin, "gauge", "-c", "report.json", "-o", "-", "--badge-type", "sparkline", "--history-auto")
+	cmd.Dir = tmpDir
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("gauge sparkline with history-auto failed: %v\n%s", err, output)
+	}
+
+	if !strings.Contains(string(output), "<svg") {
+		t.Error("output should be an SVG")
+	}
+
+	// Verify the default history file was created
+	historyPath := filepath.Join(tmpDir, ".confvis-history.jsonl")
+	if _, err := os.Stat(historyPath); os.IsNotExist(err) {
+		t.Error("default history file should be created with --history-auto outside a git repo")
+	}
+
+	// Verify the file has an entry
+	historyData, err := os.ReadFile(historyPath)
+	if err != nil {
+		t.Fatalf("reading history file: %v", err)
+	}
+	if !strings.Contains(string(historyData), `"score":85`) {
+		t.Error("history file should contain score entry")
+	}
+}
+
 func TestAggregate_Basic(t *testing.T) {
 	bin := buildBinary(t)
 

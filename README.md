@@ -207,7 +207,7 @@ Output formats:
 Badge types:
 - `gauge` (default): Semi-circular gauge
 - `flat`: Shields.io-compatible rectangular badge (supports `--icon` for SVG path data)
-- `sparkline`: Trend line showing score history
+- `sparkline`: Trend line showing score history (use `--history-auto` to persist automatically)
 
 Color styles: `github` (default), `minimal`, `corporate`, `high-contrast`
 
