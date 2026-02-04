@@ -24,6 +24,19 @@ confvis transforms JSON or YAML confidence reports into SVG gauge badges and HTM
 
 ## Installation
 
+### GitHub Action (Recommended for CI/CD)
+
+```yaml
+- uses: boinger/confvis@v1
+  with:
+    config: confidence.json
+    output: badge.svg
+```
+
+See [GitHub Action Documentation](docs/github-action.md) for all options.
+
+### CLI Installation
+
 ```bash
 go install github.com/boinger/confvis/cmd/confvis@latest
 ```
@@ -298,6 +311,7 @@ Each factor:
 
 ## Documentation
 
+- [GitHub Action](docs/github-action.md)
 - [Installation Guide](docs/installation.md)
 - [CLI Reference](docs/cli-reference.md)
 - [Schema Reference](docs/schema.md)

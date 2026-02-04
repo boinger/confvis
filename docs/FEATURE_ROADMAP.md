@@ -11,7 +11,7 @@ This document outlines planned features for confvis, organized by implementation
 | 5 | Auto History Management | Medium | None | **Done** |
 | 3 | Baseline Storage/Comparison | Medium | #5 (shared history concepts) | **Done** |
 | 6 | Direct GitHub Check Creation | Medium-High | None | **Done** |
-| 1 | Native GitHub Action | Medium | #2, #3, #6 (benefits from them) | Planned |
+| 1 | Native GitHub Action | Medium | #2, #3, #6 (benefits from them) | **Done** |
 
 ---
 
@@ -402,7 +402,7 @@ Summary:
 
 **Goal:** `uses: boinger/confvis-action@v1` for zero-install usage.
 
-**Current state:** Requires `go install` in workflows.
+**Status:** Implemented. Users can now use `uses: boinger/confvis@v1`.
 
 ### Implementation
 
@@ -537,4 +537,4 @@ Recommended sequence based on dependencies:
 - [x] `confvis baseline save/show` works
 - [x] `--compare-baseline --fail-on-regression` detects regressions
 - [x] `confvis check github` creates valid GitHub Check
-- [ ] `uses: boinger/confvis-action@v1` works in test workflow
+- [x] `uses: boinger/confvis@v1` action.yaml created with all inputs/outputs

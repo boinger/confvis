@@ -1,0 +1,190 @@
+name: 'confvis'
+description: 'Generate confidence badges and dashboards from aggregated code metrics'
+author: 'boinger'
+
+branding:
+  icon: 'check-circle'
+  color: 'green'
+
+inputs:
+  config:
+    description: 'Path to confidence report (JSON/YAML)'
+    required: true
+  output:
+    description: 'Output path for badge/report'
+    required: true
+  command:
+    description: 'Command to run: gauge, generate, or aggregate'
+    default: 'gauge'
+  format:
+    description: 'Output format: svg, json, text, markdown, github-comment'
+    default: 'svg'
+  badge-type:
+    description: 'Badge type: gauge, flat, or sparkline'
+    default: 'gauge'
+  style:
+    description: 'Color style: github, minimal, corporate, high-contrast'
+    default: 'github'
+  dark:
+    description: 'Use dark mode colors'
+    default: 'false'
+  fail-under:
+    description: 'Fail if score is below this threshold'
+    default: '0'
+  compare-baseline:
+    description: 'Compare against stored baseline'
+    default: 'false'
+  fail-on-regression:
+    description: 'Fail if score decreased from baseline'
+    default: 'false'
+  save-baseline:
+    description: 'Save current score as baseline after generation'
+    default: 'false'
+  create-check:
+    description: 'Create GitHub Check Run with results'
+    default: 'false'
+  check-name:
+    description: 'Name for the GitHub Check Run'
+    default: 'Confidence Score'
+  history-auto:
+    description: 'Auto-manage sparkline history (for sparkline badge-type)'
+    default: 'false'
+  version:
+    description: 'confvis version to use (default: latest)'
+    default: 'latest'
+
+outputs:
+  score:
+    description: 'The confidence score (0-100)'
+    value: ${{ steps.confvis.outputs.score }}
+  passed:
+    description: 'Whether the score met the threshold (true/false)'
+    value: ${{ steps.confvis.outputs.passed }}
+  delta:
+    description: 'Score change from baseline (if compare-baseline enabled)'
+    value: ${{ steps.confvis.outputs.delta }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Determine OS and architecture
+      id: platform
+      shell: bash
+      run: |
+        case "${{ runner.os }}" in
+          Linux)  echo "os=linux" >> $GITHUB_OUTPUT ;;
+          macOS)  echo "os=darwin" >> $GITHUB_OUTPUT ;;
+          Windows) echo "os=windows" >> $GITHUB_OUTPUT ;;
+          *) echo "::error::Unsupported OS: ${{ runner.os }}"; exit 1 ;;
+        esac
+        case "${{ runner.arch }}" in
+          X64)   echo "arch=amd64" >> $GITHUB_OUTPUT ;;
+          ARM64) echo "arch=arm64" >> $GITHUB_OUTPUT ;;
+          *) echo "::error::Unsupported architecture: ${{ runner.arch }}"; exit 1 ;;
+        esac
+
+    - name: Install confvis
+      shell: bash
+      run: |
+        VERSION="${{ inputs.version }}"
+        OS="${{ steps.platform.outputs.os }}"
+        ARCH="${{ steps.platform.outputs.arch }}"
+
+        if [ "$VERSION" = "latest" ]; then
+          # Get latest release tag from GitHub API
+          LATEST_TAG=$(curl -sSL "https://api.github.com/repos/boinger/confvis/releases/latest" | jq -r '.tag_name')
+          VERSION_NUM="${LATEST_TAG#v}"
+          DOWNLOAD_URL="https://github.com/boinger/confvis/releases/download/${LATEST_TAG}/confvis_${VERSION_NUM}_${OS}_${ARCH}.tar.gz"
+        else
+          # Strip 'v' prefix if present for filename, keep for tag
+          VERSION_NUM="${VERSION#v}"
+          TAG="v${VERSION_NUM}"
+          DOWNLOAD_URL="https://github.com/boinger/confvis/releases/download/${TAG}/confvis_${VERSION_NUM}_${OS}_${ARCH}.tar.gz"
+        fi
+
+        echo "Downloading confvis from: $DOWNLOAD_URL"
+
+        # Download and extract
+        if [ "$OS" = "windows" ]; then
+          curl -sSL "${DOWNLOAD_URL%.tar.gz}.zip" -o /tmp/confvis.zip
+          unzip -q /tmp/confvis.zip -d /tmp
+          mv /tmp/confvis.exe "${{ github.action_path }}/confvis.exe"
+          echo "${{ github.action_path }}" >> $GITHUB_PATH
+        else
+          curl -sSL "$DOWNLOAD_URL" | tar xz -C /tmp
+          chmod +x /tmp/confvis
+          sudo mv /tmp/confvis /usr/local/bin/confvis
+        fi
+
+        confvis --version || echo "confvis installed"
+
+    - name: Run confvis
+      id: confvis
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      run: |
+        # Build command arguments
+        ARGS=()
+        ARGS+=("-c" "${{ inputs.config }}")
+        ARGS+=("-o" "${{ inputs.output }}")
+
+        # Add format for gauge command
+        if [ "${{ inputs.command }}" = "gauge" ]; then
+          ARGS+=("--format" "${{ inputs.format }}")
+          ARGS+=("--badge-type" "${{ inputs.badge-type }}")
+          ARGS+=("--style" "${{ inputs.style }}")
+
+          if [ "${{ inputs.dark }}" = "true" ]; then
+            ARGS+=("--dark")
+          fi
+
+          if [ "${{ inputs.fail-under }}" != "0" ]; then
+            ARGS+=("--fail-under" "${{ inputs.fail-under }}")
+          fi
+
+          if [ "${{ inputs.compare-baseline }}" = "true" ]; then
+            ARGS+=("--compare-baseline")
+          fi
+
+          if [ "${{ inputs.fail-on-regression }}" = "true" ]; then
+            ARGS+=("--fail-on-regression")
+          fi
+
+          if [ "${{ inputs.history-auto }}" = "true" ]; then
+            ARGS+=("--history-auto")
+          fi
+        fi
+
+        # Run the command and capture JSON output for extracting values
+        echo "Running: confvis ${{ inputs.command }} ${ARGS[*]}"
+        confvis "${{ inputs.command }}" "${ARGS[@]}"
+
+        # Get score data as JSON for outputs
+        JSON_OUTPUT=$(confvis gauge -c "${{ inputs.config }}" -o - --format json 2>/dev/null || echo '{}')
+
+        SCORE=$(echo "$JSON_OUTPUT" | jq -r '.score // empty')
+        PASSED=$(echo "$JSON_OUTPUT" | jq -r '.passed // empty')
+        DELTA=$(echo "$JSON_OUTPUT" | jq -r '.delta // empty')
+
+        echo "score=${SCORE}" >> $GITHUB_OUTPUT
+        echo "passed=${PASSED}" >> $GITHUB_OUTPUT
+        echo "delta=${DELTA}" >> $GITHUB_OUTPUT
+
+        echo "::notice::Confidence Score: ${SCORE}% (passed: ${PASSED})"
+
+    - name: Save baseline
+      if: inputs.save-baseline == 'true'
+      shell: bash
+      run: |
+        echo "Saving baseline..."
+        confvis baseline save -c "${{ inputs.config }}"
+
+    - name: Create GitHub Check
+      if: inputs.create-check == 'true'
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      run: |
+        echo "Creating GitHub Check Run..."
+        confvis check github -c "${{ inputs.config }}" --name "${{ inputs.check-name }}"

@@ -30,3 +30,26 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Update major version tag for GitHub Action users (e.g., @v1)
+      - name: Update major version tag
+        env:
+          GH_REF: ${{ github.ref }}
+        run: |
+          TAG="${GH_REF#refs/tags/}"
+          MAJOR_VERSION=$(echo "$TAG" | cut -d. -f1)
+
+          echo "Updating $MAJOR_VERSION to point to $TAG"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Delete the old major version tag (local and remote)
+          git tag -d "$MAJOR_VERSION" 2>/dev/null || true
+          git push origin ":refs/tags/$MAJOR_VERSION" 2>/dev/null || true
+
+          # Create new major version tag pointing to current commit
+          git tag "$MAJOR_VERSION"
+          git push origin "$MAJOR_VERSION"
+
+          echo "Updated $MAJOR_VERSION tag to point to $TAG"

@@ -1,5 +1,7 @@
 # CLI Reference
 
+> **Tip:** For GitHub Actions workflows, consider using the [native GitHub Action](github-action.md) instead of the CLI for simpler configuration.
+
 ## Configuration File
 
 confvis supports a YAML configuration file to set default values for flags. This eliminates the need to specify common flags repeatedly.

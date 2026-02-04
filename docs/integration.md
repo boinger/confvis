@@ -4,7 +4,40 @@ This guide covers common integration patterns for confvis.
 
 ## GitHub Actions
 
-Automatically update confidence badges on push:
+### Using the Native Action (Recommended)
+
+The simplest way to use confvis in GitHub Actions - no installation required:
+
+```yaml
+name: Update Confidence Badge
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  badge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: boinger/confvis@v1
+        with:
+          config: confidence.json
+          output: badges/badge.svg
+
+      - name: Commit badge
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Update confidence badge"
+          file_pattern: "badges/*"
+```
+
+See [GitHub Action Documentation](github-action.md) for all options including baseline comparison, check creation, and sparkline badges.
+
+### Using CLI Installation
+
+If you need more control or want to run multiple commands:
 
 ```yaml
 name: Update Confidence Badge

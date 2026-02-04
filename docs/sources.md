@@ -314,6 +314,8 @@ confvis fetch snyk --org my-org-id -p my-project-uuid -o confidence.json
 
 ### GitHub Actions
 
+> **Note:** The `fetch` command requires CLI installation. For workflows with pre-existing confidence.json files, use the [native GitHub Action](github-action.md) instead.
+
 ```yaml
 name: Quality Badge
 
@@ -326,17 +328,17 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install confvis
-        run: go install github.com/boinger/confvis/cmd/confvis@latest
+        run: |
+          curl -sSL "https://github.com/boinger/confvis/releases/latest/download/confvis_$(uname -s | tr '[:upper:]' '[:lower:]')_amd64.tar.gz" | tar xz -C /tmp
+          sudo mv /tmp/confvis /usr/local/bin/
 
-      - name: Fetch SonarQube metrics
+      - name: Fetch and generate
         env:
           SONARQUBE_URL: ${{ secrets.SONARQUBE_URL }}
           SONARQUBE_TOKEN: ${{ secrets.SONARQUBE_TOKEN }}
         run: |
           confvis fetch sonarqube -p ${{ github.repository }} -o confidence.json
-
-      - name: Generate badge
-        run: confvis gauge -c confidence.json -o badge.svg --fail-under 75
+          confvis gauge -c confidence.json -o badge.svg --fail-under 75
 
       - name: Upload badge
         uses: actions/upload-artifact@v4

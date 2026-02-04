@@ -1,8 +1,21 @@
 # Installation
 
+## GitHub Action (Recommended for CI/CD)
+
+For GitHub Actions workflows, use the native action - no installation required:
+
+```yaml
+- uses: boinger/confvis@v1
+  with:
+    config: confidence.json
+    output: badge.svg
+```
+
+See [GitHub Action Documentation](github-action.md) for all options and examples.
+
 ## Using `go install`
 
-The simplest way to install confvis:
+For local development or non-GitHub CI environments:
 
 ```bash
 go install github.com/boinger/confvis/cmd/confvis@latest
