@@ -7,30 +7,35 @@ import (
 	"github.com/boinger/confvis/internal/confidence"
 )
 
-// ReportLoader provides dependencies for loading confidence reports.
+// ReportLoader loads confidence reports from stdin or files.
 type ReportLoader struct {
 	FS     FileSystem
 	Stdin  io.Reader
 	Config string
+	Format confidence.Format // Optional: FormatAuto (default), FormatJSON, FormatYAML
 }
 
 // LoadReport loads a confidence report from stdin or file path.
-// If Config is "-", reads JSON from stdin.
-// Otherwise, opens the file and auto-detects format from extension.
 func (l *ReportLoader) LoadReport() (*confidence.Report, error) {
+	format := l.Format
+	if format == "" {
+		format = confidence.FormatAuto
+	}
 	if l.Config == "-" {
-		report, err := confidence.ParseWithFormat(l.Stdin, confidence.FormatJSON)
+		if format == confidence.FormatAuto {
+			format = confidence.FormatJSON
+		}
+		report, err := confidence.ParseWithFormat(l.Stdin, format)
 		if err != nil {
 			return nil, fmt.Errorf("parsing config: %w", err)
 		}
 		return report, nil
 	}
-
-	reader, format, err := openConfigFile(l.FS, l.Config, confidence.FormatAuto)
+	reader, detectedFormat, err := openConfigFile(l.FS, l.Config, format)
 	if err != nil {
 		return nil, fmt.Errorf("opening config: %w", err)
 	}
-	report, err := confidence.ParseWithFormat(reader, format)
+	report, err := confidence.ParseWithFormat(reader, detectedFormat)
 	if err != nil {
 		return nil, fmt.Errorf("parsing config: %w", err)
 	}

@@ -96,26 +96,10 @@ func generateImpl(deps *GenerateDeps) error {
 		return fmt.Errorf("invalid input-format %q: must be auto, json, or yaml", deps.InputFormat)
 	}
 
-	var report *confidence.Report
-	var err error
-
-	if deps.Config == "-" {
-		// For stdin, use JSON by default unless explicitly specified
-		if inputFormat == confidence.FormatAuto {
-			inputFormat = confidence.FormatJSON
-		}
-		report, err = confidence.ParseWithFormat(deps.Stdin, inputFormat)
-	} else {
-		// Read file using injected filesystem
-		var reader io.Reader
-		reader, inputFormat, err = openConfigFile(deps.FS, deps.Config, inputFormat)
-		if err != nil {
-			return fmt.Errorf("parsing config: %w", err)
-		}
-		report, err = confidence.ParseWithFormat(reader, inputFormat)
-	}
+	loader := &ReportLoader{FS: deps.FS, Stdin: deps.Stdin, Config: deps.Config, Format: inputFormat}
+	report, err := loader.LoadReport()
 	if err != nil {
-		return fmt.Errorf("parsing config: %w", err)
+		return err
 	}
 
 	showVerbose := deps.Verbose && !deps.Quiet

@@ -248,8 +248,8 @@ func TestGenerateImpl_FileOpenError(t *testing.T) {
 		t.Fatal("expected error for non-existent file")
 	}
 
-	if !strings.Contains(err.Error(), "parsing config") {
-		t.Errorf("error should mention parsing config, got: %v", err)
+	if !strings.Contains(err.Error(), "opening config") {
+		t.Errorf("error should mention opening config, got: %v", err)
 	}
 }
 
