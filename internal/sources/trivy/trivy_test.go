@@ -361,10 +361,10 @@ func TestWeightedScore(t *testing.T) {
 	// Weights: 40, 30, 20, 10
 	// Score = (100*40 + 60*30 + 50*20 + 55*10) / 100 = (4000 + 1800 + 1000 + 550) / 100 = 73.5 → 74
 
-	critScore := scoring.SeverityScore(0, PenaltyCritical)  // 100
-	highScore := scoring.SeverityScore(2, PenaltyHigh)      // 60
-	medScore := scoring.SeverityScore(5, PenaltyMedium)     // 50
-	lowScore := scoring.SeverityScore(9, PenaltyLow)        // 55
+	critScore := scoring.SeverityScore(0, scoring.DefaultPenaltyCritical)  // 100
+	highScore := scoring.SeverityScore(2, scoring.DefaultPenaltyHigh)      // 60
+	medScore := scoring.SeverityScore(5, scoring.DefaultPenaltyMedium)     // 50
+	lowScore := scoring.SeverityScore(9, scoring.DefaultPenaltyLow)        // 55
 
 	if critScore != 100 {
 		t.Errorf("Critical score = %d, want 100", critScore)
@@ -379,8 +379,8 @@ func TestWeightedScore(t *testing.T) {
 		t.Errorf("Low score = %d, want 55", lowScore)
 	}
 
-	weightedSum := critScore*WeightCritical + highScore*WeightHigh + medScore*WeightMedium + lowScore*WeightLow
-	totalWeight := WeightCritical + WeightHigh + WeightMedium + WeightLow
+	weightedSum := critScore*scoring.DefaultWeightCritical + highScore*scoring.DefaultWeightHigh + medScore*scoring.DefaultWeightMedium + lowScore*scoring.DefaultWeightLow
+	totalWeight := scoring.DefaultWeightCritical + scoring.DefaultWeightHigh + scoring.DefaultWeightMedium + scoring.DefaultWeightLow
 	expectedScore := (weightedSum + totalWeight/2) / totalWeight // Round to nearest
 
 	// From the plan example: score should be around 74-75
@@ -391,10 +391,10 @@ func TestWeightedScore(t *testing.T) {
 
 func TestAllCleanScore(t *testing.T) {
 	// Project with no vulnerabilities should score 100
-	critScore := scoring.SeverityScore(0, PenaltyCritical)
-	highScore := scoring.SeverityScore(0, PenaltyHigh)
-	medScore := scoring.SeverityScore(0, PenaltyMedium)
-	lowScore := scoring.SeverityScore(0, PenaltyLow)
+	critScore := scoring.SeverityScore(0, scoring.DefaultPenaltyCritical)
+	highScore := scoring.SeverityScore(0, scoring.DefaultPenaltyHigh)
+	medScore := scoring.SeverityScore(0, scoring.DefaultPenaltyMedium)
+	lowScore := scoring.SeverityScore(0, scoring.DefaultPenaltyLow)
 
 	// All should be 100
 	if critScore != 100 || highScore != 100 || medScore != 100 || lowScore != 100 {
@@ -403,8 +403,8 @@ func TestAllCleanScore(t *testing.T) {
 	}
 
 	// Weighted average of all 100s is 100
-	weightedSum := critScore*WeightCritical + highScore*WeightHigh + medScore*WeightMedium + lowScore*WeightLow
-	totalWeight := WeightCritical + WeightHigh + WeightMedium + WeightLow
+	weightedSum := critScore*scoring.DefaultWeightCritical + highScore*scoring.DefaultWeightHigh + medScore*scoring.DefaultWeightMedium + lowScore*scoring.DefaultWeightLow
+	totalWeight := scoring.DefaultWeightCritical + scoring.DefaultWeightHigh + scoring.DefaultWeightMedium + scoring.DefaultWeightLow
 	score := (weightedSum + totalWeight/2) / totalWeight
 
 	if score != 100 {

@@ -120,17 +120,17 @@ func TestSource_Fetch_Success(t *testing.T) {
 	// High: 100 - 2*20 = 60
 	// Medium: 100 - 5*10 = 50
 	// Low: 100 - 9*5 = 55
-	if scoring.SeverityScore(counts.Critical, PenaltyCritical) != 100 {
-		t.Errorf("Critical score = %d, want 100", scoring.SeverityScore(counts.Critical, PenaltyCritical))
+	if scoring.SeverityScore(counts.Critical, scoring.DefaultPenaltyCritical) != 100 {
+		t.Errorf("Critical score = %d, want 100", scoring.SeverityScore(counts.Critical, scoring.DefaultPenaltyCritical))
 	}
-	if scoring.SeverityScore(counts.High, PenaltyHigh) != 60 {
-		t.Errorf("High score = %d, want 60", scoring.SeverityScore(counts.High, PenaltyHigh))
+	if scoring.SeverityScore(counts.High, scoring.DefaultPenaltyHigh) != 60 {
+		t.Errorf("High score = %d, want 60", scoring.SeverityScore(counts.High, scoring.DefaultPenaltyHigh))
 	}
-	if scoring.SeverityScore(counts.Medium, PenaltyMedium) != 50 {
-		t.Errorf("Medium score = %d, want 50", scoring.SeverityScore(counts.Medium, PenaltyMedium))
+	if scoring.SeverityScore(counts.Medium, scoring.DefaultPenaltyMedium) != 50 {
+		t.Errorf("Medium score = %d, want 50", scoring.SeverityScore(counts.Medium, scoring.DefaultPenaltyMedium))
 	}
-	if scoring.SeverityScore(counts.Low, PenaltyLow) != 55 {
-		t.Errorf("Low score = %d, want 55", scoring.SeverityScore(counts.Low, PenaltyLow))
+	if scoring.SeverityScore(counts.Low, scoring.DefaultPenaltyLow) != 55 {
+		t.Errorf("Low score = %d, want 55", scoring.SeverityScore(counts.Low, scoring.DefaultPenaltyLow))
 	}
 }
 
@@ -267,13 +267,13 @@ func TestSource_Fetch_WeightedScore(t *testing.T) {
 
 	// We can't easily test with the mock server through Fetch because
 	// the client URL is hardcoded. Instead verify the math directly.
-	critical := scoring.SeverityScore(0, PenaltyCritical)   // 100
-	high := scoring.SeverityScore(2, PenaltyHigh)           // 60
-	medium := scoring.SeverityScore(5, PenaltyMedium)       // 50
-	low := scoring.SeverityScore(9, PenaltyLow)             // 55
+	critical := scoring.SeverityScore(0, scoring.DefaultPenaltyCritical)   // 100
+	high := scoring.SeverityScore(2, scoring.DefaultPenaltyHigh)           // 60
+	medium := scoring.SeverityScore(5, scoring.DefaultPenaltyMedium)       // 50
+	low := scoring.SeverityScore(9, scoring.DefaultPenaltyLow)             // 55
 
-	weightedSum := critical*WeightCritical + high*WeightHigh + medium*WeightMedium + low*WeightLow
-	totalWeight := WeightCritical + WeightHigh + WeightMedium + WeightLow
+	weightedSum := critical*scoring.DefaultWeightCritical + high*scoring.DefaultWeightHigh + medium*scoring.DefaultWeightMedium + low*scoring.DefaultWeightLow
+	totalWeight := scoring.DefaultWeightCritical + scoring.DefaultWeightHigh + scoring.DefaultWeightMedium + scoring.DefaultWeightLow
 	expectedScore := (weightedSum + totalWeight/2) / totalWeight // Round to nearest
 
 	// From the plan example: score should be around 74-75
@@ -287,10 +287,10 @@ func TestSource_Fetch_WeightedScore(t *testing.T) {
 
 func TestSource_Fetch_AllClean(t *testing.T) {
 	// Project with no vulnerabilities should score 100
-	critScore := scoring.SeverityScore(0, PenaltyCritical)
-	highScore := scoring.SeverityScore(0, PenaltyHigh)
-	medScore := scoring.SeverityScore(0, PenaltyMedium)
-	lowScore := scoring.SeverityScore(0, PenaltyLow)
+	critScore := scoring.SeverityScore(0, scoring.DefaultPenaltyCritical)
+	highScore := scoring.SeverityScore(0, scoring.DefaultPenaltyHigh)
+	medScore := scoring.SeverityScore(0, scoring.DefaultPenaltyMedium)
+	lowScore := scoring.SeverityScore(0, scoring.DefaultPenaltyLow)
 
 	// All should be 100
 	if critScore != 100 || highScore != 100 || medScore != 100 || lowScore != 100 {
@@ -299,8 +299,8 @@ func TestSource_Fetch_AllClean(t *testing.T) {
 	}
 
 	// Weighted average of all 100s is 100
-	weightedSum := critScore*WeightCritical + highScore*WeightHigh + medScore*WeightMedium + lowScore*WeightLow
-	totalWeight := WeightCritical + WeightHigh + WeightMedium + WeightLow
+	weightedSum := critScore*scoring.DefaultWeightCritical + highScore*scoring.DefaultWeightHigh + medScore*scoring.DefaultWeightMedium + lowScore*scoring.DefaultWeightLow
+	totalWeight := scoring.DefaultWeightCritical + scoring.DefaultWeightHigh + scoring.DefaultWeightMedium + scoring.DefaultWeightLow
 	score := (weightedSum + totalWeight/2) / totalWeight
 
 	if score != 100 {
@@ -489,10 +489,10 @@ func TestSource_Fetch_NilLatestIssueCounts_ScoreCalculation(t *testing.T) {
 
 	// When LatestIssueCounts is nil, counts default to zero
 	// Zero issues means perfect scores for all severities
-	critScore := scoring.SeverityScore(0, PenaltyCritical)
-	highScore := scoring.SeverityScore(0, PenaltyHigh)
-	medScore := scoring.SeverityScore(0, PenaltyMedium)
-	lowScore := scoring.SeverityScore(0, PenaltyLow)
+	critScore := scoring.SeverityScore(0, scoring.DefaultPenaltyCritical)
+	highScore := scoring.SeverityScore(0, scoring.DefaultPenaltyHigh)
+	medScore := scoring.SeverityScore(0, scoring.DefaultPenaltyMedium)
+	lowScore := scoring.SeverityScore(0, scoring.DefaultPenaltyLow)
 
 	if critScore != 100 {
 		t.Errorf("critical score with 0 issues = %d, want 100", critScore)
@@ -568,10 +568,10 @@ func TestSource_Fetch_TitleFromProjectName(t *testing.T) {
 
 func TestSource_Fetch_AllSeveritiesMaxed(t *testing.T) {
 	// Test that many vulnerabilities result in zero scores
-	critScore := scoring.SeverityScore(100, PenaltyCritical)
-	highScore := scoring.SeverityScore(100, PenaltyHigh)
-	medScore := scoring.SeverityScore(100, PenaltyMedium)
-	lowScore := scoring.SeverityScore(100, PenaltyLow)
+	critScore := scoring.SeverityScore(100, scoring.DefaultPenaltyCritical)
+	highScore := scoring.SeverityScore(100, scoring.DefaultPenaltyHigh)
+	medScore := scoring.SeverityScore(100, scoring.DefaultPenaltyMedium)
+	lowScore := scoring.SeverityScore(100, scoring.DefaultPenaltyLow)
 
 	if critScore != 0 {
 		t.Errorf("critical score with 100 issues = %d, want 0", critScore)

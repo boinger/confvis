@@ -74,8 +74,8 @@ func (s *Source) Fetch(ctx context.Context, opts sources.Options) (*confidence.R
 	// Build factors with severity-based scoring
 	factors := scoring.BuildVulnFactors(
 		scoring.SeverityCounts{Critical: counts.Critical, High: counts.High, Medium: counts.Medium, Low: counts.Low},
-		[4]int{PenaltyCritical, PenaltyHigh, PenaltyMedium, PenaltyLow},
-		[4]int{WeightCritical, WeightHigh, WeightMedium, WeightLow},
+		scoring.DefaultPenalties(),
+		scoring.DefaultWeights(),
 		"",
 	)
 

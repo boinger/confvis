@@ -14,6 +14,35 @@ type SeverityCounts struct {
 	Low      int
 }
 
+// Default severity penalties (points deducted per issue).
+// Used by strict vulnerability scanners: grype, trivy, snyk.
+// Dependabot uses softer penalties due to advisory-based alerting.
+const (
+	DefaultPenaltyCritical = 33
+	DefaultPenaltyHigh     = 20
+	DefaultPenaltyMedium   = 10
+	DefaultPenaltyLow      = 5
+)
+
+// Default factor weights.
+// Used by all vulnerability sources.
+const (
+	DefaultWeightCritical = 40
+	DefaultWeightHigh     = 30
+	DefaultWeightMedium   = 20
+	DefaultWeightLow      = 10
+)
+
+// DefaultPenalties returns the standard penalty array for strict scanners.
+func DefaultPenalties() [4]int {
+	return [4]int{DefaultPenaltyCritical, DefaultPenaltyHigh, DefaultPenaltyMedium, DefaultPenaltyLow}
+}
+
+// DefaultWeights returns the standard weight array for vulnerability factors.
+func DefaultWeights() [4]int {
+	return [4]int{DefaultWeightCritical, DefaultWeightHigh, DefaultWeightMedium, DefaultWeightLow}
+}
+
 // SeverityConfig defines penalties and weights for a severity level.
 type SeverityConfig struct {
 	Name    string

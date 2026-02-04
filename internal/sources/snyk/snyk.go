@@ -35,21 +35,8 @@ var configResolver = &sources.ConfigResolver{
 	DefaultTimeout: 30 * time.Second,
 }
 
-// Severity penalties (points deducted per issue).
-const (
-	PenaltyCritical = 33
-	PenaltyHigh     = 20
-	PenaltyMedium   = 10
-	PenaltyLow      = 5
-)
-
-// Factor weights.
-const (
-	WeightCritical = 40
-	WeightHigh     = 30
-	WeightMedium   = 20
-	WeightLow      = 10
-)
+// Penalty and weight constants are defined in the scoring package.
+// snyk uses the default strict penalties shared with grype and trivy.
 
 // Source implements the sources.Source interface for Snyk.
 type Source struct{}
@@ -120,8 +107,8 @@ func (s *Source) FetchWithClient(ctx context.Context, fetcher Fetcher, opts sour
 	// Build factors with severity-based scoring
 	factors := scoring.BuildVulnFactors(
 		scoring.SeverityCounts{Critical: counts.Critical, High: counts.High, Medium: counts.Medium, Low: counts.Low},
-		[4]int{PenaltyCritical, PenaltyHigh, PenaltyMedium, PenaltyLow},
-		[4]int{WeightCritical, WeightHigh, WeightMedium, WeightLow},
+		scoring.DefaultPenalties(),
+		scoring.DefaultWeights(),
 		fetcher.ProjectURL(orgID, projectID),
 	)
 

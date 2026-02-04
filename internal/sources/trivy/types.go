@@ -57,20 +57,6 @@ func CountFromResults(results []Result) IssueCounts {
 	return counts
 }
 
-// Severity penalties (points deducted per issue).
-// Same as Snyk for consistency.
-const (
-	PenaltyCritical = 33
-	PenaltyHigh     = 20
-	PenaltyMedium   = 10
-	PenaltyLow      = 5
-)
-
-// Factor weights.
-const (
-	WeightCritical = 40
-	WeightHigh     = 30
-	WeightMedium   = 20
-	WeightLow      = 10
-)
+// Penalty and weight constants are defined in the scoring package.
+// trivy uses the default strict penalties shared with grype and snyk.
 
