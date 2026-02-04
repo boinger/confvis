@@ -498,6 +498,7 @@ confvis fetch <source> -p <project> -o <output> [flags]
 | `GITHUB_TOKEN` | dependabot, github-actions | Personal access token |
 | `GITHUB_API_URL` | dependabot, github-actions | API URL (for Enterprise) |
 | `GRYPE_CMD` | grype | Grype command to execute |
+| `SEMGREP_CMD` | semgrep | Semgrep command to execute |
 | `SNYK_TOKEN` | snyk | API token |
 | `SNYK_ORG_ID` | snyk | Organization ID |
 | `SNYK_API_URL` | snyk | API URL |
@@ -522,6 +523,10 @@ confvis fetch dependabot -p myorg/myrepo -o dependabot.json
 # Fetch from Grype (filesystem or container image scan)
 confvis fetch grype -p . -o grype.json
 confvis fetch grype -p alpine:latest -o grype.json
+
+# Fetch from Semgrep (static analysis)
+confvis fetch semgrep -p . -o semgrep.json
+semgrep --json . | confvis fetch semgrep --from-stdin -o semgrep.json
 
 # Fetch from GitHub Actions with workflow filter
 export GITHUB_TOKEN=xxx

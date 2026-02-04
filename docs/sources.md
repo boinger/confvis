@@ -11,6 +11,7 @@ confvis can fetch metrics directly from external systems using the `confvis fetc
 | `dependabot` | Vulnerability alerts from GitHub Dependabot | Available |
 | `github-actions` | CI/CD workflow metrics from GitHub Actions | Available |
 | `grype` | Security vulnerability scanning with Grype | Available |
+| `semgrep` | Static analysis findings from Semgrep | Available |
 | `snyk` | Security vulnerability metrics from Snyk | Available |
 | `trivy` | Local security vulnerability scanning with Trivy | Available |
 
@@ -404,6 +405,97 @@ Grype is commonly used in CI/CD pipelines. Here's a GitHub Actions example:
 
 - name: Fetch Grype metrics
   run: confvis fetch grype -p . -o security.json
+```
+
+## Semgrep
+
+Scans code for security issues and bugs using Semgrep static analysis.
+
+Semgrep can run locally or read output piped from an existing semgrep scan.
+
+### Configuration
+
+| Flag | Environment Variable | Description |
+|------|---------------------|-------------|
+| `--semgrep-cmd` | `SEMGREP_CMD` | Semgrep command (default: `semgrep`) |
+| `--semgrep-config` | | Semgrep config/rules (default: `auto`) |
+| `--from-stdin` | | Read semgrep JSON output from stdin |
+
+**Note:** The `--project` flag specifies the path to scan.
+
+### Prerequisites
+
+Semgrep must be installed or piped output provided. Install via:
+
+```bash
+# macOS/Linux
+pip install semgrep
+
+# Or use Docker
+confvis fetch semgrep -p . --semgrep-cmd "docker run --rm -v $(pwd):/src returntocorp/semgrep" -o semgrep.json
+```
+
+### Metric Mapping
+
+Finding counts are converted to scores using severity-based penalties:
+
+| Factor Name | Scoring Formula | Weight |
+|-------------|-----------------|--------|
+| Error Findings | 100 if 0, else max(0, 100 - count×20) | 40% |
+| Warning Findings | 100 if 0, else max(0, 100 - count×10) | 35% |
+| Info Findings | 100 if 0, else max(0, 100 - count×2) | 25% |
+
+### Example Output
+
+```json
+{
+  "title": "myapp",
+  "score": 88,
+  "threshold": 75,
+  "source": "semgrep",
+  "generatedAt": "2026-02-01T15:30:00Z",
+  "factors": [
+    {"name": "Error Findings", "score": 80, "weight": 40, "description": "1 errors"},
+    {"name": "Warning Findings", "score": 90, "weight": 35, "description": "1 warnings"},
+    {"name": "Info Findings", "score": 98, "weight": 25, "description": "1 info"}
+  ]
+}
+```
+
+### Examples
+
+```bash
+# Scan current directory (auto-detect rules)
+confvis fetch semgrep -p . -o semgrep.json
+
+# Use specific config/rules
+confvis fetch semgrep -p . --semgrep-config "p/security-audit" -o semgrep.json
+
+# Pipe from existing semgrep scan
+semgrep --json --config auto . | confvis fetch semgrep --from-stdin -o semgrep.json
+
+# Use Docker (no local installation)
+confvis fetch semgrep -p . --semgrep-cmd "docker run --rm -v $(pwd):/src returntocorp/semgrep scan --json /src" -o semgrep.json
+
+# Pipe to badge generation
+confvis fetch semgrep -p . -o - | confvis gauge -c - -o semgrep-badge.svg
+```
+
+### CI/CD Integration
+
+Semgrep is commonly used in CI/CD pipelines. Here's a GitHub Actions example:
+
+```yaml
+- name: Install Semgrep
+  run: pip install semgrep
+
+- name: Fetch Semgrep metrics
+  run: confvis fetch semgrep -p . -o semgrep.json
+
+# Or pipe from existing scan
+- name: Run Semgrep and generate report
+  run: |
+    semgrep --json --config auto . | confvis fetch semgrep --from-stdin -o semgrep.json
 ```
 
 ## Snyk

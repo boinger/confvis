@@ -19,6 +19,7 @@ import (
 	_ "github.com/boinger/confvis/internal/sources/dependabot"
 	_ "github.com/boinger/confvis/internal/sources/ghactions"
 	_ "github.com/boinger/confvis/internal/sources/grype"
+	_ "github.com/boinger/confvis/internal/sources/semgrep"
 	_ "github.com/boinger/confvis/internal/sources/snyk"
 	_ "github.com/boinger/confvis/internal/sources/sonarqube"
 	_ "github.com/boinger/confvis/internal/sources/trivy"
@@ -34,13 +35,16 @@ var (
 	fetchTimeout   int
 	fetchOutput    string
 	// Source-specific flags
-	fetchService  string // codecov: git provider
-	fetchWorkflow string // github-actions: workflow filter
-	fetchEvent    string // github-actions: event filter
-	fetchCount    int    // github-actions: run count
-	fetchGrypeCmd string // grype: command to run
-	fetchOrg      string // snyk: organization ID
-	fetchTrivyCmd string // trivy: command to run
+	fetchService     string // codecov: git provider
+	fetchWorkflow    string // github-actions: workflow filter
+	fetchEvent       string // github-actions: event filter
+	fetchCount       int    // github-actions: run count
+	fetchGrypeCmd    string // grype: command to run
+	fetchOrg         string // snyk: organization ID
+	fetchSemgrepCmd  string // semgrep: command to run
+	fetchSemgrepConf string // semgrep: config/rules
+	fetchFromStdin   bool   // semgrep: read from stdin
+	fetchTrivyCmd    string // trivy: command to run
 )
 
 var fetchCmd = &cobra.Command{
@@ -54,6 +58,7 @@ Available sources:
   dependabot     Vulnerability alerts from GitHub Dependabot
   github-actions CI/CD workflow metrics from GitHub Actions
   grype          Security vulnerability scanning with Grype
+  semgrep        Static analysis findings from Semgrep
   snyk           Vulnerability metrics from Snyk
   trivy          Security vulnerability scanning with Trivy
 
@@ -76,6 +81,10 @@ Examples:
   # Fetch from Grype (container/filesystem scan)
   confvis fetch grype -p . -o grype.json
   confvis fetch grype -p alpine:latest -o grype.json
+
+  # Fetch from Semgrep (static analysis)
+  confvis fetch semgrep -p . -o semgrep.json
+  semgrep --json . | confvis fetch semgrep --from-stdin -o semgrep.json
 
   # Fetch from Snyk
   export SNYK_TOKEN=xxx
@@ -110,6 +119,9 @@ func init() {
 	fetchCmd.Flags().IntVar(&fetchCount, "count", 20, "github-actions: number of recent runs to analyze")
 	fetchCmd.Flags().StringVar(&fetchGrypeCmd, "grype-cmd", "", "grype: command to run (default: grype)")
 	fetchCmd.Flags().StringVar(&fetchOrg, "org", "", "snyk: organization ID")
+	fetchCmd.Flags().StringVar(&fetchSemgrepCmd, "semgrep-cmd", "", "semgrep: command to run (default: semgrep)")
+	fetchCmd.Flags().StringVar(&fetchSemgrepConf, "semgrep-config", "", "semgrep: config/rules to use (default: auto)")
+	fetchCmd.Flags().BoolVar(&fetchFromStdin, "from-stdin", false, "semgrep: read JSON output from stdin")
 	fetchCmd.Flags().StringVar(&fetchTrivyCmd, "trivy-cmd", "", "trivy: command to run (default: trivy)")
 
 	// Bind flags to viper for config file support
@@ -193,13 +205,16 @@ func runFetch(_ *cobra.Command, args []string) error {
 		Timeout:      timeout,
 		Output:       fetchOutput,
 		Extra: map[string]string{
-			"service":   service,
-			"workflow":  fetchWorkflow,
-			"event":     fetchEvent,
-			"count":     strconv.Itoa(fetchCount),
-			"grype-cmd": fetchGrypeCmd,
-			"org":       org,
-			"trivy-cmd": fetchTrivyCmd,
+			"service":     service,
+			"workflow":    fetchWorkflow,
+			"event":       fetchEvent,
+			"count":       strconv.Itoa(fetchCount),
+			"grype-cmd":   fetchGrypeCmd,
+			"org":         org,
+			"semgrep-cmd": fetchSemgrepCmd,
+			"config":      fetchSemgrepConf,
+			"from-stdin":  strconv.FormatBool(fetchFromStdin),
+			"trivy-cmd":   fetchTrivyCmd,
 		},
 	})
 }
