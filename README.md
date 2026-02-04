@@ -14,6 +14,10 @@
 [![Bugs](https://sonarcloud.io/api/project_badges/measure?project=boinger_confvis&metric=bugs)](https://sonarcloud.io/summary/new_code?id=boinger_confvis)
 [![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=boinger_confvis&metric=code_smells)](https://sonarcloud.io/summary/new_code?id=boinger_confvis)
 [![Duplicated Lines](https://sonarcloud.io/api/project_badges/measure?project=boinger_confvis&metric=duplicated_lines_density)](https://sonarcloud.io/summary/new_code?id=boinger_confvis)
+[![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=boinger_confvis&metric=ncloc)](https://sonarcloud.io/summary/new_code?id=boinger_confvis)
+[![Technical Debt](https://sonarcloud.io/api/project_badges/measure?project=boinger_confvis&metric=sqale_index)](https://sonarcloud.io/summary/new_code?id=boinger_confvis)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=boinger_confvis&metric=coverage)](https://sonarcloud.io/summary/new_code?id=boinger_confvis)
+[![Security Hotspots](https://sonarcloud.io/api/project_badges/measure?project=boinger_confvis&metric=security_hotspots)](https://sonarcloud.io/summary/new_code?id=boinger_confvis)
 
 Generate visual confidence badges and dashboards from aggregated code metrics.
 
