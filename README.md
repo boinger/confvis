@@ -75,7 +75,7 @@ Each fetched report contains:
 
 The `aggregate` command (from Step 1) combines multiple reports into a weighted overall score. See [Schema Reference](docs/schema.md) for the full specification.
 
-**Custom metrics?** Create your own JSON for metrics confvis doesn't fetch directly.
+**Custom metrics?** Create your own JSON/YAML for metrics confvis doesn't fetch directly.  Or write a new module (and send me the PR, please)!
 
 ### 3. Embed in your README
 
