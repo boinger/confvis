@@ -18,8 +18,8 @@
 <path d="M7 1 A6 6 0 1 1 4 1.8 L7 7 Z" style="fill:#fff;fill-opacity:0.3" transform="translate(0.5,0.5)" />
 <path d="M7 1 A6 6 0 1 1 4 1.8 L7 7 Z" style="fill:#fff" />
 </g>
-<text x="94" y="15" style="font-family:Verdana,Geneva,DejaVu Sans,sans-serif;font-size:11px;fill:#fff;fill:#010101;fill-opacity:0.3;text-anchor:middle" >98%</text>
-<text x="93" y="14" style="font-family:Verdana,Geneva,DejaVu Sans,sans-serif;font-size:11px;fill:#fff;text-anchor:middle" >98%</text>
+<text x="94" y="15" style="font-family:Verdana,Geneva,DejaVu Sans,sans-serif;font-size:11px;fill:#fff;fill:#010101;fill-opacity:0.3;text-anchor:middle" >97%</text>
+<text x="93" y="14" style="font-family:Verdana,Geneva,DejaVu Sans,sans-serif;font-size:11px;fill:#fff;text-anchor:middle" >97%</text>
 <text x="131" y="15" style="font-family:Verdana,Geneva,DejaVu Sans,sans-serif;font-size:11px;fill:#fff;fill:#010101;fill-opacity:0.3;text-anchor:middle" >PASS</text>
 <text x="130" y="14" style="font-family:Verdana,Geneva,DejaVu Sans,sans-serif;font-size:11px;fill:#fff;text-anchor:middle" >PASS</text>
 </svg>
