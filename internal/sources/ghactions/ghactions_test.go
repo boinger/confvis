@@ -539,8 +539,8 @@ func TestNewClient_TrimsTrailingSlash(t *testing.T) {
 
 func TestNewClient_DefaultBaseURL(t *testing.T) {
 	client := NewClient("", "token", 5*time.Second)
-	if client.baseURL != defaultBaseURL {
-		t.Errorf("baseURL = %q, want %q", client.baseURL, defaultBaseURL)
+	if client.baseURL != "https://api.github.com" {
+		t.Errorf("baseURL = %q, want %q", client.baseURL, "https://api.github.com")
 	}
 }
 

@@ -11,8 +11,6 @@ import (
 	"github.com/boinger/confvis/internal/sources/httpclient"
 )
 
-const defaultBaseURL = "https://api.github.com"
-
 // Client is an HTTP client for the GitHub Dependabot Alerts API.
 type Client struct {
 	baseURL string
@@ -21,33 +19,20 @@ type Client struct {
 
 // NewClient creates a new Dependabot API client.
 func NewClient(baseURL, token string, timeout time.Duration) *Client {
-	baseURL = httpclient.NormalizeBaseURL(baseURL, defaultBaseURL)
-
+	cfg := httpclient.GitHubConfig(baseURL, token, timeout)
 	return &Client{
-		baseURL: baseURL,
-		http: httpclient.New(httpclient.Config{
-			BaseURL:  baseURL,
-			Token:    token,
-			AuthType: httpclient.AuthBearer,
-			Accept:   "application/vnd.github+json",
-			Timeout:  timeout,
-		}),
+		baseURL: cfg.BaseURL,
+		http:    httpclient.New(cfg),
 	}
 }
 
 // NewClientWithHTTP creates a new client with a custom HTTP client.
 // This is primarily intended for testing.
 func NewClientWithHTTP(baseURL, token string, httpClient *http.Client) *Client {
-	baseURL = httpclient.NormalizeBaseURL(baseURL, defaultBaseURL)
-
+	cfg := httpclient.GitHubConfig(baseURL, token, 0)
 	return &Client{
-		baseURL: baseURL,
-		http: httpclient.NewWithHTTPClient(httpclient.Config{
-			BaseURL:  baseURL,
-			Token:    token,
-			AuthType: httpclient.AuthBearer,
-			Accept:   "application/vnd.github+json",
-		}, httpClient),
+		baseURL: cfg.BaseURL,
+		http:    httpclient.NewWithHTTPClient(cfg, httpClient),
 	}
 }
 
@@ -73,7 +58,7 @@ func (c *Client) FetchAlerts(ctx context.Context, owner, repo string) (AlertsRes
 func (c *Client) AlertsURL(owner, repo string) string {
 	// GitHub web URL is always github.com regardless of API URL (for GHES it would differ)
 	host := "github.com"
-	if c.baseURL != defaultBaseURL {
+	if c.baseURL != httpclient.GitHubDefaultURL {
 		// Extract host from API URL for GitHub Enterprise
 		if u, err := url.Parse(c.baseURL); err == nil {
 			host = u.Host

@@ -51,39 +51,6 @@ func TestCountAlertsBySeverity(t *testing.T) {
 	}
 }
 
-func TestParseRepository(t *testing.T) {
-	tests := []struct {
-		input     string
-		wantOwner string
-		wantRepo  string
-		wantErr   bool
-	}{
-		{"owner/repo", "owner", "repo", false},
-		{"my-org/my-repo", "my-org", "my-repo", false},
-		{"org/repo/extra", "org", "repo/extra", false}, // SplitN(2) keeps rest
-		{"", "", "", true},
-		{"noslash", "", "", true},
-		{"/repo", "", "", true},
-		{"owner/", "", "", true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			owner, repo, err := parseRepository(tt.input)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("parseRepository(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
-				return
-			}
-			if owner != tt.wantOwner {
-				t.Errorf("parseRepository(%q) owner = %q, want %q", tt.input, owner, tt.wantOwner)
-			}
-			if repo != tt.wantRepo {
-				t.Errorf("parseRepository(%q) repo = %q, want %q", tt.input, repo, tt.wantRepo)
-			}
-		})
-	}
-}
-
 func TestSource_FetchWithClient(t *testing.T) {
 	tests := []struct {
 		name      string

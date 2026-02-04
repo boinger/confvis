@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/boinger/confvis/internal/sources/httpclient"
+	"github.com/boinger/confvis/internal/sources/repoparse"
 )
 
 const defaultBaseURL = "https://api.codecov.io"
@@ -50,11 +50,10 @@ func NewClientWithHTTP(baseURL, token string, httpClient *http.Client) *Client {
 // service is the git provider (github, gitlab, bitbucket).
 // ownerRepo is in the format "owner/repo".
 func (c *Client) FetchReport(ctx context.Context, service, ownerRepo string) (*ReportResponse, error) {
-	parts := strings.SplitN(ownerRepo, "/", 2)
-	if len(parts) != 2 {
-		return nil, fmt.Errorf("project must be in 'owner/repo' format, got %q", ownerRepo)
+	owner, repo, err := repoparse.Parse(ownerRepo)
+	if err != nil {
+		return nil, err
 	}
-	owner, repo := parts[0], parts[1]
 
 	endpoint := fmt.Sprintf("%s/api/v2/%s/%s/repos/%s/report/", c.baseURL, service, owner, repo)
 
@@ -68,10 +67,9 @@ func (c *Client) FetchReport(ctx context.Context, service, ownerRepo string) (*R
 
 // ReportURL returns the web URL for a repository's coverage report.
 func (c *Client) ReportURL(service, ownerRepo string) string {
-	parts := strings.SplitN(ownerRepo, "/", 2)
-	if len(parts) != 2 {
+	owner, repo := repoparse.MustParse(ownerRepo)
+	if owner == "" || repo == "" {
 		return ""
 	}
-	owner, repo := parts[0], parts[1]
 	return fmt.Sprintf("https://app.codecov.io/%s/%s/%s", service, owner, repo)
 }

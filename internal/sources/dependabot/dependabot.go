@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/boinger/confvis/internal/confidence"
 	"github.com/boinger/confvis/internal/sources"
+	"github.com/boinger/confvis/internal/sources/repoparse"
 	"github.com/boinger/confvis/internal/sources/scoring"
 )
 
@@ -81,7 +81,7 @@ func (s *Source) Fetch(ctx context.Context, opts sources.Options) (*confidence.R
 	}
 
 	// Parse owner/repo from project (format: owner/repo)
-	owner, repo, err := parseRepository(opts.Project)
+	owner, repo, err := repoparse.Parse(opts.Project)
 	if err != nil {
 		return nil, err
 	}
@@ -124,18 +124,4 @@ func (s *Source) FetchWithClient(ctx context.Context, fetcher Fetcher, opts sour
 	factors := scoring.BuildSeverityFactors(configs, alertsURL)
 
 	return scoring.BuildReport(title, sourceName, opts.Threshold, factors), nil
-}
-
-// parseRepository splits "owner/repo" into separate parts.
-func parseRepository(project string) (owner, repo string, err error) {
-	if project == "" {
-		return "", "", fmt.Errorf("repository required: use --project owner/repo")
-	}
-
-	parts := strings.SplitN(project, "/", 2)
-	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return "", "", fmt.Errorf("invalid repository format %q: expected owner/repo", project)
-	}
-
-	return parts[0], parts[1], nil
 }

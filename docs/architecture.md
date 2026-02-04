@@ -34,7 +34,10 @@ confvis/
 │       ├── config.go       # Configuration resolver helper
 │       ├── httpclient/     # Common HTTP client
 │       │   ├── client.go   # Configurable HTTP client (auth, headers)
-│       │   └── url.go      # URL normalization utilities
+│       │   ├── url.go      # URL normalization utilities
+│       │   └── github.go   # GitHub API config helpers
+│       ├── repoparse/      # Repository identifier parsing
+│       │   └── repoparse.go # Parse "owner/repo" format
 │       ├── scoring/        # Shared scoring utilities
 │       │   ├── scoring.go  # SeverityScore calculation
 │       │   ├── factors.go  # Factor building helpers
@@ -146,7 +149,15 @@ Common HTTP client used by API-based sources:
 - Custom Accept headers and extra headers (e.g., API version)
 - Centralized error handling and JSON decoding
 - `NormalizeBaseURL()` helper for consistent URL handling
+- `GitHubConfig()` and `GitHubConfigWithVersion()` for GitHub API clients
 - Reduces duplication across source clients
+
+### `internal/sources/repoparse`
+
+Repository identifier parsing utilities:
+- `Parse()` - Split "owner/repo" into separate parts with validation
+- `MustParse()` - Like Parse but returns empty strings on error (for URL builders)
+- Used by GitHub-based sources (ghactions, dependabot) and codecov
 
 ### `internal/sources/scoring`
 

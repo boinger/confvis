@@ -10,9 +10,10 @@ import (
 	"time"
 
 	"github.com/boinger/confvis/internal/sources/httpclient"
+	"github.com/boinger/confvis/internal/sources/repoparse"
 )
 
-const defaultBaseURL = "https://api.github.com"
+const githubAPIVersion = "2022-11-28"
 
 // Client is an HTTP client for the GitHub Actions API.
 type Client struct {
@@ -22,39 +23,20 @@ type Client struct {
 
 // NewClient creates a new GitHub Actions API client.
 func NewClient(baseURL, token string, timeout time.Duration) *Client {
-	baseURL = httpclient.NormalizeBaseURL(baseURL, defaultBaseURL)
-
+	cfg := httpclient.GitHubConfigWithVersion(baseURL, token, timeout, githubAPIVersion)
 	return &Client{
-		baseURL: baseURL,
-		http: httpclient.New(httpclient.Config{
-			BaseURL:  baseURL,
-			Token:    token,
-			AuthType: httpclient.AuthBearer,
-			Accept:   "application/vnd.github+json",
-			ExtraHeaders: map[string]string{
-				"X-GitHub-Api-Version": "2022-11-28",
-			},
-			Timeout: timeout,
-		}),
+		baseURL: cfg.BaseURL,
+		http:    httpclient.New(cfg),
 	}
 }
 
 // NewClientWithHTTP creates a new client with a custom HTTP client.
 // This is primarily intended for testing.
 func NewClientWithHTTP(baseURL, token string, httpClient *http.Client) *Client {
-	baseURL = httpclient.NormalizeBaseURL(baseURL, defaultBaseURL)
-
+	cfg := httpclient.GitHubConfigWithVersion(baseURL, token, 0, githubAPIVersion)
 	return &Client{
-		baseURL: baseURL,
-		http: httpclient.NewWithHTTPClient(httpclient.Config{
-			BaseURL:  baseURL,
-			Token:    token,
-			AuthType: httpclient.AuthBearer,
-			Accept:   "application/vnd.github+json",
-			ExtraHeaders: map[string]string{
-				"X-GitHub-Api-Version": "2022-11-28",
-			},
-		}, httpClient),
+		baseURL: cfg.BaseURL,
+		http:    httpclient.NewWithHTTPClient(cfg, httpClient),
 	}
 }
 
@@ -68,11 +50,10 @@ type FetchRunsOptions struct {
 // FetchRuns retrieves workflow runs for a repository.
 // ownerRepo is in the format "owner/repo".
 func (c *Client) FetchRuns(ctx context.Context, ownerRepo string, opts FetchRunsOptions) (*WorkflowRunsResponse, error) {
-	parts := strings.SplitN(ownerRepo, "/", 2)
-	if len(parts) != 2 {
-		return nil, fmt.Errorf("project must be in 'owner/repo' format, got %q", ownerRepo)
+	owner, repo, err := repoparse.Parse(ownerRepo)
+	if err != nil {
+		return nil, err
 	}
-	owner, repo := parts[0], parts[1]
 
 	params := url.Values{
 		"status":   {"completed"}, // Only completed runs
@@ -102,15 +83,14 @@ func (c *Client) FetchRuns(ctx context.Context, ownerRepo string, opts FetchRuns
 
 // ActionsURL returns the web URL for a repository's Actions page.
 func (c *Client) ActionsURL(ownerRepo string) string {
-	parts := strings.SplitN(ownerRepo, "/", 2)
-	if len(parts) != 2 {
+	owner, repo := repoparse.MustParse(ownerRepo)
+	if owner == "" || repo == "" {
 		return ""
 	}
-	owner, repo := parts[0], parts[1]
 
 	// Determine web URL from API URL
 	webURL := "https://github.com"
-	if c.baseURL != defaultBaseURL {
+	if c.baseURL != httpclient.GitHubDefaultURL {
 		// Enterprise: api.github.example.com -> github.example.com
 		webURL = strings.Replace(c.baseURL, "api.", "", 1)
 		webURL = strings.TrimSuffix(webURL, "/api/v3")

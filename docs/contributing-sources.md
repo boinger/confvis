@@ -267,6 +267,10 @@ func NewClientWithHTTP(baseURL, token string, httpClient *http.Client) *Client {
     }
 }
 
+// For GitHub API clients, use the pre-configured helpers:
+// cfg := httpclient.GitHubConfig(baseURL, token, timeout)
+// cfg := httpclient.GitHubConfigWithVersion(baseURL, token, timeout, "2022-11-28")
+
 // FetchMetrics retrieves metrics for a project.
 func (c *Client) FetchMetrics(ctx context.Context, projectID string) (*APIResponse, error) {
     endpoint := fmt.Sprintf("%s/projects/%s/metrics", c.baseURL, projectID)
@@ -277,6 +281,26 @@ func (c *Client) FetchMetrics(ctx context.Context, projectID string) (*APIRespon
     }
 
     return &result, nil
+}
+```
+
+#### Repository Parsing (for GitHub/GitLab sources)
+
+For sources that use "owner/repo" format (GitHub, Codecov, etc.), use the `repoparse` package:
+
+```go
+import "github.com/boinger/confvis/internal/sources/repoparse"
+
+// Parse returns an error for invalid format
+owner, repo, err := repoparse.Parse(opts.Project)
+if err != nil {
+    return nil, err
+}
+
+// MustParse returns empty strings on error (useful for URL builders)
+owner, repo := repoparse.MustParse(opts.Project)
+if owner == "" || repo == "" {
+    return ""
 }
 ```
 
@@ -507,6 +531,8 @@ Before submitting a PR for a new source:
 - [ ] Use `ConfigResolver` for token/URL handling with environment variable fallbacks
 - [ ] Use `httpclient` package for HTTP calls (for API-based sources)
 - [ ] Use `httpclient.NormalizeBaseURL()` for URL normalization
+- [ ] Use `httpclient.GitHubConfig()` for GitHub API clients
+- [ ] Use `repoparse.Parse()` for "owner/repo" format parsing (GitHub/Codecov sources)
 - [ ] Use `cmdrun` package for command execution (for CLI-based sources)
 - [ ] Use `scoring` package for severity-based scoring (vulnerability sources)
 - [ ] Register in `init()` with `sources.Register()`
