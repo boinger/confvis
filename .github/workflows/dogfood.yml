@@ -80,33 +80,42 @@ jobs:
         if: steps.aggregate.outputs.has_metrics == 'true'
         run: |
           # Create aggregate report JSON for check and baseline commands
-          # Collect available sources as factors
-          FACTORS="[]"
-          add_factor() {
-            local file=$1 weight=$2
+          # Build factors array from available source files
+          FACTORS='[]'
+
+          for pair in "coverage.json:30" "quality.json:30" "ci.json:20" "security.json:20"; do
+            file="${pair%:*}"
+            weight="${pair#*:}"
             if [ -f "$file" ]; then
-              local title=$(jq -r '.title' "$file")
-              local score=$(jq -r '.score' "$file")
-              FACTORS=$(echo "$FACTORS" | jq --arg name "$title" --argjson score "$score" --argjson weight "$weight" \
-                '. + [{"name": $name, "score": $score, "weight": $weight}]')
+              title=$(jq -r '.title // "Unknown"' "$file")
+              score=$(jq -r '.score // 0' "$file")
+              FACTORS=$(echo "$FACTORS" | jq \
+                --arg name "$title" \
+                --arg score "$score" \
+                --arg weight "$weight" \
+                '. + [{"name": $name, "score": ($score | tonumber), "weight": ($weight | tonumber)}]')
             fi
-          }
+          done
 
-          add_factor "coverage.json" 30
-          add_factor "quality.json" 30
-          add_factor "ci.json" 20
-          add_factor "security.json" 20
-
-          # Calculate weighted average
-          SCORE=$(echo "$FACTORS" | jq '[.[] | .score * .weight] | add / ([.[] | .weight] | add) | floor')
+          # Calculate weighted average (handle empty array)
+          if [ "$FACTORS" = "[]" ]; then
+            SCORE=0
+          else
+            SCORE=$(echo "$FACTORS" | jq '
+              if length == 0 then 0
+              else ([.[] | .score * .weight] | add) / ([.[] | .weight] | add) | floor
+              end')
+          fi
 
           # Create the aggregate JSON
-          jq -n --argjson score "$SCORE" --argjson factors "$FACTORS" '{
-            "title": "confvis Confidence",
-            "score": $score,
-            "threshold": 80,
-            "factors": $factors
-          }' > badges/confidence.json
+          echo "$FACTORS" | jq \
+            --argjson score "$SCORE" \
+            '{
+              "title": "confvis Confidence",
+              "score": $score,
+              "threshold": 80,
+              "factors": .
+            }' > badges/confidence.json
 
           echo "Aggregate score: $SCORE"
 
