@@ -6,5 +6,5 @@
 <rect x="0" y="0" width="120" height="28" rx="3" ry="3" style="fill:#ffffff" />
 <rect x="0" y="0" width="120" height="28" rx="3" ry="3" style="fill:none;stroke:#d0d7de;stroke-width:1" />
 <line x1="4" y1="5" x2="76" y2="5" style="stroke:#1a7f37;stroke-width:1.5" />
-<text x="100" y="19" style="text-anchor:middle;font-family:system-ui,-apple-system,sans-serif;font-size:12px;font-weight:bold;fill:#1a7f37" >97%</text>
+<text x="100" y="19" style="text-anchor:middle;font-family:system-ui,-apple-system,sans-serif;font-size:12px;font-weight:bold;fill:#1a7f37" >95%</text>
 </svg>

@@ -1,6 +1,6 @@
 {
   "title": "confvis Confidence",
-  "score": 97,
+  "score": 95,
   "threshold": 80,
   "factors": [
     {
@@ -10,7 +10,7 @@
     },
     {
       "name": "boinger/confvis",
-      "score": 100,
+      "score": 96,
       "weight": 20
     },
     {
