@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/boinger/confvis/internal/confidence"
@@ -453,6 +454,276 @@ func TestParseRepository(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGitHubClient_FindComment(t *testing.T) {
+	tests := []struct {
+		name           string
+		serverResponse int
+		serverBody     string
+		wantFound      bool
+		wantErr        bool
+	}{
+		{
+			name:           "comment found",
+			serverResponse: http.StatusOK,
+			serverBody:     `[{"id": 123, "body": "<!-- confvis-comment -->\nSome content", "html_url": "https://github.com/owner/repo/issues/1#issuecomment-123"}]`,
+			wantFound:      true,
+			wantErr:        false,
+		},
+		{
+			name:           "no confvis comment",
+			serverResponse: http.StatusOK,
+			serverBody:     `[{"id": 456, "body": "Regular comment", "html_url": "https://github.com/owner/repo/issues/1#issuecomment-456"}]`,
+			wantFound:      false,
+			wantErr:        false,
+		},
+		{
+			name:           "empty list",
+			serverResponse: http.StatusOK,
+			serverBody:     `[]`,
+			wantFound:      false,
+			wantErr:        false,
+		},
+		{
+			name:           "API error",
+			serverResponse: http.StatusUnauthorized,
+			serverBody:     `{"message": "Bad credentials"}`,
+			wantFound:      false,
+			wantErr:        true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(tt.serverResponse)
+				_, _ = w.Write([]byte(tt.serverBody))
+			}))
+			defer server.Close()
+
+			client := NewGitHubClientWithHTTP(
+				GitHubClientConfig{BaseURL: server.URL, Token: "test-token"},
+				server.Client(),
+			)
+
+			resp, err := client.FindComment(context.Background(), CommentOptions{
+				Owner: "owner",
+				Repo:  "repo",
+				PR:    1,
+			})
+
+			if tt.wantErr {
+				if err == nil {
+					t.Error("expected error, got nil")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+				return
+			}
+
+			if tt.wantFound && resp == nil {
+				t.Error("expected comment, got nil")
+			}
+			if !tt.wantFound && resp != nil {
+				t.Errorf("expected no comment, got %+v", resp)
+			}
+		})
+	}
+}
+
+func TestGitHubClient_PostComment(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("expected POST, got %s", r.Method)
+		}
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"id": 789, "html_url": "https://github.com/owner/repo/issues/1#issuecomment-789", "body": "test comment"}`))
+	}))
+	defer server.Close()
+
+	client := NewGitHubClientWithHTTP(
+		GitHubClientConfig{BaseURL: server.URL, Token: "test-token"},
+		server.Client(),
+	)
+
+	resp, err := client.PostComment(context.Background(), CommentOptions{
+		Owner: "owner",
+		Repo:  "repo",
+		PR:    1,
+	}, "test comment")
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if resp.ID != 789 {
+		t.Errorf("ID = %d, want 789", resp.ID)
+	}
+}
+
+func TestGitHubClient_UpdateComment(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPatch {
+			t.Errorf("expected PATCH, got %s", r.Method)
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"id": 123, "html_url": "https://github.com/owner/repo/issues/1#issuecomment-123", "body": "updated"}`))
+	}))
+	defer server.Close()
+
+	client := NewGitHubClientWithHTTP(
+		GitHubClientConfig{BaseURL: server.URL, Token: "test-token"},
+		server.Client(),
+	)
+
+	resp, err := client.UpdateComment(context.Background(), CommentOptions{
+		Owner: "owner",
+		Repo:  "repo",
+		PR:    1,
+	}, 123, "updated")
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if resp.ID != 123 {
+		t.Errorf("ID = %d, want 123", resp.ID)
+	}
+}
+
+func TestGitHubClient_DeleteComment(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete {
+			t.Errorf("expected DELETE, got %s", r.Method)
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	client := NewGitHubClientWithHTTP(
+		GitHubClientConfig{BaseURL: server.URL, Token: "test-token"},
+		server.Client(),
+	)
+
+	err := client.DeleteComment(context.Background(), CommentOptions{
+		Owner: "owner",
+		Repo:  "repo",
+		PR:    1,
+	}, 123)
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestGitHubClient_FindAllConfvisComments(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`[
+			{"id": 1, "body": "<!-- confvis-comment -->\nFirst", "html_url": "url1"},
+			{"id": 2, "body": "Regular comment", "html_url": "url2"},
+			{"id": 3, "body": "<!-- confvis-comment -->\nSecond", "html_url": "url3"}
+		]`))
+	}))
+	defer server.Close()
+
+	client := NewGitHubClientWithHTTP(
+		GitHubClientConfig{BaseURL: server.URL, Token: "test-token"},
+		server.Client(),
+	)
+
+	comments, err := client.FindAllConfvisComments(context.Background(), CommentOptions{
+		Owner: "owner",
+		Repo:  "repo",
+		PR:    1,
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(comments) != 2 {
+		t.Errorf("got %d comments, want 2", len(comments))
+	}
+}
+
+func TestLoadGitHubEnvWithPR(t *testing.T) {
+	t.Run("from pull_request event", func(t *testing.T) {
+		// Create a temporary event file
+		eventJSON := `{"pull_request": {"number": 42}}`
+		tmpFile := t.TempDir() + "/event.json"
+		if err := writeFile(tmpFile, eventJSON); err != nil {
+			t.Fatalf("failed to write event file: %v", err)
+		}
+
+		t.Setenv("GITHUB_TOKEN", "test-token")
+		t.Setenv("GITHUB_REPOSITORY", "owner/repo")
+		t.Setenv("GITHUB_EVENT_PATH", tmpFile)
+		t.Setenv("GITHUB_EVENT_NAME", "pull_request")
+
+		env, prNumber, err := LoadGitHubEnvWithPR()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if env.Token != "test-token" {
+			t.Errorf("Token = %q, want %q", env.Token, "test-token")
+		}
+		if prNumber != 42 {
+			t.Errorf("prNumber = %d, want 42", prNumber)
+		}
+	})
+
+	t.Run("from issue_comment event", func(t *testing.T) {
+		eventJSON := `{"issue": {"number": 99}}`
+		tmpFile := t.TempDir() + "/event.json"
+		if err := writeFile(tmpFile, eventJSON); err != nil {
+			t.Fatalf("failed to write event file: %v", err)
+		}
+
+		t.Setenv("GITHUB_TOKEN", "test-token")
+		t.Setenv("GITHUB_REPOSITORY", "owner/repo")
+		t.Setenv("GITHUB_EVENT_PATH", tmpFile)
+		t.Setenv("GITHUB_EVENT_NAME", "issue_comment")
+
+		env, prNumber, err := LoadGitHubEnvWithPR()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if env == nil {
+			t.Fatal("env is nil")
+		}
+		if prNumber != 99 {
+			t.Errorf("prNumber = %d, want 99", prNumber)
+		}
+	})
+
+	t.Run("no event file", func(t *testing.T) {
+		t.Setenv("GITHUB_TOKEN", "test-token")
+		t.Setenv("GITHUB_REPOSITORY", "owner/repo")
+		t.Setenv("GITHUB_EVENT_PATH", "")
+
+		env, prNumber, err := LoadGitHubEnvWithPR()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if env == nil {
+			t.Fatal("env is nil")
+		}
+		if prNumber != 0 {
+			t.Errorf("prNumber = %d, want 0", prNumber)
+		}
+	})
+}
+
+func writeFile(path, content string) error {
+	return os.WriteFile(path, []byte(content), 0644)
 }
 
 // Helper functions
