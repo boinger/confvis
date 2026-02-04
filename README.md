@@ -1,4 +1,4 @@
-# confvis  [![GitHub Marketplace](https://img.shields.io/badge/Marketplace-confvis-blue?logo=github)](https://github.com/marketplace/actions/confvis)
+# confvis  [![GitHub Marketplace](https://img.shields.io/badge/Marketplace-confvis-blue?logo=github)](https://github.com/marketplace/actions/confvis) [![Go Reference](https://pkg.go.dev/badge/github.com/boinger/confvis.svg)](https://pkg.go.dev/github.com/boinger/confvis)
 
 Why not:
 

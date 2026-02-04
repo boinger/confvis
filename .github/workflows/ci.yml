@@ -23,7 +23,7 @@ jobs:
           go-version: ${{ matrix.go }}
 
       - name: Run tests with coverage
-        run: go test -coverprofile=coverage.out -covermode=atomic -json ./... > test-report.json
+        run: go test -race -coverprofile=coverage.out -covermode=atomic -json ./... > test-report.json
 
       - name: Check coverage threshold
         run: |
@@ -99,7 +99,7 @@ jobs:
 
       - name: Run tests with coverage
         if: steps.check-token.outputs.skip != 'true'
-        run: go test -coverprofile=coverage.out -covermode=atomic ./...
+        run: go test -race -coverprofile=coverage.out -covermode=atomic ./...
 
       - name: Get version from git
         if: steps.check-token.outputs.skip != 'true'

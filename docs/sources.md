@@ -742,6 +742,33 @@ Trivy is commonly used in CI/CD pipelines. Here's a GitHub Actions example:
   run: confvis fetch trivy -p . -o security.json
 ```
 
+## Scoring Methodology
+
+### Vulnerability Penalty Formulas
+
+Each vulnerability source calculates factor scores using:
+`score = 100 - (count × penalty)` (minimum 0)
+
+Penalty values differ by source:
+
+| Source | Critical | High | Medium | Low | Rationale |
+|--------|----------|------|--------|-----|-----------|
+| Dependabot | 25 | 15 | 5 | 2 | Softer penalties—Dependabot alerts include advisories that may not be directly exploitable |
+| Grype | 33 | 20 | 10 | 5 | Stricter penalties—direct vulnerability scanner |
+| Trivy | 33 | 20 | 10 | 5 | Stricter penalties—direct vulnerability scanner |
+| Snyk | 33 | 20 | 10 | 5 | Stricter penalties—direct vulnerability scanner |
+
+### Aggregation Implications
+
+When aggregating scores from multiple vulnerability sources, be aware that:
+
+1. **Scores are not directly comparable** - A score of 75 from Dependabot represents a different security posture than 75 from Trivy
+2. **Dependabot is more forgiving** - 3 critical vulnerabilities: Dependabot=25, Trivy=1
+3. **Recommendation** - When aggregating, either:
+   - Use sources with matching penalty schemes (Grype/Trivy/Snyk)
+   - Apply different weights to account for the penalty difference
+   - Use a single vulnerability source for consistency
+
 ## Adding New Sources
 
 See [Architecture](architecture.md#adding-new-sources) for instructions on implementing new source modules.
