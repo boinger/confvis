@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/boinger/confvis/internal/sources"
+	"github.com/boinger/confvis/internal/sources/scoring"
 )
 
 // mockFetcher implements the Fetcher interface for testing.
@@ -26,34 +27,6 @@ func (m *mockFetcher) FetchProject(_ context.Context, _, _ string) (*ProjectResp
 
 func (m *mockFetcher) ProjectURL(_, _ string) string {
 	return m.projectURL
-}
-
-func TestSeverityScore(t *testing.T) {
-	tests := []struct {
-		count   int
-		penalty int
-		want    int
-	}{
-		{0, 33, 100},  // No issues = 100
-		{1, 33, 67},   // 1 critical = 100 - 33 = 67
-		{2, 33, 34},   // 2 critical = 100 - 66 = 34
-		{3, 33, 1},    // 3 critical = 100 - 99 = 1
-		{4, 33, 0},    // 4+ critical = 0 (capped)
-		{10, 33, 0},   // Many critical = 0
-		{0, 20, 100},  // No high issues
-		{5, 20, 0},    // 5 high = 100 - 100 = 0
-		{2, 20, 60},   // 2 high = 100 - 40 = 60
-		{5, 10, 50},   // 5 medium = 100 - 50 = 50
-		{9, 5, 55},    // 9 low = 100 - 45 = 55
-		{20, 5, 0},    // 20 low = 100 - 100 = 0
-	}
-
-	for _, tt := range tests {
-		got := SeverityScore(tt.count, tt.penalty)
-		if got != tt.want {
-			t.Errorf("SeverityScore(%d, %d) = %d, want %d", tt.count, tt.penalty, got, tt.want)
-		}
-	}
 }
 
 func TestSource_Name(t *testing.T) {
@@ -147,17 +120,17 @@ func TestSource_Fetch_Success(t *testing.T) {
 	// High: 100 - 2*20 = 60
 	// Medium: 100 - 5*10 = 50
 	// Low: 100 - 9*5 = 55
-	if SeverityScore(counts.Critical, PenaltyCritical) != 100 {
-		t.Errorf("Critical score = %d, want 100", SeverityScore(counts.Critical, PenaltyCritical))
+	if scoring.SeverityScore(counts.Critical, PenaltyCritical) != 100 {
+		t.Errorf("Critical score = %d, want 100", scoring.SeverityScore(counts.Critical, PenaltyCritical))
 	}
-	if SeverityScore(counts.High, PenaltyHigh) != 60 {
-		t.Errorf("High score = %d, want 60", SeverityScore(counts.High, PenaltyHigh))
+	if scoring.SeverityScore(counts.High, PenaltyHigh) != 60 {
+		t.Errorf("High score = %d, want 60", scoring.SeverityScore(counts.High, PenaltyHigh))
 	}
-	if SeverityScore(counts.Medium, PenaltyMedium) != 50 {
-		t.Errorf("Medium score = %d, want 50", SeverityScore(counts.Medium, PenaltyMedium))
+	if scoring.SeverityScore(counts.Medium, PenaltyMedium) != 50 {
+		t.Errorf("Medium score = %d, want 50", scoring.SeverityScore(counts.Medium, PenaltyMedium))
 	}
-	if SeverityScore(counts.Low, PenaltyLow) != 55 {
-		t.Errorf("Low score = %d, want 55", SeverityScore(counts.Low, PenaltyLow))
+	if scoring.SeverityScore(counts.Low, PenaltyLow) != 55 {
+		t.Errorf("Low score = %d, want 55", scoring.SeverityScore(counts.Low, PenaltyLow))
 	}
 }
 
@@ -294,10 +267,10 @@ func TestSource_Fetch_WeightedScore(t *testing.T) {
 
 	// We can't easily test with the mock server through Fetch because
 	// the client URL is hardcoded. Instead verify the math directly.
-	critical := SeverityScore(0, PenaltyCritical)   // 100
-	high := SeverityScore(2, PenaltyHigh)           // 60
-	medium := SeverityScore(5, PenaltyMedium)       // 50
-	low := SeverityScore(9, PenaltyLow)             // 55
+	critical := scoring.SeverityScore(0, PenaltyCritical)   // 100
+	high := scoring.SeverityScore(2, PenaltyHigh)           // 60
+	medium := scoring.SeverityScore(5, PenaltyMedium)       // 50
+	low := scoring.SeverityScore(9, PenaltyLow)             // 55
 
 	weightedSum := critical*WeightCritical + high*WeightHigh + medium*WeightMedium + low*WeightLow
 	totalWeight := WeightCritical + WeightHigh + WeightMedium + WeightLow
@@ -314,10 +287,10 @@ func TestSource_Fetch_WeightedScore(t *testing.T) {
 
 func TestSource_Fetch_AllClean(t *testing.T) {
 	// Project with no vulnerabilities should score 100
-	critScore := SeverityScore(0, PenaltyCritical)
-	highScore := SeverityScore(0, PenaltyHigh)
-	medScore := SeverityScore(0, PenaltyMedium)
-	lowScore := SeverityScore(0, PenaltyLow)
+	critScore := scoring.SeverityScore(0, PenaltyCritical)
+	highScore := scoring.SeverityScore(0, PenaltyHigh)
+	medScore := scoring.SeverityScore(0, PenaltyMedium)
+	lowScore := scoring.SeverityScore(0, PenaltyLow)
 
 	// All should be 100
 	if critScore != 100 || highScore != 100 || medScore != 100 || lowScore != 100 {
@@ -516,10 +489,10 @@ func TestSource_Fetch_NilLatestIssueCounts_ScoreCalculation(t *testing.T) {
 
 	// When LatestIssueCounts is nil, counts default to zero
 	// Zero issues means perfect scores for all severities
-	critScore := SeverityScore(0, PenaltyCritical)
-	highScore := SeverityScore(0, PenaltyHigh)
-	medScore := SeverityScore(0, PenaltyMedium)
-	lowScore := SeverityScore(0, PenaltyLow)
+	critScore := scoring.SeverityScore(0, PenaltyCritical)
+	highScore := scoring.SeverityScore(0, PenaltyHigh)
+	medScore := scoring.SeverityScore(0, PenaltyMedium)
+	lowScore := scoring.SeverityScore(0, PenaltyLow)
 
 	if critScore != 100 {
 		t.Errorf("critical score with 0 issues = %d, want 100", critScore)
@@ -595,10 +568,10 @@ func TestSource_Fetch_TitleFromProjectName(t *testing.T) {
 
 func TestSource_Fetch_AllSeveritiesMaxed(t *testing.T) {
 	// Test that many vulnerabilities result in zero scores
-	critScore := SeverityScore(100, PenaltyCritical)
-	highScore := SeverityScore(100, PenaltyHigh)
-	medScore := SeverityScore(100, PenaltyMedium)
-	lowScore := SeverityScore(100, PenaltyLow)
+	critScore := scoring.SeverityScore(100, PenaltyCritical)
+	highScore := scoring.SeverityScore(100, PenaltyHigh)
+	medScore := scoring.SeverityScore(100, PenaltyMedium)
+	lowScore := scoring.SeverityScore(100, PenaltyLow)
 
 	if critScore != 0 {
 		t.Errorf("critical score with 100 issues = %d, want 0", critScore)

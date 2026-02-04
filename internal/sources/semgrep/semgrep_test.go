@@ -12,34 +12,6 @@ import (
 	"github.com/boinger/confvis/internal/sources"
 )
 
-func TestSeverityScore(t *testing.T) {
-	tests := []struct {
-		name    string
-		count   int
-		penalty int
-		want    int
-	}{
-		{"no findings", 0, 20, 100},
-		{"one error", 1, 20, 80},
-		{"three errors", 3, 20, 40},
-		{"five errors", 5, 20, 0},
-		{"six errors (capped)", 6, 20, 0},
-		{"one warning", 1, 10, 90},
-		{"five warnings", 5, 10, 50},
-		{"one info", 1, 2, 98},
-		{"many info", 50, 2, 0},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := SeverityScore(tt.count, tt.penalty)
-			if got != tt.want {
-				t.Errorf("SeverityScore(%d, %d) = %d, want %d", tt.count, tt.penalty, got, tt.want)
-			}
-		})
-	}
-}
-
 func TestCountFromResults(t *testing.T) {
 	results := []Result{
 		{Extra: Extra{Severity: "ERROR"}},

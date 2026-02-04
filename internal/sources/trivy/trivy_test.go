@@ -7,35 +7,8 @@ import (
 	"testing"
 
 	"github.com/boinger/confvis/internal/sources"
+	"github.com/boinger/confvis/internal/sources/scoring"
 )
-
-func TestSeverityScore(t *testing.T) {
-	tests := []struct {
-		count   int
-		penalty int
-		want    int
-	}{
-		{0, 33, 100},  // No issues = 100
-		{1, 33, 67},   // 1 critical = 100 - 33 = 67
-		{2, 33, 34},   // 2 critical = 100 - 66 = 34
-		{3, 33, 1},    // 3 critical = 100 - 99 = 1
-		{4, 33, 0},    // 4+ critical = 0 (capped)
-		{10, 33, 0},   // Many critical = 0
-		{0, 20, 100},  // No high issues
-		{5, 20, 0},    // 5 high = 100 - 100 = 0
-		{2, 20, 60},   // 2 high = 100 - 40 = 60
-		{5, 10, 50},   // 5 medium = 100 - 50 = 50
-		{9, 5, 55},    // 9 low = 100 - 45 = 55
-		{20, 5, 0},    // 20 low = 100 - 100 = 0
-	}
-
-	for _, tt := range tests {
-		got := SeverityScore(tt.count, tt.penalty)
-		if got != tt.want {
-			t.Errorf("SeverityScore(%d, %d) = %d, want %d", tt.count, tt.penalty, got, tt.want)
-		}
-	}
-}
 
 func TestSource_Name(t *testing.T) {
 	s := &Source{}
@@ -388,10 +361,10 @@ func TestWeightedScore(t *testing.T) {
 	// Weights: 40, 30, 20, 10
 	// Score = (100*40 + 60*30 + 50*20 + 55*10) / 100 = (4000 + 1800 + 1000 + 550) / 100 = 73.5 → 74
 
-	critScore := SeverityScore(0, PenaltyCritical)  // 100
-	highScore := SeverityScore(2, PenaltyHigh)      // 60
-	medScore := SeverityScore(5, PenaltyMedium)     // 50
-	lowScore := SeverityScore(9, PenaltyLow)        // 55
+	critScore := scoring.SeverityScore(0, PenaltyCritical)  // 100
+	highScore := scoring.SeverityScore(2, PenaltyHigh)      // 60
+	medScore := scoring.SeverityScore(5, PenaltyMedium)     // 50
+	lowScore := scoring.SeverityScore(9, PenaltyLow)        // 55
 
 	if critScore != 100 {
 		t.Errorf("Critical score = %d, want 100", critScore)
@@ -418,10 +391,10 @@ func TestWeightedScore(t *testing.T) {
 
 func TestAllCleanScore(t *testing.T) {
 	// Project with no vulnerabilities should score 100
-	critScore := SeverityScore(0, PenaltyCritical)
-	highScore := SeverityScore(0, PenaltyHigh)
-	medScore := SeverityScore(0, PenaltyMedium)
-	lowScore := SeverityScore(0, PenaltyLow)
+	critScore := scoring.SeverityScore(0, PenaltyCritical)
+	highScore := scoring.SeverityScore(0, PenaltyHigh)
+	medScore := scoring.SeverityScore(0, PenaltyMedium)
+	lowScore := scoring.SeverityScore(0, PenaltyLow)
 
 	// All should be 100
 	if critScore != 100 || highScore != 100 || medScore != 100 || lowScore != 100 {

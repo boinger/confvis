@@ -10,6 +10,7 @@ import (
 
 	"github.com/boinger/confvis/internal/confidence"
 	"github.com/boinger/confvis/internal/sources"
+	"github.com/boinger/confvis/internal/sources/scoring"
 )
 
 const sourceName = "semgrep"
@@ -118,19 +119,19 @@ func (s *Source) buildReport(report *Report, opts sources.Options, path string) 
 	factors := []confidence.Factor{
 		{
 			Name:        "Error Findings",
-			Score:       SeverityScore(counts.Error, PenaltyError),
+			Score:       scoring.SeverityScore(counts.Error, PenaltyError),
 			Weight:      WeightError,
 			Description: fmt.Sprintf("%d errors", counts.Error),
 		},
 		{
 			Name:        "Warning Findings",
-			Score:       SeverityScore(counts.Warning, PenaltyWarning),
+			Score:       scoring.SeverityScore(counts.Warning, PenaltyWarning),
 			Weight:      WeightWarning,
 			Description: fmt.Sprintf("%d warnings", counts.Warning),
 		},
 		{
 			Name:        "Info Findings",
-			Score:       SeverityScore(counts.Info, PenaltyInfo),
+			Score:       scoring.SeverityScore(counts.Info, PenaltyInfo),
 			Weight:      WeightInfo,
 			Description: fmt.Sprintf("%d info", counts.Info),
 		},

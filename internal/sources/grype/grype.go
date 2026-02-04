@@ -9,6 +9,7 @@ import (
 
 	"github.com/boinger/confvis/internal/confidence"
 	"github.com/boinger/confvis/internal/sources"
+	"github.com/boinger/confvis/internal/sources/scoring"
 )
 
 const sourceName = "grype"
@@ -71,25 +72,25 @@ func (s *Source) Fetch(ctx context.Context, opts sources.Options) (*confidence.R
 	factors := []confidence.Factor{
 		{
 			Name:        "Critical Vulnerabilities",
-			Score:       SeverityScore(counts.Critical, PenaltyCritical),
+			Score:       scoring.SeverityScore(counts.Critical, PenaltyCritical),
 			Weight:      WeightCritical,
 			Description: fmt.Sprintf("%d critical", counts.Critical),
 		},
 		{
 			Name:        "High Vulnerabilities",
-			Score:       SeverityScore(counts.High, PenaltyHigh),
+			Score:       scoring.SeverityScore(counts.High, PenaltyHigh),
 			Weight:      WeightHigh,
 			Description: fmt.Sprintf("%d high", counts.High),
 		},
 		{
 			Name:        "Medium Vulnerabilities",
-			Score:       SeverityScore(counts.Medium, PenaltyMedium),
+			Score:       scoring.SeverityScore(counts.Medium, PenaltyMedium),
 			Weight:      WeightMedium,
 			Description: fmt.Sprintf("%d medium", counts.Medium),
 		},
 		{
 			Name:        "Low Vulnerabilities",
-			Score:       SeverityScore(counts.Low, PenaltyLow),
+			Score:       scoring.SeverityScore(counts.Low, PenaltyLow),
 			Weight:      WeightLow,
 			Description: fmt.Sprintf("%d low", counts.Low),
 		},

@@ -24,34 +24,6 @@ func (m *mockFetcher) AlertsURL(owner, repo string) string {
 	return "https://github.com/" + owner + "/" + repo + "/security/dependabot"
 }
 
-func TestSeverityScore(t *testing.T) {
-	tests := []struct {
-		name    string
-		count   int
-		penalty int
-		want    int
-	}{
-		{"no vulnerabilities", 0, 25, 100},
-		{"one critical", 1, 25, 75},
-		{"two critical", 2, 25, 50},
-		{"four critical", 4, 25, 0},
-		{"five critical (capped)", 5, 25, 0},
-		{"one high", 1, 15, 85},
-		{"one medium", 1, 5, 95},
-		{"one low", 1, 2, 98},
-		{"many low", 50, 2, 0},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := SeverityScore(tt.count, tt.penalty)
-			if got != tt.want {
-				t.Errorf("SeverityScore(%d, %d) = %d, want %d", tt.count, tt.penalty, got, tt.want)
-			}
-		})
-	}
-}
-
 func TestCountAlertsBySeverity(t *testing.T) {
 	alerts := AlertsResponse{
 		{Number: 1, SecurityAdvisory: SecurityAdvisory{Severity: "critical"}},

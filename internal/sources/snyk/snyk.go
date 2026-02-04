@@ -8,6 +8,7 @@ import (
 
 	"github.com/boinger/confvis/internal/confidence"
 	"github.com/boinger/confvis/internal/sources"
+	"github.com/boinger/confvis/internal/sources/scoring"
 )
 
 const sourceName = "snyk"
@@ -120,28 +121,28 @@ func (s *Source) FetchWithClient(ctx context.Context, fetcher Fetcher, opts sour
 	factors := []confidence.Factor{
 		{
 			Name:        "Critical Vulnerabilities",
-			Score:       SeverityScore(counts.Critical, PenaltyCritical),
+			Score:       scoring.SeverityScore(counts.Critical, PenaltyCritical),
 			Weight:      WeightCritical,
 			Description: fmt.Sprintf("%d critical", counts.Critical),
 			URL:         fetcher.ProjectURL(orgID, projectID),
 		},
 		{
 			Name:        "High Vulnerabilities",
-			Score:       SeverityScore(counts.High, PenaltyHigh),
+			Score:       scoring.SeverityScore(counts.High, PenaltyHigh),
 			Weight:      WeightHigh,
 			Description: fmt.Sprintf("%d high", counts.High),
 			URL:         fetcher.ProjectURL(orgID, projectID),
 		},
 		{
 			Name:        "Medium Vulnerabilities",
-			Score:       SeverityScore(counts.Medium, PenaltyMedium),
+			Score:       scoring.SeverityScore(counts.Medium, PenaltyMedium),
 			Weight:      WeightMedium,
 			Description: fmt.Sprintf("%d medium", counts.Medium),
 			URL:         fetcher.ProjectURL(orgID, projectID),
 		},
 		{
 			Name:        "Low Vulnerabilities",
-			Score:       SeverityScore(counts.Low, PenaltyLow),
+			Score:       scoring.SeverityScore(counts.Low, PenaltyLow),
 			Weight:      WeightLow,
 			Description: fmt.Sprintf("%d low", counts.Low),
 			URL:         fetcher.ProjectURL(orgID, projectID),

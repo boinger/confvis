@@ -32,15 +32,3 @@ type IssueCounts struct {
 	Low      int `json:"low"`
 }
 
-// SeverityScore calculates a score based on vulnerability count and penalty.
-// Returns 100 if count is 0, otherwise decreases by penalty per issue (min 0).
-func SeverityScore(count, penalty int) int {
-	if count == 0 {
-		return 100
-	}
-	score := 100 - (count * penalty)
-	if score < 0 {
-		return 0
-	}
-	return score
-}

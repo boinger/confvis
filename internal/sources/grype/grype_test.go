@@ -9,34 +9,6 @@ import (
 	"github.com/boinger/confvis/internal/sources"
 )
 
-func TestSeverityScore(t *testing.T) {
-	tests := []struct {
-		name    string
-		count   int
-		penalty int
-		want    int
-	}{
-		{"no vulnerabilities", 0, 33, 100},
-		{"one critical", 1, 33, 67},
-		{"two critical", 2, 33, 34},
-		{"three critical", 3, 33, 1},
-		{"four critical (capped)", 4, 33, 0},
-		{"one high", 1, 20, 80},
-		{"one medium", 1, 10, 90},
-		{"one low", 1, 5, 95},
-		{"many low", 25, 5, 0},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := SeverityScore(tt.count, tt.penalty)
-			if got != tt.want {
-				t.Errorf("SeverityScore(%d, %d) = %d, want %d", tt.count, tt.penalty, got, tt.want)
-			}
-		})
-	}
-}
-
 func TestCountFromMatches(t *testing.T) {
 	matches := []Match{
 		{Vulnerability: Vulnerability{Severity: "Critical"}},
