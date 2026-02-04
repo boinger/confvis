@@ -4,6 +4,7 @@ package sources
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	"github.com/boinger/confvis/internal/confidence"
 )
@@ -57,5 +58,6 @@ func Names() []string {
 	for name := range Registry {
 		names = append(names, name)
 	}
+	sort.Strings(names)
 	return names
 }

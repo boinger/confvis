@@ -183,6 +183,7 @@ confvis gauge -c <config> -o <output-file> [flags]
 | `--baseline-file` | | | File path fallback for non-git repos |
 | `--fail-on-regression` | | false | Exit with code 1 if score decreased from baseline |
 | `--factor-threshold` | | | Per-factor threshold in `Name:threshold` format (can be repeated) |
+| `--emit-json` | | | Also write JSON metadata to this path (useful for CI/CD pipelines) |
 
 #### Output Formats
 
@@ -202,6 +203,8 @@ confvis gauge -c <config> -o <output-file> [flags]
   }
   ```
   Note: `baseline` and `delta` fields are only present when using `--compare` or `--compare-baseline`.
+
+  The `--emit-json` flag writes this same JSON format to a separate file, useful for CI/CD pipelines that need both SVG output and machine-readable metadata without running the command twice.
 - **text**: Plain text score number (useful for scripting). With `--compare`, shows delta: `85 (+5)`
 - **markdown**: Markdown-formatted report for PR comments or wiki pages:
   ```markdown
@@ -351,6 +354,10 @@ confvis gauge -c confidence.json -o badge.svg \
 # Per-factor thresholds combined with overall threshold
 confvis gauge -c confidence.json -o badge.svg --fail-under 75 \
   --factor-threshold "Coverage:80" --factor-threshold "Security:90"
+
+# Emit JSON metadata alongside SVG output (useful for CI pipelines)
+confvis gauge -c confidence.json -o badge.svg --emit-json /tmp/metadata.json
+# Then extract values: jq -r '.score' /tmp/metadata.json
 ```
 
 ---

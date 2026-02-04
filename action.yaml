@@ -130,7 +130,7 @@ runs:
           sudo mv /tmp/confvis /usr/local/bin/confvis
         fi
 
-        confvis --version || echo "confvis installed"
+        confvis --version
 
     - name: Run confvis
       id: confvis
@@ -181,16 +181,27 @@ runs:
           fi
         fi
 
-        # Run the command and capture JSON output for extracting values
+        # Run the command and emit JSON metadata for outputs
+        EMIT_JSON="/tmp/confvis-output.json"
+
+        # Add --emit-json only for gauge command (other commands don't support it)
+        if [ "$INPUT_COMMAND" = "gauge" ]; then
+          ARGS+=("--emit-json" "$EMIT_JSON")
+        fi
+
         echo "Running: confvis $INPUT_COMMAND ${ARGS[*]}"
         confvis "$INPUT_COMMAND" "${ARGS[@]}"
 
-        # Get score data as JSON for outputs
-        JSON_OUTPUT=$(confvis gauge -c "$INPUT_CONFIG" -o - --format json 2>/dev/null || echo '{}')
-
-        SCORE=$(echo "$JSON_OUTPUT" | jq -r '.score // empty')
-        PASSED=$(echo "$JSON_OUTPUT" | jq -r '.passed // empty')
-        DELTA=$(echo "$JSON_OUTPUT" | jq -r '.delta // empty')
+        # Extract outputs from emitted JSON
+        if [ -f "$EMIT_JSON" ]; then
+          SCORE=$(jq -r '.score // empty' "$EMIT_JSON")
+          PASSED=$(jq -r '.passed // empty' "$EMIT_JSON")
+          DELTA=$(jq -r '.delta // empty' "$EMIT_JSON")
+        else
+          SCORE=""
+          PASSED=""
+          DELTA=""
+        fi
 
         echo "score=${SCORE}" >> $GITHUB_OUTPUT
         echo "passed=${PASSED}" >> $GITHUB_OUTPUT

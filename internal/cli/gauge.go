@@ -41,6 +41,7 @@ var (
 	gaugeBaselineRef      string
 	gaugeBaselineFile     string
 	gaugeFactorThresholds []string
+	gaugeEmitJSON         string
 )
 
 var gaugeCmd = &cobra.Command{
@@ -76,6 +77,7 @@ func init() {
 	gaugeCmd.Flags().StringVar(&gaugeHistoryRef, "history-ref", "", "git ref for storing history (default: refs/confvis/history)")
 	gaugeCmd.Flags().BoolVar(&gaugeHistoryAuto, "history-auto", false, "auto-detect history storage: use git ref if in repo, else file")
 	gaugeCmd.Flags().StringSliceVar(&gaugeFactorThresholds, "factor-threshold", nil, "per-factor threshold in 'Name:threshold' format (can be repeated)")
+	gaugeCmd.Flags().StringVar(&gaugeEmitJSON, "emit-json", "", "also write JSON metadata to this path")
 
 	// Bind flags to viper for config file support
 	bindGaugeFlags(gaugeCmd)
@@ -130,6 +132,7 @@ type GaugeDeps struct {
 	FailOnRegression      bool
 	HistoryAuto           bool
 	CompareBaseline       bool
+	EmitJSON              string
 }
 
 func runGauge(_ *cobra.Command, _ []string) error {
@@ -179,6 +182,7 @@ func runGauge(_ *cobra.Command, _ []string) error {
 		FailOnRegression:     gaugeFailOnRegression,
 		HistoryAuto:          getGaugeHistoryAuto(),
 		CompareBaseline:      getGaugeCompareBaseline(),
+		EmitJSON:             gaugeEmitJSON,
 	})
 }
 
@@ -246,6 +250,13 @@ func gaugeImpl(deps *GaugeDeps) error {
 		return err
 	}
 
+	// Emit JSON metadata if requested
+	if deps.EmitJSON != "" {
+		if err := emitJSONMetadata(deps, report, baselineReport, delta); err != nil {
+			return err
+		}
+	}
+
 	if showVerbose {
 		fmt.Printf("Wrote %s to %s\n", deps.Format, deps.Output)
 	}
@@ -292,6 +303,20 @@ func writeFormatOutput(w io.Writer, format string, report *confidence.Report, ba
 		return writeGitHubComment(w, report, baselineReport)
 	}
 	return nil
+}
+
+// emitJSONMetadata writes JSON metadata to a separate file.
+func emitJSONMetadata(deps *GaugeDeps, report *confidence.Report, baselineReport *confidence.Report, delta int) (err error) {
+	f, err := deps.FS.Create(deps.EmitJSON)
+	if err != nil {
+		return fmt.Errorf("creating emit-json file: %w", err)
+	}
+	defer func() {
+		if cerr := f.Close(); cerr != nil && err == nil {
+			err = fmt.Errorf("closing emit-json file: %w", cerr)
+		}
+	}()
+	return writeJSON(f, report, baselineReport, delta)
 }
 
 // writeJSON generates JSON output for the report.
