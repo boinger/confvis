@@ -724,6 +724,134 @@ check:
 
 ---
 
+---
+
+### `confvis comment`
+
+Post confidence reports as comments on pull requests.
+
+```bash
+confvis comment <platform> [flags]
+```
+
+#### Available Platforms
+
+| Platform | Description |
+|----------|-------------|
+| `github` | Post comment to GitHub PR |
+
+#### `confvis comment github`
+
+Post confidence report as a comment on a GitHub pull request.
+
+```bash
+confvis comment github -c <config> [flags]
+```
+
+##### Required Flags
+
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--config` | `-c` | Path to confidence report (JSON/YAML), or `-` for stdin |
+
+##### Optional Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--owner` | | Repository owner (auto-detected in GitHub Actions) |
+| `--repo` | | Repository name (auto-detected in GitHub Actions) |
+| `--pr` | | Pull request number (auto-detected in GitHub Actions) |
+| `--token` | | GitHub token (or `GITHUB_TOKEN` env var) |
+| `--api-url` | | GitHub API URL (auto-detected in GitHub Actions) |
+| `--mode` | update | Comment mode: `create`, `update`, or `replace` |
+| `--auto-detect` | true | Auto-detect values from GitHub Actions environment |
+| `--dry-run` | false | Preview comment without posting |
+
+##### Comment Modes
+
+| Mode | Behavior |
+|------|----------|
+| `create` | Always create a new comment |
+| `update` | Update existing confvis comment, or create if none (default) |
+| `replace` | Delete all previous confvis comments, then create new |
+
+Comments are identified by a hidden HTML marker (`<!-- confvis-comment -->`), allowing
+the `update` and `replace` modes to find existing confvis comments.
+
+##### Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `GITHUB_TOKEN` | GitHub API token (required) |
+| `GITHUB_REPOSITORY` | Repository in `owner/repo` format |
+| `GITHUB_EVENT_PATH` | Path to event JSON (for PR number detection) |
+| `GITHUB_API_URL` | API URL (for GitHub Enterprise) |
+
+##### Examples
+
+```bash
+# Auto-detect from GitHub Actions environment
+confvis comment github -c confidence.json
+
+# Explicit options
+confvis comment github -c confidence.json \
+  --repo owner/repo --pr 123 \
+  --token $GITHUB_TOKEN
+
+# Always create new comment
+confvis comment github -c confidence.json --mode create
+
+# Update existing or create new (default)
+confvis comment github -c confidence.json --mode update
+
+# Delete all previous confvis comments, then create new
+confvis comment github -c confidence.json --mode replace
+
+# Preview without posting
+confvis comment github -c confidence.json --dry-run
+
+# Pipe from fetch
+confvis fetch sonarqube -p myproject -o - | confvis comment github -c -
+```
+
+##### GitHub Actions Integration
+
+```yaml
+name: PR Confidence Comment
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  confidence:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write  # Required for posting comments
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate confidence report
+        # ... your report generation steps ...
+
+      - name: Post PR comment
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: confvis comment github -c confidence.json
+```
+
+##### Config File Support
+
+```yaml
+# .confvis.yaml
+comment:
+  github:
+    mode: update
+    api_url: https://api.github.example.com  # For GitHub Enterprise
+```
+
+---
+
 ## Exit Codes
 
 | Code | Meaning |

@@ -28,6 +28,8 @@ confvis provides a native GitHub Action for zero-install usage in your workflows
 | `save-baseline` | Save current score as baseline | `false` | No |
 | `create-check` | Create GitHub Check Run with results | `false` | No |
 | `check-name` | Name for the GitHub Check Run | `Confidence Score` | No |
+| `post-comment` | Post confidence report as PR comment | `false` | No |
+| `comment-mode` | Comment mode: `create`, `update`, or `replace` | `update` | No |
 | `history-auto` | Auto-manage sparkline history | `false` | No |
 | `version` | confvis version to use | `latest` | No |
 
@@ -176,6 +178,8 @@ jobs:
 
 ### PR Comment with Score
 
+Post a confidence report directly to the PR using the native `post-comment` feature:
+
 ```yaml
 name: PR Confidence Report
 
@@ -196,16 +200,16 @@ jobs:
       - uses: boinger/confvis@v1
         with:
           config: confidence.json
-          output: report.md
-          format: github-comment
+          output: badge.svg
           compare-baseline: true
-
-      - name: Post PR comment
-        uses: peter-evans/create-or-update-comment@v4
-        with:
-          issue-number: ${{ github.event.pull_request.number }}
-          body-path: report.md
+          post-comment: true
+          comment-mode: update  # update existing or create new
 ```
+
+Comment modes:
+- `create` - Always create a new comment
+- `update` - Update existing confvis comment, or create if none (default)
+- `replace` - Delete all previous confvis comments, then create new
 
 ### Fetch and Report
 
@@ -269,6 +273,7 @@ jobs:
           fail-on-regression: ${{ github.event_name == 'pull_request' }}
           save-baseline: ${{ github.ref == 'refs/heads/main' }}
           create-check: true
+          post-comment: ${{ github.event_name == 'pull_request' }}
 
       - name: Commit badge (main only)
         if: github.ref == 'refs/heads/main'
@@ -276,18 +281,6 @@ jobs:
         with:
           commit_message: "chore: update confidence badge [skip ci]"
           file_pattern: "badges/*"
-
-      - name: PR Comment
-        if: github.event_name == 'pull_request'
-        run: |
-          confvis gauge -c confidence.json --compare-baseline -o - -f github-comment > report.md
-
-      - name: Post PR comment
-        if: github.event_name == 'pull_request'
-        uses: peter-evans/create-or-update-comment@v4
-        with:
-          issue-number: ${{ github.event.pull_request.number }}
-          body-path: report.md
 ```
 
 ## Versioning
@@ -316,7 +309,7 @@ The action may require these permissions depending on features used:
 |---------|------------|--------|
 | `create-check: true` | `checks: write` | Create GitHub Check Runs |
 | `save-baseline: true` | `contents: write` | Update git refs |
-| PR comments | `pull-requests: write` | Post comments |
+| `post-comment: true` | `pull-requests: write` | Post PR comments |
 
 ## Troubleshooting
 

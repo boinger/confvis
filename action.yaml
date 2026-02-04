@@ -46,6 +46,12 @@ inputs:
   check-name:
     description: 'Name for the GitHub Check Run'
     default: 'Confidence Score'
+  post-comment:
+    description: 'Post confidence report as PR comment'
+    default: 'false'
+  comment-mode:
+    description: 'Comment mode: create, update, or replace'
+    default: 'update'
   history-auto:
     description: 'Auto-manage sparkline history (for sparkline badge-type)'
     default: 'false'
@@ -211,3 +217,14 @@ runs:
       run: |
         echo "Creating GitHub Check Run..."
         confvis check github -c "$INPUT_CONFIG" --name "$INPUT_CHECK_NAME"
+
+    - name: Post PR Comment
+      if: inputs.post-comment == 'true'
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+        INPUT_CONFIG: ${{ inputs.config }}
+        INPUT_COMMENT_MODE: ${{ inputs.comment-mode }}
+      run: |
+        echo "Posting PR comment..."
+        confvis comment github -c "$INPUT_CONFIG" --mode "$INPUT_COMMENT_MODE"
