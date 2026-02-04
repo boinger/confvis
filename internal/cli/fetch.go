@@ -16,6 +16,7 @@ import (
 	"github.com/boinger/confvis/internal/sources"
 	// Import sources to register them
 	_ "github.com/boinger/confvis/internal/sources/codecov"
+	_ "github.com/boinger/confvis/internal/sources/dependabot"
 	_ "github.com/boinger/confvis/internal/sources/ghactions"
 	_ "github.com/boinger/confvis/internal/sources/snyk"
 	_ "github.com/boinger/confvis/internal/sources/sonarqube"
@@ -48,6 +49,7 @@ var fetchCmd = &cobra.Command{
 Available sources:
   sonarqube      Code quality metrics from SonarQube
   codecov        Coverage metrics from Codecov
+  dependabot     Vulnerability alerts from GitHub Dependabot
   github-actions CI/CD workflow metrics from GitHub Actions
   snyk           Vulnerability metrics from Snyk
   trivy          Security vulnerability scanning with Trivy
@@ -59,6 +61,10 @@ Examples:
   # Fetch from Codecov (project is owner/repo)
   export CODECOV_TOKEN=xxx
   confvis fetch codecov -p myorg/myrepo -o confidence.json
+
+  # Fetch from Dependabot (GitHub vulnerability alerts)
+  export GITHUB_TOKEN=xxx
+  confvis fetch dependabot -p owner/repo -o dependabot.json
 
   # Fetch from GitHub Actions
   export GITHUB_TOKEN=xxx

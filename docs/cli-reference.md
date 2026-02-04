@@ -494,8 +494,9 @@ confvis fetch <source> -p <project> -o <output> [flags]
 | `SONARQUBE_URL` | sonarqube | Server URL |
 | `SONARQUBE_TOKEN` | sonarqube | API token |
 | `CODECOV_TOKEN` | codecov | API token |
-| `GITHUB_TOKEN` | github-actions | Personal access token |
-| `GITHUB_API_URL` | github-actions | API URL (for Enterprise) |
+| `DEPENDABOT_TOKEN` | dependabot | API token (fallback: GITHUB_TOKEN) |
+| `GITHUB_TOKEN` | dependabot, github-actions | Personal access token |
+| `GITHUB_API_URL` | dependabot, github-actions | API URL (for Enterprise) |
 | `SNYK_TOKEN` | snyk | API token |
 | `SNYK_ORG_ID` | snyk | Organization ID |
 | `SNYK_API_URL` | snyk | API URL |
@@ -512,6 +513,10 @@ confvis fetch sonarqube -p myproject -o confidence.json
 # Fetch from Codecov (project is owner/repo)
 export CODECOV_TOKEN=xxx
 confvis fetch codecov -p myorg/myrepo -o confidence.json
+
+# Fetch from Dependabot (GitHub vulnerability alerts)
+export GITHUB_TOKEN=xxx
+confvis fetch dependabot -p myorg/myrepo -o dependabot.json
 
 # Fetch from GitHub Actions with workflow filter
 export GITHUB_TOKEN=xxx

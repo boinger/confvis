@@ -8,6 +8,7 @@ confvis can fetch metrics directly from external systems using the `confvis fetc
 |--------|-------------|--------|
 | `sonarqube` | Code quality metrics from SonarQube | Available |
 | `codecov` | Coverage metrics from Codecov | Available |
+| `dependabot` | Vulnerability alerts from GitHub Dependabot | Available |
 | `github-actions` | CI/CD workflow metrics from GitHub Actions | Available |
 | `snyk` | Security vulnerability metrics from Snyk | Available |
 | `trivy` | Local security vulnerability scanning with Trivy | Available |
@@ -171,6 +172,79 @@ confvis fetch codecov -p myorg/myrepo -o - | confvis gauge -c - -o coverage-badg
 ### Authentication
 
 Generate an API token at [Codecov Settings](https://app.codecov.io/account/access).
+
+## Dependabot
+
+Fetches security vulnerability alerts from GitHub Dependabot.
+
+### Configuration
+
+| Flag | Environment Variable | Description |
+|------|---------------------|-------------|
+| `--token` | `DEPENDABOT_TOKEN` or `GITHUB_TOKEN` | GitHub token (required) |
+| `--url` | `GITHUB_API_URL` | API URL for GitHub Enterprise |
+
+**Note:** The `--project` flag must be in `owner/repo` format (e.g., `myorg/myrepo`).
+
+### Metric Mapping
+
+Vulnerability counts are converted to scores using severity-based penalties:
+
+| Factor Name | Scoring Formula | Weight |
+|-------------|-----------------|--------|
+| Critical Vulnerabilities | 100 if 0, else max(0, 100 - count×25) | 40% |
+| High Vulnerabilities | 100 if 0, else max(0, 100 - count×15) | 30% |
+| Medium Vulnerabilities | 100 if 0, else max(0, 100 - count×5) | 20% |
+| Low Vulnerabilities | 100 if 0, else max(0, 100 - count×2) | 10% |
+
+For example:
+- 0 critical issues = 100 points
+- 2 critical issues = 100 - (2×25) = 50 points
+- 4 high issues = 100 - (4×15) = 40 points
+
+### Example Output
+
+```json
+{
+  "title": "myorg/myrepo",
+  "score": 90,
+  "threshold": 75,
+  "source": "dependabot",
+  "generatedAt": "2026-02-01T15:30:00Z",
+  "factors": [
+    {"name": "Critical Vulnerabilities", "score": 100, "weight": 40, "description": "0 critical"},
+    {"name": "High Vulnerabilities", "score": 85, "weight": 30, "description": "1 high"},
+    {"name": "Medium Vulnerabilities", "score": 90, "weight": 20, "description": "2 medium"},
+    {"name": "Low Vulnerabilities", "score": 96, "weight": 10, "description": "2 low"}
+  ]
+}
+```
+
+### Examples
+
+```bash
+# Basic usage with GITHUB_TOKEN
+export GITHUB_TOKEN=xxx
+confvis fetch dependabot -p myorg/myrepo -o dependabot.json
+
+# Explicit token
+confvis fetch dependabot -p myorg/myrepo --token ghp_xxx -o dependabot.json
+
+# GitHub Enterprise
+export GITHUB_API_URL=https://api.github.mycompany.com
+confvis fetch dependabot -p myorg/myrepo -o dependabot.json
+
+# Pipe to badge generation
+confvis fetch dependabot -p myorg/myrepo -o - | confvis gauge -c - -o security-badge.svg
+```
+
+### Authentication
+
+Requires a GitHub token with `security_events` scope (for private repos) or `public_repo` scope (for public repos). The token can be:
+
+1. **Personal Access Token (Classic)**: Create at GitHub Settings > Developer Settings > Tokens
+2. **Fine-grained Token**: Create with "Dependabot alerts" read permission
+3. **GitHub Actions Token**: Use `${{ secrets.GITHUB_TOKEN }}` with `security-events: read` permission
 
 ## GitHub Actions
 
