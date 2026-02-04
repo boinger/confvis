@@ -3,6 +3,8 @@ package cli
 import (
 	"strings"
 	"testing"
+
+	"github.com/boinger/confvis/internal/confidence"
 )
 
 func TestReportLoader_LoadReport(t *testing.T) {
@@ -77,6 +79,59 @@ func TestReportLoader_LoadReport(t *testing.T) {
 			}
 			if report.Score != tt.wantScore {
 				t.Errorf("Score = %d, want %d", report.Score, tt.wantScore)
+			}
+		})
+	}
+}
+
+func TestParseInputFormat(t *testing.T) {
+	tests := []struct {
+		name       string
+		input      string
+		wantFormat confidence.Format
+		wantErr    bool
+	}{
+		{
+			name:       "auto",
+			input:      "auto",
+			wantFormat: confidence.FormatAuto,
+		},
+		{
+			name:       "json",
+			input:      "json",
+			wantFormat: confidence.FormatJSON,
+		},
+		{
+			name:       "yaml",
+			input:      "yaml",
+			wantFormat: confidence.FormatYAML,
+		},
+		{
+			name:    "invalid format",
+			input:   "xml",
+			wantErr: true,
+		},
+		{
+			name:    "empty string",
+			input:   "",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			format, err := ParseInputFormat(tt.input)
+			if tt.wantErr {
+				if err == nil {
+					t.Error("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("ParseInputFormat() error = %v", err)
+			}
+			if format != tt.wantFormat {
+				t.Errorf("ParseInputFormat() = %v, want %v", format, tt.wantFormat)
 			}
 		})
 	}

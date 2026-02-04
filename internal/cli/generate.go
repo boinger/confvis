@@ -84,16 +84,9 @@ func runGenerate(_ *cobra.Command, _ []string) error {
 
 func generateImpl(deps *GenerateDeps) error {
 	// Validate and convert input format
-	var inputFormat confidence.Format
-	switch deps.InputFormat {
-	case "auto":
-		inputFormat = confidence.FormatAuto
-	case "json":
-		inputFormat = confidence.FormatJSON
-	case "yaml":
-		inputFormat = confidence.FormatYAML
-	default:
-		return fmt.Errorf("invalid input-format %q: must be auto, json, or yaml", deps.InputFormat)
+	inputFormat, err := ParseInputFormat(deps.InputFormat)
+	if err != nil {
+		return err
 	}
 
 	loader := &ReportLoader{FS: deps.FS, Stdin: deps.Stdin, Config: deps.Config, Format: inputFormat}

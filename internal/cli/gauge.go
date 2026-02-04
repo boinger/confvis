@@ -200,16 +200,9 @@ func gaugeImpl(deps *GaugeDeps) error {
 	}
 
 	// Validate and convert input format
-	var inputFormat confidence.Format
-	switch deps.InputFormat {
-	case "auto":
-		inputFormat = confidence.FormatAuto
-	case "json":
-		inputFormat = confidence.FormatJSON
-	case "yaml":
-		inputFormat = confidence.FormatYAML
-	default:
-		return fmt.Errorf("invalid input-format %q: must be auto, json, or yaml", deps.InputFormat)
+	inputFormat, err := ParseInputFormat(deps.InputFormat)
+	if err != nil {
+		return err
 	}
 
 	loader := &ReportLoader{FS: deps.FS, Stdin: deps.Stdin, Config: deps.Config, Format: inputFormat}
@@ -496,13 +489,10 @@ func loadBaselineForComparison(deps *GaugeDeps, currentScore int) (*confidence.R
 	}
 
 	if deps.Compare != "" {
-		reader, format, err := openConfigFile(deps.FS, deps.Compare, confidence.FormatAuto)
+		loader := &ReportLoader{FS: deps.FS, Config: deps.Compare}
+		baselineReport, err := loader.LoadReport()
 		if err != nil {
-			return nil, 0, fmt.Errorf("parsing baseline: %w", err)
-		}
-		baselineReport, err := confidence.ParseWithFormat(reader, format)
-		if err != nil {
-			return nil, 0, fmt.Errorf("parsing baseline: %w", err)
+			return nil, 0, fmt.Errorf("loading baseline: %w", err)
 		}
 		return baselineReport, currentScore - baselineReport.Score, nil
 	}

@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/boinger/confvis/internal/confidence"
 	"github.com/boinger/confvis/internal/sources"
@@ -137,17 +136,5 @@ func (s *Source) buildReport(report *Report, opts sources.Options, path string) 
 		},
 	}
 
-	// Build report
-	result := &confidence.Report{
-		Title:       title,
-		Threshold:   opts.Threshold,
-		Source:      sourceName,
-		GeneratedAt: time.Now().UTC().Format(time.RFC3339),
-		Factors:     factors,
-	}
-
-	// Calculate weighted score
-	result.Score = result.CalculateScore()
-
-	return result, nil
+	return scoring.BuildReport(title, sourceName, opts.Threshold, factors), nil
 }

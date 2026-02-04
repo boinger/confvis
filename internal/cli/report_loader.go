@@ -15,6 +15,20 @@ type ReportLoader struct {
 	Format confidence.Format // Optional: FormatAuto (default), FormatJSON, FormatYAML
 }
 
+// ParseInputFormat converts a string input format to confidence.Format.
+func ParseInputFormat(s string) (confidence.Format, error) {
+	switch s {
+	case "auto":
+		return confidence.FormatAuto, nil
+	case "json":
+		return confidence.FormatJSON, nil
+	case "yaml":
+		return confidence.FormatYAML, nil
+	default:
+		return confidence.FormatAuto, fmt.Errorf("invalid input-format %q: must be auto, json, or yaml", s)
+	}
+}
+
 // LoadReport loads a confidence report from stdin or file path.
 func (l *ReportLoader) LoadReport() (*confidence.Report, error) {
 	format := l.Format

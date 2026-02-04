@@ -1927,8 +1927,8 @@ func TestGaugeImpl_BaselineParseError(t *testing.T) {
 		t.Fatal("expected error for invalid baseline JSON")
 	}
 
-	if !strings.Contains(err.Error(), "parsing baseline") {
-		t.Errorf("error should mention parsing baseline, got: %v", err)
+	if !strings.Contains(err.Error(), "loading baseline") {
+		t.Errorf("error should mention loading baseline, got: %v", err)
 	}
 }
 
