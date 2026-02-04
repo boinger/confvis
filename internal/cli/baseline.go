@@ -18,6 +18,7 @@ var (
 	baselineRef    string
 	baselineFile   string
 	baselineFormat string
+	baselineDryRun bool
 )
 
 var baselineCmd = &cobra.Command{
@@ -76,6 +77,7 @@ func init() {
 	baselineSaveCmd.Flags().StringVarP(&baselineConfig, "config", "c", "", "path to confidence report (JSON/YAML) (required)")
 	baselineSaveCmd.Flags().StringVar(&baselineRef, "ref", "", "git ref for storage (default: refs/confvis/baseline)")
 	baselineSaveCmd.Flags().StringVar(&baselineFile, "file", "", "file path alternative to git ref")
+	baselineSaveCmd.Flags().BoolVar(&baselineDryRun, "dry-run", false, "preview what would be saved without writing")
 
 	if err := baselineSaveCmd.MarkFlagRequired("config"); err != nil {
 		panic(err)
@@ -117,6 +119,7 @@ type BaselineDeps struct {
 	Ref           string
 	File          string
 	Format        string
+	DryRun        bool
 	IsGitRepo     func() bool
 	GitRefReader  func(string) (*baseline.Baseline, error)
 	GitRefWriter  func(string, *baseline.Baseline) error
@@ -135,6 +138,7 @@ func runBaselineSave(_ *cobra.Command, _ []string) error {
 		Config:       baselineConfig,
 		Ref:          getBaselineRef(),
 		File:         getBaselineFile(),
+		DryRun:       baselineDryRun,
 		IsGitRepo:    baseline.IsGitRepo,
 		GitRefReader: baseline.ReadFromGitRef,
 		GitRefWriter: baseline.WriteToGitRef,
@@ -210,6 +214,12 @@ func parseBaselineConfig(deps *BaselineDeps, inputFormat confidence.Format) (*co
 }
 
 func saveBaseline(deps *BaselineDeps, b *baseline.Baseline, useFile bool) error {
+	// Dry-run mode: show what would be saved without writing
+	if deps.DryRun {
+		outputBaselineDryRun(deps, b, useFile)
+		return nil
+	}
+
 	if useFile {
 		if err := deps.FileWriter(deps.File, b); err != nil {
 			return fmt.Errorf("saving baseline to file: %w", err)
@@ -229,6 +239,32 @@ func saveBaseline(deps *BaselineDeps, b *baseline.Baseline, useFile bool) error 
 			deps.Ref, b.Score, truncateCommit(b.Commit))
 	}
 	return nil
+}
+
+func outputBaselineDryRun(deps *BaselineDeps, b *baseline.Baseline, useFile bool) {
+	destination := deps.Ref
+	destType := "git ref"
+	if useFile {
+		destination = deps.File
+		destType = "file"
+	}
+
+	_, _ = fmt.Fprintln(deps.Stdout, "DRY RUN: Would save baseline")
+	_, _ = fmt.Fprintln(deps.Stdout)
+	_, _ = fmt.Fprintf(deps.Stdout, "Destination: %s (%s)\n", destination, destType)
+	_, _ = fmt.Fprintln(deps.Stdout)
+	_, _ = fmt.Fprintln(deps.Stdout, "Baseline content:")
+	_, _ = fmt.Fprintf(deps.Stdout, "  Score:   %d\n", b.Score)
+	_, _ = fmt.Fprintf(deps.Stdout, "  Title:   %s\n", b.Title)
+	if b.Commit != "" {
+		_, _ = fmt.Fprintf(deps.Stdout, "  Commit:  %s\n", truncateCommit(b.Commit))
+	}
+	if b.Branch != "" {
+		_, _ = fmt.Fprintf(deps.Stdout, "  Branch:  %s\n", b.Branch)
+	}
+	_, _ = fmt.Fprintf(deps.Stdout, "  SavedAt: %s\n", b.SavedAt)
+	_, _ = fmt.Fprintln(deps.Stdout)
+	_, _ = fmt.Fprintln(deps.Stdout, "No changes made.")
 }
 
 func baselineShowImpl(deps *BaselineDeps) error {

@@ -23,6 +23,7 @@ var (
 	checkToken      string
 	checkAPIURL     string
 	checkAutoDetect bool
+	checkDryRun     bool
 )
 
 var checkCmd = &cobra.Command{
@@ -67,6 +68,7 @@ func init() {
 	checkGitHubCmd.Flags().StringVar(&checkToken, "token", "", "GitHub token (or GITHUB_TOKEN env var)")
 	checkGitHubCmd.Flags().StringVar(&checkAPIURL, "api-url", "", "GitHub API URL (auto-detected in GitHub Actions)")
 	checkGitHubCmd.Flags().BoolVar(&checkAutoDetect, "auto-detect", true, "auto-detect values from GitHub Actions environment")
+	checkGitHubCmd.Flags().BoolVar(&checkDryRun, "dry-run", false, "preview check run without creating it")
 
 	if err := checkGitHubCmd.MarkFlagRequired("config"); err != nil {
 		panic(err)
@@ -103,6 +105,7 @@ type CheckGitHubDeps struct {
 	Token      string
 	APIURL     string
 	AutoDetect bool
+	DryRun     bool
 	Timeout    time.Duration
 
 	// Functions for testability
@@ -127,6 +130,7 @@ func runCheckGitHub(_ *cobra.Command, _ []string) error {
 		Token:         checkToken,
 		APIURL:        getCheckAPIURL(),
 		AutoDetect:    checkAutoDetect,
+		DryRun:        checkDryRun,
 		Timeout:       30 * time.Second,
 		CreateCheck:   defaultCreateCheck,
 		LoadGitHubEnv: checks.LoadGitHubEnv,
@@ -151,6 +155,12 @@ func checkGitHubImpl(deps *CheckGitHubDeps) error {
 		return err
 	}
 
+	// Dry-run mode: show what would happen without creating the check
+	if deps.DryRun {
+		outputCheckDryRun(deps, opts, report)
+		return nil
+	}
+
 	// Create the check run
 	ctx, cancel := context.WithTimeout(context.Background(), deps.Timeout)
 	defer cancel()
@@ -169,6 +179,39 @@ func checkGitHubImpl(deps *CheckGitHubDeps) error {
 	}
 
 	return nil
+}
+
+func outputCheckDryRun(deps *CheckGitHubDeps, opts checks.CreateCheckOptions, report *confidence.Report) {
+	status := "passed"
+	conclusion := "success"
+	if !report.Passed() {
+		status = "failed"
+		conclusion = "failure"
+	}
+
+	_, _ = fmt.Fprintln(deps.Stdout, "DRY RUN: Would create GitHub check run")
+	_, _ = fmt.Fprintln(deps.Stdout)
+	_, _ = fmt.Fprintf(deps.Stdout, "Repository: %s/%s\n", opts.Owner, opts.Repo)
+	_, _ = fmt.Fprintf(deps.Stdout, "Commit:     %s\n", opts.SHA)
+	_, _ = fmt.Fprintf(deps.Stdout, "Name:       %s\n", opts.Name)
+	_, _ = fmt.Fprintf(deps.Stdout, "Status:     completed\n")
+	_, _ = fmt.Fprintf(deps.Stdout, "Conclusion: %s\n", conclusion)
+	_, _ = fmt.Fprintln(deps.Stdout)
+	_, _ = fmt.Fprintf(deps.Stdout, "Title: Confidence Score: %d%% (%s)\n", report.Score, status)
+	_, _ = fmt.Fprintln(deps.Stdout)
+	_, _ = fmt.Fprintln(deps.Stdout, "Summary:")
+	_, _ = fmt.Fprintf(deps.Stdout, "  Score:     %d%%\n", report.Score)
+	_, _ = fmt.Fprintf(deps.Stdout, "  Threshold: %d%%\n", report.Threshold)
+	_, _ = fmt.Fprintf(deps.Stdout, "  Status:    %s\n", status)
+	if len(report.Factors) > 0 {
+		_, _ = fmt.Fprintln(deps.Stdout)
+		_, _ = fmt.Fprintln(deps.Stdout, "Factors:")
+		for _, f := range report.Factors {
+			_, _ = fmt.Fprintf(deps.Stdout, "  - %s: %d (weight: %d)\n", f.Name, f.Score, f.Weight)
+		}
+	}
+	_, _ = fmt.Fprintln(deps.Stdout)
+	_, _ = fmt.Fprintln(deps.Stdout, "No changes made.")
 }
 
 func resolveCheckOptions(deps *CheckGitHubDeps) (checks.CreateCheckOptions, *checks.GitHubClient, error) {
