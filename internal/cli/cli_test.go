@@ -1455,3 +1455,299 @@ func TestAggregate_MissingConfig(t *testing.T) {
 		t.Fatal("expected error when config flag is missing")
 	}
 }
+
+func TestBaseline_Save_File(t *testing.T) {
+	bin := buildBinary(t)
+
+	tmpDir := t.TempDir()
+	baselinePath := filepath.Join(tmpDir, "baseline.json")
+
+	cmd := exec.Command(bin, "baseline", "save", "-c", "../../testdata/sample.json", "--file", baselinePath)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("baseline save failed: %v\n%s", err, output)
+	}
+
+	// Verify file was created
+	content, err := os.ReadFile(baselinePath)
+	if err != nil {
+		t.Fatalf("reading baseline file: %v", err)
+	}
+
+	// Should contain expected fields
+	contentStr := string(content)
+	if !strings.Contains(contentStr, `"score": 85`) {
+		t.Error("baseline should contain score")
+	}
+	if !strings.Contains(contentStr, `"savedAt"`) {
+		t.Error("baseline should contain savedAt")
+	}
+	if !strings.Contains(contentStr, `"title"`) {
+		t.Error("baseline should contain title")
+	}
+}
+
+func TestBaseline_Save_GitRef(t *testing.T) {
+	bin := buildBinary(t)
+
+	// Create a temporary git repo
+	tmpDir := t.TempDir()
+
+	// Initialize git repo
+	cmd := exec.Command("git", "init")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git init failed: %v", err)
+	}
+
+	// Configure git user
+	cmd = exec.Command("git", "config", "user.email", "test@example.com")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git config email failed: %v", err)
+	}
+
+	cmd = exec.Command("git", "config", "user.name", "Test User")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git config name failed: %v", err)
+	}
+
+	// Copy sample.json to temp dir
+	sampleData, err := os.ReadFile("../../testdata/sample.json")
+	if err != nil {
+		t.Fatalf("reading sample.json: %v", err)
+	}
+	reportPath := filepath.Join(tmpDir, "report.json")
+	if err := os.WriteFile(reportPath, sampleData, 0o644); err != nil {
+		t.Fatalf("writing report: %v", err)
+	}
+
+	// Save baseline to git ref
+	cmd = exec.Command(bin, "baseline", "save", "-c", "report.json", "--ref", "refs/confvis/test-baseline")
+	cmd.Dir = tmpDir
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("baseline save to git ref failed: %v\n%s", err, output)
+	}
+
+	// Verify ref was created
+	cmd = exec.Command("git", "show-ref", "--verify", "refs/confvis/test-baseline")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Error("baseline git ref should exist after save")
+	}
+}
+
+func TestBaseline_Show_File(t *testing.T) {
+	bin := buildBinary(t)
+
+	tmpDir := t.TempDir()
+	baselinePath := filepath.Join(tmpDir, "baseline.json")
+
+	// First save a baseline
+	cmd := exec.Command(bin, "baseline", "save", "-c", "../../testdata/sample.json", "--file", baselinePath)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("baseline save failed: %v\n%s", err, output)
+	}
+
+	// Now show it
+	cmd = exec.Command(bin, "baseline", "show", "--file", baselinePath)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("baseline show failed: %v\n%s", err, output)
+	}
+
+	outputStr := string(output)
+	if !strings.Contains(outputStr, "Baseline: 85%") {
+		t.Errorf("expected 'Baseline: 85%%' in output, got: %s", outputStr)
+	}
+}
+
+func TestBaseline_Show_JSON(t *testing.T) {
+	bin := buildBinary(t)
+
+	tmpDir := t.TempDir()
+	baselinePath := filepath.Join(tmpDir, "baseline.json")
+
+	// First save a baseline
+	cmd := exec.Command(bin, "baseline", "save", "-c", "../../testdata/sample.json", "--file", baselinePath)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("baseline save failed: %v\n%s", err, output)
+	}
+
+	// Show as JSON
+	cmd = exec.Command(bin, "baseline", "show", "--file", baselinePath, "--format", "json")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("baseline show json failed: %v\n%s", err, output)
+	}
+
+	outputStr := string(output)
+	if !strings.Contains(outputStr, `"score": 85`) {
+		t.Errorf("expected score in JSON output, got: %s", outputStr)
+	}
+	if !strings.Contains(outputStr, `"savedAt"`) {
+		t.Errorf("expected savedAt in JSON output, got: %s", outputStr)
+	}
+}
+
+func TestBaseline_Show_NotFound(t *testing.T) {
+	bin := buildBinary(t)
+
+	tmpDir := t.TempDir()
+	baselinePath := filepath.Join(tmpDir, "nonexistent.json")
+
+	cmd := exec.Command(bin, "baseline", "show", "--file", baselinePath)
+	err := cmd.Run()
+	if err == nil {
+		t.Fatal("expected error when baseline file doesn't exist")
+	}
+}
+
+func TestGauge_CompareBaseline_File(t *testing.T) {
+	bin := buildBinary(t)
+
+	tmpDir := t.TempDir()
+	baselinePath := filepath.Join(tmpDir, "baseline.json")
+
+	// Save baseline with sample_failing.json (score 62)
+	cmd := exec.Command(bin, "baseline", "save", "-c", "../../testdata/sample_failing.json", "--file", baselinePath)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("baseline save failed: %v\n%s", err, output)
+	}
+
+	// Compare with sample.json (score 85) - should show +23 delta
+	cmd = exec.Command(bin, "gauge", "-c", "../../testdata/sample.json", "--compare-baseline", "--baseline-file", baselinePath, "-o", "-", "-f", "json")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("gauge compare-baseline failed: %v\n%s", err, output)
+	}
+
+	outputStr := string(output)
+	if !strings.Contains(outputStr, `"baseline": 62`) {
+		t.Errorf("expected baseline score 62, got: %s", outputStr)
+	}
+	if !strings.Contains(outputStr, `"delta": 23`) {
+		t.Errorf("expected delta 23, got: %s", outputStr)
+	}
+}
+
+func TestGauge_CompareBaseline_GitRef(t *testing.T) {
+	bin := buildBinary(t)
+
+	// Create a temporary git repo
+	tmpDir := t.TempDir()
+
+	// Initialize git repo
+	cmd := exec.Command("git", "init")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git init failed: %v", err)
+	}
+
+	// Configure git user
+	cmd = exec.Command("git", "config", "user.email", "test@example.com")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git config email failed: %v", err)
+	}
+
+	cmd = exec.Command("git", "config", "user.name", "Test User")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git config name failed: %v", err)
+	}
+
+	// Copy sample files to temp dir
+	for _, name := range []string{"sample.json", "sample_failing.json"} {
+		data, err := os.ReadFile("../../testdata/" + name)
+		if err != nil {
+			t.Fatalf("reading %s: %v", name, err)
+		}
+		if err := os.WriteFile(filepath.Join(tmpDir, name), data, 0o644); err != nil {
+			t.Fatalf("writing %s: %v", name, err)
+		}
+	}
+
+	// Save baseline with sample_failing.json (score 62)
+	cmd = exec.Command(bin, "baseline", "save", "-c", "sample_failing.json")
+	cmd.Dir = tmpDir
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("baseline save failed: %v\n%s", err, output)
+	}
+
+	// Compare with sample.json (score 85)
+	cmd = exec.Command(bin, "gauge", "-c", "sample.json", "--compare-baseline", "-o", "-", "-f", "text")
+	cmd.Dir = tmpDir
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("gauge compare-baseline failed: %v\n%s", err, output)
+	}
+
+	if strings.TrimSpace(string(output)) != "85 (+23)" {
+		t.Errorf("expected '85 (+23)', got: %s", string(output))
+	}
+}
+
+func TestGauge_CompareBaseline_FailOnRegression(t *testing.T) {
+	bin := buildBinary(t)
+
+	tmpDir := t.TempDir()
+	baselinePath := filepath.Join(tmpDir, "baseline.json")
+
+	// Save baseline with sample.json (score 85)
+	cmd := exec.Command(bin, "baseline", "save", "-c", "../../testdata/sample.json", "--file", baselinePath)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("baseline save failed: %v\n%s", err, output)
+	}
+
+	// Compare with sample_failing.json (score 62) - should fail due to regression
+	cmd = exec.Command(bin, "gauge",
+		"-c", "../../testdata/sample_failing.json",
+		"--compare-baseline", "--baseline-file", baselinePath,
+		"-o", "-", "-f", "text", "--fail-on-regression")
+
+	err := cmd.Run()
+	if err == nil {
+		t.Fatal("expected exit 1 when score regressed from baseline")
+	}
+
+	exitErr, ok := err.(*exec.ExitError)
+	if !ok {
+		t.Fatalf("expected *exec.ExitError, got %T", err)
+	}
+
+	if exitErr.ExitCode() != 1 {
+		t.Errorf("expected exit code 1, got %d", exitErr.ExitCode())
+	}
+}
+
+func TestGauge_CompareBaseline_NoBaseline(t *testing.T) {
+	bin := buildBinary(t)
+
+	// When --compare-baseline is used but no baseline exists, it should work
+	// (no baseline means no comparison, just output the score)
+	tmpDir := t.TempDir()
+
+	// Create a non-git directory with no baseline file
+	reportPath := filepath.Join(tmpDir, "report.json")
+	if err := os.WriteFile(reportPath, []byte(`{"title": "Test", "score": 85, "threshold": 75}`), 0o644); err != nil {
+		t.Fatalf("writing report: %v", err)
+	}
+
+	// This should work even without a baseline (no comparison shown)
+	cmd := exec.Command(bin, "gauge", "-c", reportPath, "--compare-baseline", "--baseline-file", filepath.Join(tmpDir, "nonexistent.json"), "-o", "-", "-f", "text")
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("gauge compare-baseline without baseline failed: %v\n%s", err, output)
+	}
+
+	// Should output just the score (no delta)
+	if strings.TrimSpace(string(output)) != "85" {
+		t.Errorf("expected '85' when no baseline exists, got: %s", string(output))
+	}
+}

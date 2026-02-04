@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/boinger/confvis/internal/baseline"
 	"github.com/boinger/confvis/internal/confidence"
 	"github.com/boinger/confvis/internal/gauge"
 	"github.com/boinger/confvis/internal/history"
@@ -34,6 +35,9 @@ var (
 	gaugeHistoryCount     int
 	gaugeHistoryRef       string
 	gaugeHistoryAuto      bool
+	gaugeCompareBaseline  bool
+	gaugeBaselineRef      string
+	gaugeBaselineFile     string
 )
 
 var gaugeCmd = &cobra.Command{
@@ -57,7 +61,10 @@ func init() {
 	gaugeCmd.Flags().IntVar(&gaugeGreenAbove, "green-above", 0, "score threshold for green color (overrides JSON config)")
 	gaugeCmd.Flags().IntVar(&gaugeYellowAbove, "yellow-above", 0, "score threshold for yellow color (overrides JSON config)")
 	gaugeCmd.Flags().StringVar(&gaugeCompare, "compare", "", "path to baseline report JSON for comparison")
-	gaugeCmd.Flags().BoolVar(&gaugeFailOnRegression, "fail-on-regression", false, "exit non-zero if score decreased from baseline (requires --compare)")
+	gaugeCmd.Flags().BoolVar(&gaugeCompareBaseline, "compare-baseline", false, "auto-fetch baseline from ref/file and compare")
+	gaugeCmd.Flags().StringVar(&gaugeBaselineRef, "baseline-ref", "", "git ref for baseline storage (default: refs/confvis/baseline)")
+	gaugeCmd.Flags().StringVar(&gaugeBaselineFile, "baseline-file", "", "file path fallback for non-git repos")
+	gaugeCmd.Flags().BoolVar(&gaugeFailOnRegression, "fail-on-regression", false, "exit non-zero if score decreased from baseline")
 	gaugeCmd.Flags().StringVar(&gaugeBadgeType, "badge-type", "", "badge type: gauge, flat, or sparkline")
 	gaugeCmd.Flags().StringVar(&gaugeLabel, "label", "", "custom label for flat badge (defaults to report title)")
 	gaugeCmd.Flags().StringVar(&gaugeIcon, "icon", "", "SVG path data for flat badge icon")
@@ -81,75 +88,85 @@ func init() {
 
 // GaugeDeps contains dependencies for the gauge command.
 type GaugeDeps struct {
-	FS                  FileSystem
-	Stdin               io.Reader
-	Stdout              io.Writer
-	Stderr              io.Writer
-	Verbose             bool
-	Quiet               bool
-	ExitFunc            func(int)
-	HistoryReader       func(string) (*history.History, error)
-	HistoryAppender     func(string, history.Entry) error
-	GitRefReader        func(string) (*history.History, error)
-	GitRefAppender      func(string, history.Entry) error
-	IsGitRepo           func() bool
-	Config              string
-	Output              string
-	Format              string
-	Style               string
-	BadgeType           string
-	Label               string
-	Icon                string
-	InputFormat         string
-	Compare             string
-	HistoryFile         string
-	HistoryRef          string
-	Width               int
-	Height              int
-	FailUnder           int
-	GreenAbove          int
-	YellowAbove         int
-	HistoryCount        int
-	Dark                bool
-	FailOnRegression    bool
-	HistoryAuto         bool
+	FS                    FileSystem
+	Stdin                 io.Reader
+	Stdout                io.Writer
+	Stderr                io.Writer
+	Verbose               bool
+	Quiet                 bool
+	ExitFunc              func(int)
+	HistoryReader         func(string) (*history.History, error)
+	HistoryAppender       func(string, history.Entry) error
+	GitRefReader          func(string) (*history.History, error)
+	GitRefAppender        func(string, history.Entry) error
+	BaselineGitRefReader  func(string) (*baseline.Baseline, error)
+	BaselineFileReader    func(string) (*baseline.Baseline, error)
+	IsGitRepo             func() bool
+	Config                string
+	Output                string
+	Format                string
+	Style                 string
+	BadgeType             string
+	Label                 string
+	Icon                  string
+	InputFormat           string
+	Compare               string
+	HistoryFile           string
+	HistoryRef            string
+	BaselineRef           string
+	BaselineFile          string
+	Width                 int
+	Height                int
+	FailUnder             int
+	GreenAbove            int
+	YellowAbove           int
+	HistoryCount          int
+	Dark                  bool
+	FailOnRegression      bool
+	HistoryAuto           bool
+	CompareBaseline       bool
 }
 
 func runGauge(_ *cobra.Command, _ []string) error {
 	// Use config getters which handle config < env < flag precedence
 	return gaugeImpl(&GaugeDeps{
-		FS:               DefaultFileSystem,
-		Stdin:            os.Stdin,
-		Stdout:           os.Stdout,
-		Stderr:           os.Stderr,
-		Verbose:          verbose,
-		Quiet:            quiet,
-		ExitFunc:         os.Exit,
-		HistoryReader:    history.ReadFile,
-		HistoryAppender:  history.AppendToFile,
-		GitRefReader:     history.ReadFromGitRef,
-		GitRefAppender:   history.AppendToGitRef,
-		IsGitRepo:        history.IsGitRepo,
-		Config:           gaugeConfig,
-		Output:           gaugeOutput,
-		Format:           gaugeFormat,
-		Style:            getGaugeStyle(),
-		BadgeType:        getGaugeBadgeType(),
-		Label:            gaugeLabel,
-		Icon:             gaugeIcon,
-		InputFormat:      gaugeInputFormat,
-		Compare:          gaugeCompare,
-		HistoryFile:      getGaugeHistoryFile(),
-		HistoryRef:       getGaugeHistoryRef(),
-		Width:            getGaugeWidth(),
-		Height:           getGaugeHeight(),
-		FailUnder:        getGaugeFailUnder(),
-		GreenAbove:       getGaugeGreenAbove(),
-		YellowAbove:      getGaugeYellowAbove(),
-		HistoryCount:     getGaugeHistoryCount(),
-		Dark:             getGaugeDark(),
-		FailOnRegression: gaugeFailOnRegression,
-		HistoryAuto:      getGaugeHistoryAuto(),
+		FS:                   DefaultFileSystem,
+		Stdin:                os.Stdin,
+		Stdout:               os.Stdout,
+		Stderr:               os.Stderr,
+		Verbose:              verbose,
+		Quiet:                quiet,
+		ExitFunc:             os.Exit,
+		HistoryReader:        history.ReadFile,
+		HistoryAppender:      history.AppendToFile,
+		GitRefReader:         history.ReadFromGitRef,
+		GitRefAppender:       history.AppendToGitRef,
+		BaselineGitRefReader: baseline.ReadFromGitRef,
+		BaselineFileReader:   baseline.ReadFromFile,
+		IsGitRepo:            baseline.IsGitRepo,
+		Config:               gaugeConfig,
+		Output:               gaugeOutput,
+		Format:               gaugeFormat,
+		Style:                getGaugeStyle(),
+		BadgeType:            getGaugeBadgeType(),
+		Label:                gaugeLabel,
+		Icon:                 gaugeIcon,
+		InputFormat:          gaugeInputFormat,
+		Compare:              gaugeCompare,
+		HistoryFile:          getGaugeHistoryFile(),
+		HistoryRef:           getGaugeHistoryRef(),
+		BaselineRef:          getGaugeBaselineRef(),
+		BaselineFile:         getGaugeBaselineFile(),
+		Width:                getGaugeWidth(),
+		Height:               getGaugeHeight(),
+		FailUnder:            getGaugeFailUnder(),
+		GreenAbove:           getGaugeGreenAbove(),
+		YellowAbove:          getGaugeYellowAbove(),
+		HistoryCount:         getGaugeHistoryCount(),
+		Dark:                 getGaugeDark(),
+		FailOnRegression:     gaugeFailOnRegression,
+		HistoryAuto:          getGaugeHistoryAuto(),
+		CompareBaseline:      getGaugeCompareBaseline(),
 	})
 }
 
@@ -206,18 +223,9 @@ func gaugeImpl(deps *GaugeDeps) error {
 	}
 
 	// Parse baseline report if comparing
-	var baseline *confidence.Report
-	var delta int
-	if deps.Compare != "" {
-		reader, format, err := openConfigFile(deps.FS, deps.Compare, confidence.FormatAuto)
-		if err != nil {
-			return fmt.Errorf("parsing baseline: %w", err)
-		}
-		baseline, err = confidence.ParseWithFormat(reader, format)
-		if err != nil {
-			return fmt.Errorf("parsing baseline: %w", err)
-		}
-		delta = report.Score - baseline.Score
+	baselineReport, delta, err := loadBaselineForComparison(deps, report.Score)
+	if err != nil {
+		return err
 	}
 
 	// Suppress verbose output when writing to stdout
@@ -245,7 +253,7 @@ func gaugeImpl(deps *GaugeDeps) error {
 		w = f
 	}
 
-	if err := writeFormatOutput(w, deps.Format, report, baseline, delta, deps); err != nil {
+	if err := writeFormatOutput(w, deps.Format, report, baselineReport, delta, deps); err != nil {
 		return err
 	}
 
@@ -260,9 +268,9 @@ func gaugeImpl(deps *GaugeDeps) error {
 		deps.ExitFunc(1)
 	}
 
-	if deps.FailOnRegression && baseline != nil && delta < 0 {
+	if deps.FailOnRegression && baselineReport != nil && delta < 0 {
 		if !deps.Quiet {
-			_, _ = fmt.Fprintf(deps.Stderr, "Score regressed from %d to %d (%d)\n", baseline.Score, report.Score, delta)
+			_, _ = fmt.Fprintf(deps.Stderr, "Score regressed from %d to %d (%d)\n", baselineReport.Score, report.Score, delta)
 		}
 		deps.ExitFunc(1)
 	}
@@ -271,24 +279,24 @@ func gaugeImpl(deps *GaugeDeps) error {
 }
 
 // writeFormatOutput dispatches to the appropriate format writer.
-func writeFormatOutput(w io.Writer, format string, report *confidence.Report, baseline *confidence.Report, delta int, deps *GaugeDeps) error {
+func writeFormatOutput(w io.Writer, format string, report *confidence.Report, baselineReport *confidence.Report, delta int, deps *GaugeDeps) error {
 	switch format {
 	case "svg":
 		return generateSVGBadge(w, report, deps)
 	case "json":
-		return writeJSON(w, report, baseline, delta)
+		return writeJSON(w, report, baselineReport, delta)
 	case "text":
-		return writeText(w, report.Score, baseline, delta)
+		return writeText(w, report.Score, baselineReport, delta)
 	case "markdown":
-		return writeMarkdown(w, report, baseline, delta)
+		return writeMarkdown(w, report, baselineReport, delta)
 	case "github-comment":
-		return writeGitHubComment(w, report, baseline)
+		return writeGitHubComment(w, report, baselineReport)
 	}
 	return nil
 }
 
 // writeJSON generates JSON output for the report.
-func writeJSON(w io.Writer, report *confidence.Report, baseline *confidence.Report, delta int) error {
+func writeJSON(w io.Writer, report *confidence.Report, baselineReport *confidence.Report, delta int) error {
 	output := struct {
 		Title       string `json:"title"`
 		Score       int    `json:"score"`
@@ -308,8 +316,8 @@ func writeJSON(w io.Writer, report *confidence.Report, baseline *confidence.Repo
 		GeneratedAt: report.GeneratedAt,
 		Source:      report.Source,
 	}
-	if baseline != nil {
-		output.Baseline = &baseline.Score
+	if baselineReport != nil {
+		output.Baseline = &baselineReport.Score
 		output.Delta = &delta
 	}
 	enc := json.NewEncoder(w)
@@ -321,8 +329,8 @@ func writeJSON(w io.Writer, report *confidence.Report, baseline *confidence.Repo
 }
 
 // writeText generates plain text output for the report.
-func writeText(w io.Writer, score int, baseline *confidence.Report, delta int) error {
-	if baseline != nil {
+func writeText(w io.Writer, score int, baselineReport *confidence.Report, delta int) error {
+	if baselineReport != nil {
 		sign := "+"
 		if delta < 0 {
 			sign = ""
@@ -467,13 +475,71 @@ func resolveHistoryStorage(deps *GaugeDeps) (useGitRef bool, historyRef string, 
 	return false, "", ""
 }
 
+// loadBaselineForComparison loads a baseline report based on deps configuration.
+// Returns the baseline report and score delta, or nil if no baseline comparison is requested.
+func loadBaselineForComparison(deps *GaugeDeps, currentScore int) (*confidence.Report, int, error) {
+	if deps.CompareBaseline {
+		b, err := resolveBaseline(deps)
+		if err != nil {
+			return nil, 0, fmt.Errorf("loading baseline: %w", err)
+		}
+		if b == nil {
+			return nil, 0, nil
+		}
+		return &b.Report, currentScore - b.Score, nil
+	}
+
+	if deps.Compare != "" {
+		reader, format, err := openConfigFile(deps.FS, deps.Compare, confidence.FormatAuto)
+		if err != nil {
+			return nil, 0, fmt.Errorf("parsing baseline: %w", err)
+		}
+		baselineReport, err := confidence.ParseWithFormat(reader, format)
+		if err != nil {
+			return nil, 0, fmt.Errorf("parsing baseline: %w", err)
+		}
+		return baselineReport, currentScore - baselineReport.Score, nil
+	}
+
+	return nil, 0, nil
+}
+
+// resolveBaseline fetches the baseline from git ref or file.
+// Returns nil if no baseline exists (not an error).
+func resolveBaseline(deps *GaugeDeps) (*baseline.Baseline, error) {
+	// Try file first if specified
+	if deps.BaselineFile != "" {
+		b, err := deps.BaselineFileReader(deps.BaselineFile)
+		if err != nil {
+			return nil, err
+		}
+		return b, nil
+	}
+
+	// Try git ref if in a repo
+	if deps.IsGitRepo != nil && deps.IsGitRepo() {
+		ref := deps.BaselineRef
+		if ref == "" {
+			ref = baseline.DefaultBaselineRef
+		}
+		b, err := deps.BaselineGitRefReader(ref)
+		if err != nil {
+			return nil, err
+		}
+		return b, nil
+	}
+
+	// Not in a git repo and no file specified
+	return nil, nil //nolint:nilnil // nil baseline with no error means "not found"
+}
+
 // writeGitHubComment generates GitHub-flavored markdown output for PR comments.
-func writeGitHubComment(w io.Writer, report *confidence.Report, baseline *confidence.Report) error {
+func writeGitHubComment(w io.Writer, report *confidence.Report, baselineReport *confidence.Report) error {
 	if err := writeGitHubCommentHeader(w, report); err != nil {
 		return err
 	}
 
-	if err := writeGitHubCommentBaseline(w, report, baseline); err != nil {
+	if err := writeGitHubCommentBaseline(w, report, baselineReport); err != nil {
 		return err
 	}
 
@@ -511,11 +577,11 @@ func writeGitHubCommentHeader(w io.Writer, report *confidence.Report) error {
 	return err
 }
 
-func writeGitHubCommentBaseline(w io.Writer, report *confidence.Report, baseline *confidence.Report) error {
-	if baseline == nil {
+func writeGitHubCommentBaseline(w io.Writer, report *confidence.Report, baselineReport *confidence.Report) error {
+	if baselineReport == nil {
 		return nil
 	}
-	delta := report.Score - baseline.Score
+	delta := report.Score - baselineReport.Score
 	deltaEmoji := ":left_right_arrow:"
 	if delta > 0 {
 		deltaEmoji = ":arrow_up:"
@@ -564,19 +630,19 @@ func writeGitHubCommentFooter(w io.Writer, version string) error {
 }
 
 // writeMarkdown generates markdown output for the report.
-func writeMarkdown(w io.Writer, report *confidence.Report, baseline *confidence.Report, delta int) error {
+func writeMarkdown(w io.Writer, report *confidence.Report, baselineReport *confidence.Report, delta int) error {
 	status := report.EffectivePassLabel()
 	if !report.Passed() {
 		status = report.EffectiveFailLabel()
 	}
 
 	// Header with title, score, and status
-	if baseline != nil {
+	if baselineReport != nil {
 		sign := "+"
 		if delta < 0 {
 			sign = ""
 		}
-		if _, err := fmt.Fprintf(w, "## %s: %d%% (%s) [%s%d from %d%%]\n\n", report.Title, report.Score, status, sign, delta, baseline.Score); err != nil {
+		if _, err := fmt.Fprintf(w, "## %s: %d%% (%s) [%s%d from %d%%]\n\n", report.Title, report.Score, status, sign, delta, baselineReport.Score); err != nil {
 			return err
 		}
 	} else {

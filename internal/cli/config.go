@@ -7,6 +7,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	"github.com/boinger/confvis/internal/baseline"
 )
 
 // initConfig initializes the viper configuration from config files and environment.
@@ -56,6 +58,9 @@ func bindGaugeFlags(cmd *cobra.Command) {
 	_ = viper.BindPFlag("gauge.history_auto", cmd.Flags().Lookup("history-auto"))
 	_ = viper.BindPFlag("gauge.green_above", cmd.Flags().Lookup("green-above"))
 	_ = viper.BindPFlag("gauge.yellow_above", cmd.Flags().Lookup("yellow-above"))
+	_ = viper.BindPFlag("gauge.compare_baseline", cmd.Flags().Lookup("compare-baseline"))
+	_ = viper.BindPFlag("gauge.baseline_ref", cmd.Flags().Lookup("baseline-ref"))
+	_ = viper.BindPFlag("gauge.baseline_file", cmd.Flags().Lookup("baseline-file"))
 }
 
 // bindFetchFlags binds fetch command flags to viper configuration keys.
@@ -137,6 +142,24 @@ func getGaugeGreenAbove() int {
 // getGaugeYellowAbove returns the yellow threshold from config/env/flag.
 func getGaugeYellowAbove() int {
 	return viper.GetInt("gauge.yellow_above")
+}
+
+// getGaugeCompareBaseline returns the compare-baseline setting from config/env/flag.
+func getGaugeCompareBaseline() bool {
+	return viper.GetBool("gauge.compare_baseline")
+}
+
+// getGaugeBaselineRef returns the baseline git ref from config/env/flag with defaults.
+func getGaugeBaselineRef() string {
+	if v := viper.GetString("gauge.baseline_ref"); v != "" {
+		return v
+	}
+	return baseline.DefaultBaselineRef
+}
+
+// getGaugeBaselineFile returns the baseline file path from config/env/flag.
+func getGaugeBaselineFile() string {
+	return viper.GetString("gauge.baseline_file")
 }
 
 // getFetchTimeout returns the fetch timeout from config/env/flag with defaults.

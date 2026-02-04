@@ -66,10 +66,8 @@ jobs:
         id: report
         run: |
           # Generate GitHub-flavored markdown for PR comment
-          confvis gauge -c confidence.json -o report.md --format github-comment
-
-          # With baseline comparison (if you have a baseline file)
-          # confvis gauge -c confidence.json --compare baseline.json -o report.md --format github-comment
+          # Uses stored baseline for comparison (shows delta in comment)
+          confvis gauge -c confidence.json --compare-baseline -o report.md --format github-comment
 
       - name: Post PR comment
         uses: peter-evans/create-or-update-comment@v4
@@ -83,6 +81,78 @@ The `github-comment` format produces output with:
 - Collapsible factor breakdown using `<details>`
 - Delta arrows when comparing against baseline (:arrow_up: / :arrow_down:)
 - Clean formatting optimized for GitHub's markdown renderer
+
+## Baseline Management for Regression Detection
+
+Baselines let you track score changes across commits. On merge to main, save the current score; on PRs, compare against it.
+
+### Basic Workflow
+
+```yaml
+name: Confidence with Baseline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  confidence:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Install confvis
+        run: go install github.com/boinger/confvis/cmd/confvis@latest
+
+      - name: Save baseline (main only)
+        if: github.ref == 'refs/heads/main'
+        run: confvis baseline save -c confidence.json
+
+      - name: Generate badge with comparison
+        run: |
+          confvis gauge -c confidence.json \
+            --compare-baseline \
+            --fail-on-regression \
+            -o badge.svg
+
+      - name: Show baseline info
+        run: confvis baseline show || echo "No baseline yet"
+```
+
+### How Baselines Work
+
+Baselines are stored in git refs (`refs/confvis/baseline`) by default, which:
+- Keeps them out of your working tree
+- Doesn't create commits or pollute history
+- Works across branches (all branches can read/write the same ref)
+- Survives branch switches and rebases
+
+For non-git repos or when you need file-based storage:
+
+```bash
+# Save to file
+confvis baseline save -c confidence.json --file baseline.json
+
+# Compare against file
+confvis gauge -c confidence.json --compare-baseline --baseline-file baseline.json -o badge.svg
+```
+
+### Viewing Baseline Info
+
+```bash
+# Show current baseline
+confvis baseline show
+# Output: Baseline: 85% (saved 2024-01-15T10:30:00Z, commit abc1234, branch main)
+
+# Show as JSON
+confvis baseline show --format json
+```
 
 ## Makefile Integration
 

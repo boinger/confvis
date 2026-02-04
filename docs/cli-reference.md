@@ -38,6 +38,12 @@ gauge:
   history_count: 10
   green_above: 75
   yellow_above: 50
+  compare_baseline: true  # auto-compare against stored baseline
+  baseline_ref: refs/confvis/baseline  # git ref for baseline storage
+
+# Baseline command defaults
+baseline:
+  ref: refs/confvis/baseline
 
 # Fetch command defaults
 fetch:
@@ -165,6 +171,9 @@ confvis gauge -c <config> -o <output-file> [flags]
 | `--green-above` | | 75 | Score threshold for green color (overrides JSON) |
 | `--yellow-above` | | 50 | Score threshold for yellow color (overrides JSON) |
 | `--compare` | | | Path to baseline report JSON for comparison |
+| `--compare-baseline` | | false | Auto-fetch baseline from ref/file and compare |
+| `--baseline-ref` | | refs/confvis/baseline | Git ref for baseline storage |
+| `--baseline-file` | | | File path fallback for non-git repos |
 | `--fail-on-regression` | | false | Exit with code 1 if score decreased from baseline |
 
 #### Output Formats
@@ -184,7 +193,7 @@ confvis gauge -c <config> -o <output-file> [flags]
     "delta": 5
   }
   ```
-  Note: `baseline` and `delta` fields are only present when using `--compare`.
+  Note: `baseline` and `delta` fields are only present when using `--compare` or `--compare-baseline`.
 - **text**: Plain text score number (useful for scripting). With `--compare`, shows delta: `85 (+5)`
 - **markdown**: Markdown-formatted report for PR comments or wiki pages:
   ```markdown
@@ -313,6 +322,96 @@ confvis gauge -c confidence.json -o sparkline.svg --badge-type sparkline --histo
 
 # Sparkline with auto-detection (uses git ref if in repo, else file)
 confvis gauge -c confidence.json -o sparkline.svg --badge-type sparkline --history-auto
+
+# Compare against stored baseline (auto-fetched from git ref)
+confvis gauge -c confidence.json --compare-baseline -o badge.svg
+
+# Compare against baseline with regression check
+confvis gauge -c confidence.json --compare-baseline --fail-on-regression -o badge.svg
+
+# Compare against baseline stored in file
+confvis gauge -c confidence.json --compare-baseline --baseline-file baseline.json -o badge.svg
+```
+
+---
+
+### `confvis baseline`
+
+Manage confidence baselines for regression detection. Baselines are saved confidence scores
+that can be used to detect regressions in CI/CD pipelines.
+
+```bash
+confvis baseline <command> [flags]
+```
+
+#### Subcommands
+
+##### `confvis baseline save`
+
+Save current confidence report as baseline.
+
+```bash
+confvis baseline save -c <config> [flags]
+```
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--config` | `-c` | | Path to confidence report (required) |
+| `--ref` | | refs/confvis/baseline | Git ref for storage |
+| `--file` | | | File path alternative to git ref |
+
+##### `confvis baseline show`
+
+Display the current baseline.
+
+```bash
+confvis baseline show [flags]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--ref` | refs/confvis/baseline | Git ref to read from |
+| `--file` | | File path alternative to git ref |
+| `--format` | text | Output format: `text` or `json` |
+
+#### Baseline Storage
+
+By default, baselines are stored in git refs (`refs/confvis/baseline`), which keeps them
+out of your working tree but accessible across branches. Use `--file` for non-git repos.
+
+#### Examples
+
+```bash
+# Save baseline to default git ref
+confvis baseline save -c confidence.json
+
+# Save to custom git ref
+confvis baseline save -c confidence.json --ref refs/confvis/prod-baseline
+
+# Save to file instead of git ref
+confvis baseline save -c confidence.json --file baseline.json
+
+# Show baseline
+confvis baseline show
+
+# Show baseline as JSON
+confvis baseline show --format json
+
+# Show baseline from file
+confvis baseline show --file baseline.json
+```
+
+#### CI/CD Usage
+
+```yaml
+# Save baseline on main branch merges
+- name: Save baseline
+  if: github.ref == 'refs/heads/main'
+  run: confvis baseline save -c confidence.json
+
+# Compare against baseline on PRs
+- name: Check for regressions
+  run: confvis gauge -c confidence.json --compare-baseline --fail-on-regression -o badge.svg
 ```
 
 ---

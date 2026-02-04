@@ -117,7 +117,13 @@ Use `--fail-under` to enforce minimum scores, or `--fail-on-regression` to detec
 # Fail the build if score drops below 75
 confvis gauge -c confidence.json -o badge.svg --fail-under 75
 
-# Fail if score regressed from baseline
+# Save baseline on main branch (stored in git ref, no files needed)
+confvis baseline save -c confidence.json
+
+# Compare against stored baseline on PRs
+confvis gauge -c confidence.json --compare-baseline --fail-on-regression -o badge.svg
+
+# Or compare against a specific baseline file
 confvis gauge -c confidence.json --compare baseline.json --fail-on-regression -o badge.svg
 
 # Quiet mode for clean CI logs
@@ -230,6 +236,23 @@ Creates:
 - `output/badge.svg` - Aggregate SVG gauge badge
 - `output/dashboard/index.html` - Multi-report dashboard with all components
 - `output/<report-title>.svg` - Individual badges for each report
+
+### `confvis baseline`
+
+Manage baselines for regression detection in CI/CD.
+
+```bash
+# Save current score as baseline (stored in git ref by default)
+confvis baseline save -c confidence.json
+
+# Show current baseline
+confvis baseline show
+
+# Save to file instead of git ref
+confvis baseline save -c confidence.json --file baseline.json
+```
+
+Use `--compare-baseline` with `confvis gauge` to automatically fetch and compare against the stored baseline.
 
 ## JSON Schema
 
