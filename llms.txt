@@ -109,8 +109,5 @@ Sparkline trend badge:
 - [CLI Reference](https://github.com/boinger/confvis/blob/main/docs/cli-reference.md): Command-line usage
 - [Schema Reference](https://github.com/boinger/confvis/blob/main/docs/schema.md): Input format specification
 - [Sources](https://github.com/boinger/confvis/blob/main/docs/sources.md): External metric sources (SonarQube, Codecov, etc.)
-
-## Optional
-
-- [Architecture](https://github.com/boinger/confvis/blob/main/docs/architecture.md): Internal design
-- [Integration Guide](https://github.com/boinger/confvis/blob/main/docs/integration.md): Advanced CI/CD patterns
+- [Architecture](https://github.com/boinger/confvis/blob/main/docs/architecture.md): Internal design and extension points
+- [Integration Guide](https://github.com/boinger/confvis/blob/main/docs/integration.md): Advanced CI/CD patterns and workflows

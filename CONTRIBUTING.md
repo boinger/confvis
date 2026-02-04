@@ -205,7 +205,10 @@ confvis/
 │   ├── history/        # Sparkline history tracking
 │   └── sources/        # External metric sources
 │       ├── codecov/    # Codecov coverage metrics
+│       ├── dependabot/ # GitHub Dependabot alerts
 │       ├── ghactions/  # GitHub Actions CI metrics
+│       ├── grype/      # Grype vulnerability scanning
+│       ├── semgrep/    # Semgrep static analysis
 │       ├── snyk/       # Snyk vulnerability metrics
 │       ├── sonarqube/  # SonarQube quality metrics
 │       └── trivy/      # Trivy security scanning
