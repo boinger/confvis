@@ -451,3 +451,60 @@ func TestWriteToFile_Convenience(t *testing.T) {
 		t.Error("expected file to be created")
 	}
 }
+
+func TestWriteToGitRef_Convenience(t *testing.T) {
+	// Create a temporary git repo
+	tmpDir := t.TempDir()
+
+	cmd := exec.Command("git", "init")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git init failed: %v", err)
+	}
+
+	// Configure git user
+	cmd = exec.Command("git", "config", "user.email", "test@example.com")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git config email failed: %v", err)
+	}
+
+	cmd = exec.Command("git", "config", "user.name", "Test User")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git config name failed: %v", err)
+	}
+
+	oldDir, _ := os.Getwd()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to change to temp dir: %v", err)
+	}
+	defer func() { _ = os.Chdir(oldDir) }()
+
+	ref := "refs/confvis/write-test"
+	report := &confidence.Report{
+		Title:     "WriteToGitRef Test",
+		Score:     88,
+		Threshold: 80,
+	}
+	baseline := NewBaseline(report)
+
+	if err := WriteToGitRef(ref, baseline); err != nil {
+		t.Fatalf("failed to write: %v", err)
+	}
+
+	// Verify ref was created
+	cmd = exec.Command("git", "show-ref", "--verify", ref)
+	if err := cmd.Run(); err != nil {
+		t.Error("ref should exist after write")
+	}
+
+	// Read back and verify
+	read, err := ReadFromGitRef(ref)
+	if err != nil {
+		t.Fatalf("failed to read back: %v", err)
+	}
+	if read.Title != "WriteToGitRef Test" {
+		t.Errorf("expected title 'WriteToGitRef Test', got %q", read.Title)
+	}
+}
