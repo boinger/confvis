@@ -1,0 +1,116 @@
+# confvis
+
+> Generate confidence badges and dashboards from aggregated code metrics. Transform JSON/YAML reports into SVG gauge badges and HTML dashboards.
+
+## What It Does
+
+confvis aggregates quality metrics from multiple sources (SonarQube, Codecov, Snyk, Trivy, GitHub Actions) into a single weighted confidence score, then visualizes it as badges or dashboards.
+
+## GitHub Action Quick Start
+
+```yaml
+- uses: boinger/confvis@v1
+  with:
+    config: confidence.json
+    output: badge.svg
+```
+
+## Input Schema
+
+Confidence reports follow this structure:
+
+```json
+{
+  "title": "Code Quality",
+  "score": 85,
+  "threshold": 80,
+  "factors": [
+    {"name": "Coverage", "score": 90, "weight": 50},
+    {"name": "Security", "score": 80, "weight": 50}
+  ]
+}
+```
+
+- `score` is auto-calculated from weighted factors if omitted
+- `threshold` determines pass/fail status on the badge
+- `factors` break down contributing metrics
+
+## Common Patterns
+
+Threshold enforcement:
+```yaml
+- uses: boinger/confvis@v1
+  with:
+    config: confidence.json
+    output: badge.svg
+    fail-under: 75
+```
+
+Baseline comparison with regression detection:
+```yaml
+- uses: boinger/confvis@v1
+  with:
+    config: confidence.json
+    output: badge.svg
+    compare-baseline: true
+    fail-on-regression: true
+    save-baseline: ${{ github.ref == 'refs/heads/main' }}
+```
+
+PR comment with score:
+```yaml
+- uses: boinger/confvis@v1
+  with:
+    config: confidence.json
+    output: badge.svg
+    post-comment: true
+```
+
+Sparkline trend badge:
+```yaml
+- uses: boinger/confvis@v1
+  with:
+    config: confidence.json
+    output: sparkline.svg
+    badge-type: sparkline
+    history-auto: true
+```
+
+## Action Inputs
+
+| Input | Description | Default |
+|-------|-------------|---------|
+| config | Path to confidence report (JSON/YAML) | required |
+| output | Output path for badge/report | required |
+| command | gauge, generate, or aggregate | gauge |
+| format | svg, json, text, markdown, github-comment | svg |
+| badge-type | gauge, flat, or sparkline | gauge |
+| style | github, minimal, corporate, high-contrast | github |
+| dark | Use dark mode colors | false |
+| fail-under | Fail if score below threshold | 0 |
+| compare-baseline | Compare against stored baseline | false |
+| fail-on-regression | Fail if score decreased | false |
+| save-baseline | Save current score as baseline | false |
+| create-check | Create GitHub Check Run | false |
+| post-comment | Post PR comment with report | false |
+| history-auto | Auto-manage sparkline history | false |
+
+## Action Outputs
+
+| Output | Description |
+|--------|-------------|
+| score | Confidence score (0-100) |
+| passed | Whether score met threshold |
+| delta | Change from baseline |
+
+## Documentation
+
+- [GitHub Action](https://github.com/boinger/confvis/blob/main/docs/github-action.md): Full action reference with examples
+- [CLI Reference](https://github.com/boinger/confvis/blob/main/docs/cli-reference.md): Command-line usage
+- [Schema Reference](https://github.com/boinger/confvis/blob/main/docs/schema.md): Input format specification
+- [Sources](https://github.com/boinger/confvis/blob/main/docs/sources.md): External metric sources (SonarQube, Codecov, etc.)
+
+## Optional
+
+- [Architecture](https://github.com/boinger/confvis/blob/main/docs/architecture.md): Internal design
+- [Integration Guide](https://github.com/boinger/confvis/blob/main/docs/integration.md): Advanced CI/CD patterns
