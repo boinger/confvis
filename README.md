@@ -228,6 +228,10 @@ Badge types:
 - `flat`: Shields.io-compatible rectangular badge (supports `--icon` for SVG path data)
 - `sparkline`: Trend line showing score history (use `--history-auto` to persist automatically)
 
+Example sparkline (this repo's score trend):
+
+![Trend](./badges/sparkline.svg)
+
 Color styles: `github` (default), `minimal`, `corporate`, `high-contrast`
 
 ### `confvis aggregate`
