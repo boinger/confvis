@@ -200,3 +200,26 @@ func getSourceService(source string) string {
 func GetConfigFile() string {
 	return viper.ConfigFileUsed()
 }
+
+// getGaugeFactorThresholds returns factor thresholds from config.
+// Config format:
+//
+//	gauge:
+//	  factor_thresholds:
+//	    Coverage: 80
+//	    Security: 90
+func getGaugeFactorThresholds() map[string]int {
+	result := make(map[string]int)
+	thresholds := viper.GetStringMap("gauge.factor_thresholds")
+	for name, v := range thresholds {
+		switch val := v.(type) {
+		case int:
+			result[name] = val
+		case float64:
+			result[name] = int(val)
+		case int64:
+			result[name] = int(val)
+		}
+	}
+	return result
+}

@@ -10,6 +10,10 @@ gauge:
   fail_under: 80         # enforce minimum score
   compare_baseline: true # compare against stored baseline
   history_auto: true     # auto-store history in git refs for sparkline
+  # Per-factor thresholds - fail if individual factors drop below these values
+  # factor_thresholds:
+  #   Test Coverage: 80
+  #   Security Scan: 90
 
 # Note: aggregate.fail_under is not yet wired to config file - use CLI flag
 # aggregate:

@@ -6,6 +6,7 @@ type Factor struct {
 	Name        string `json:"name"`
 	Score       int    `json:"score"`
 	Weight      int    `json:"weight"`
+	Threshold   int    `json:"threshold,omitempty"`
 	Description string `json:"description,omitempty"`
 	URL         string `json:"url,omitempty"`
 }

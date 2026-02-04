@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -38,6 +40,7 @@ var (
 	gaugeCompareBaseline  bool
 	gaugeBaselineRef      string
 	gaugeBaselineFile     string
+	gaugeFactorThresholds []string
 )
 
 var gaugeCmd = &cobra.Command{
@@ -72,6 +75,7 @@ func init() {
 	gaugeCmd.Flags().IntVar(&gaugeHistoryCount, "history-count", 0, "number of historical points to show in sparkline")
 	gaugeCmd.Flags().StringVar(&gaugeHistoryRef, "history-ref", "", "git ref for storing history (default: refs/confvis/history)")
 	gaugeCmd.Flags().BoolVar(&gaugeHistoryAuto, "history-auto", false, "auto-detect history storage: use git ref if in repo, else file")
+	gaugeCmd.Flags().StringSliceVar(&gaugeFactorThresholds, "factor-threshold", nil, "per-factor threshold in 'Name:threshold' format (can be repeated)")
 
 	// Bind flags to viper for config file support
 	bindGaugeFlags(gaugeCmd)
@@ -115,6 +119,7 @@ type GaugeDeps struct {
 	HistoryRef            string
 	BaselineRef           string
 	BaselineFile          string
+	FactorThresholds      map[string]int
 	Width                 int
 	Height                int
 	FailUnder             int
@@ -128,6 +133,12 @@ type GaugeDeps struct {
 }
 
 func runGauge(_ *cobra.Command, _ []string) error {
+	// Parse factor thresholds from CLI and config
+	factorThresholds, err := parseFactorThresholds(gaugeFactorThresholds, getGaugeFactorThresholds())
+	if err != nil {
+		return err
+	}
+
 	// Use config getters which handle config < env < flag precedence
 	return gaugeImpl(&GaugeDeps{
 		FS:                   DefaultFileSystem,
@@ -157,6 +168,7 @@ func runGauge(_ *cobra.Command, _ []string) error {
 		HistoryRef:           getGaugeHistoryRef(),
 		BaselineRef:          getGaugeBaselineRef(),
 		BaselineFile:         getGaugeBaselineFile(),
+		FactorThresholds:     factorThresholds,
 		Width:                getGaugeWidth(),
 		Height:               getGaugeHeight(),
 		FailUnder:            getGaugeFailUnder(),
@@ -271,6 +283,16 @@ func gaugeImpl(deps *GaugeDeps) error {
 	if deps.FailOnRegression && baselineReport != nil && delta < 0 {
 		if !deps.Quiet {
 			_, _ = fmt.Fprintf(deps.Stderr, "Score regressed from %d to %d (%d)\n", baselineReport.Score, report.Score, delta)
+		}
+		deps.ExitFunc(1)
+	}
+
+	// Check per-factor thresholds
+	if passed, failures := checkFactorThresholds(report, deps.FactorThresholds); !passed {
+		if !deps.Quiet {
+			for _, failure := range failures {
+				_, _ = fmt.Fprintf(deps.Stderr, "Factor threshold failed: %s\n", failure)
+			}
 		}
 		deps.ExitFunc(1)
 	}
@@ -678,4 +700,82 @@ func writeMarkdown(w io.Writer, report *confidence.Report, baselineReport *confi
 	}
 
 	return nil
+}
+
+// parseFactorThresholds parses factor thresholds from CLI flags and config.
+// CLI flags take precedence over config values.
+// Format: "Factor Name:threshold"
+func parseFactorThresholds(cliThresholds []string, configThresholds map[string]int) (map[string]int, error) {
+	result := make(map[string]int)
+
+	// Start with config values (lower precedence)
+	for name, threshold := range configThresholds {
+		result[name] = threshold
+	}
+
+	// Override with CLI values (higher precedence)
+	for _, spec := range cliThresholds {
+		name, threshold, err := parseFactorThresholdSpec(spec)
+		if err != nil {
+			return nil, err
+		}
+		result[name] = threshold
+	}
+
+	return result, nil
+}
+
+// parseFactorThresholdSpec parses a single factor threshold specification.
+// Format: "Factor Name:threshold"
+func parseFactorThresholdSpec(spec string) (string, int, error) {
+	lastColon := strings.LastIndex(spec, ":")
+	if lastColon == -1 {
+		return "", 0, fmt.Errorf("invalid factor-threshold format %q: expected 'Name:threshold'", spec)
+	}
+
+	name := spec[:lastColon]
+	thresholdStr := spec[lastColon+1:]
+
+	if name == "" {
+		return "", 0, fmt.Errorf("invalid factor-threshold format %q: factor name cannot be empty", spec)
+	}
+
+	threshold, err := strconv.Atoi(thresholdStr)
+	if err != nil {
+		return "", 0, fmt.Errorf("invalid factor-threshold format %q: threshold must be an integer", spec)
+	}
+
+	if threshold < 0 || threshold > 100 {
+		return "", 0, fmt.Errorf("invalid factor-threshold format %q: threshold must be 0-100", spec)
+	}
+
+	return name, threshold, nil
+}
+
+// checkFactorThresholds validates that all factors meet their thresholds.
+// Thresholds are checked in this precedence order:
+// 1. CLI/config override (deps.FactorThresholds)
+// 2. Factor's own Threshold field
+// Returns (passed, failures) where failures lists factors that failed.
+func checkFactorThresholds(report *confidence.Report, overrides map[string]int) (bool, []string) {
+	var failures []string
+
+	for _, factor := range report.Factors {
+		// Determine effective threshold: override > factor.Threshold
+		threshold := factor.Threshold
+		if override, ok := overrides[factor.Name]; ok {
+			threshold = override
+		}
+
+		// Skip if no threshold is set
+		if threshold <= 0 {
+			continue
+		}
+
+		if factor.Score < threshold {
+			failures = append(failures, fmt.Sprintf("%s: %d < %d", factor.Name, factor.Score, threshold))
+		}
+	}
+
+	return len(failures) == 0, failures
 }

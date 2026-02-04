@@ -42,6 +42,11 @@ gauge:
   yellow_above: 50
   compare_baseline: true  # auto-compare against stored baseline
   baseline_ref: refs/confvis/baseline  # git ref for baseline storage
+  # Per-factor thresholds - fail if individual factors drop below
+  factor_thresholds:
+    Test Coverage: 80
+    Security Scan: 90
+    Code Complexity: 70
 
 # Baseline command defaults
 baseline:
@@ -177,6 +182,7 @@ confvis gauge -c <config> -o <output-file> [flags]
 | `--baseline-ref` | | refs/confvis/baseline | Git ref for baseline storage |
 | `--baseline-file` | | | File path fallback for non-git repos |
 | `--fail-on-regression` | | false | Exit with code 1 if score decreased from baseline |
+| `--factor-threshold` | | | Per-factor threshold in `Name:threshold` format (can be repeated) |
 
 #### Output Formats
 
@@ -333,6 +339,18 @@ confvis gauge -c confidence.json --compare-baseline --fail-on-regression -o badg
 
 # Compare against baseline stored in file
 confvis gauge -c confidence.json --compare-baseline --baseline-file baseline.json -o badge.svg
+
+# Enforce per-factor threshold (fail if Coverage factor < 80)
+confvis gauge -c confidence.json -o badge.svg --factor-threshold "Test Coverage:80"
+
+# Multiple per-factor thresholds
+confvis gauge -c confidence.json -o badge.svg \
+  --factor-threshold "Test Coverage:80" \
+  --factor-threshold "Security Scan:90"
+
+# Per-factor thresholds combined with overall threshold
+confvis gauge -c confidence.json -o badge.svg --fail-under 75 \
+  --factor-threshold "Coverage:80" --factor-threshold "Security:90"
 ```
 
 ---
@@ -361,6 +379,7 @@ confvis baseline save -c <config> [flags]
 | `--config` | `-c` | | Path to confidence report (required) |
 | `--ref` | | refs/confvis/baseline | Git ref for storage |
 | `--file` | | | File path alternative to git ref |
+| `--dry-run` | | false | Preview what would be saved without writing |
 
 ##### `confvis baseline show`
 
@@ -401,6 +420,9 @@ confvis baseline show --format json
 
 # Show baseline from file
 confvis baseline show --file baseline.json
+
+# Preview what would be saved (dry-run)
+confvis baseline save -c confidence.json --dry-run
 ```
 
 #### CI/CD Usage
@@ -623,6 +645,7 @@ confvis check github -c <config> [flags]
 | `--token` | | GitHub token (or `GITHUB_TOKEN` env var) |
 | `--api-url` | | GitHub API URL (auto-detected in GitHub Actions) |
 | `--auto-detect` | true | Auto-detect values from GitHub Actions environment |
+| `--dry-run` | false | Preview check run without creating it |
 
 ##### Environment Variables
 
@@ -652,6 +675,9 @@ confvis fetch sonarqube -p myproject -o - | confvis check github -c -
 
 # With verbose output
 confvis check github -c confidence.json -v
+
+# Preview what would be posted (dry-run)
+confvis check github -c confidence.json --dry-run
 ```
 
 ##### GitHub Actions Integration
@@ -703,7 +729,7 @@ check:
 | Code | Meaning |
 |------|---------|
 | 0 | Success |
-| 1 | Error (invalid config, file not found, score below `--fail-under`, or regression with `--fail-on-regression`) |
+| 1 | Error (invalid config, file not found, score below `--fail-under`, regression with `--fail-on-regression`, or factor below `--factor-threshold`) |
 
 ## Examples
 
@@ -715,6 +741,11 @@ confvis gauge -c confidence.json -o badge.svg || exit 1
 
 # Fail if score drops below 75
 confvis gauge -c confidence.json -o badge.svg --fail-under 75
+
+# Fail if specific factors drop below thresholds (quality gates)
+confvis gauge -c confidence.json -o badge.svg \
+  --factor-threshold "Test Coverage:80" \
+  --factor-threshold "Security Scan:90"
 
 # Fail if score regressed from main branch baseline
 confvis gauge -c confidence.json --compare main-baseline.json --fail-on-regression -o badge.svg

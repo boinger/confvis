@@ -67,6 +67,7 @@ Note: `greenAbove` must be >= `yellowAbove`. Scores below `yellowAbove` display 
 | `name` | string | Yes | Factor name (e.g., "Test Coverage") |
 | `score` | integer | Yes | Factor score (0-100) |
 | `weight` | integer | Yes | Relative weight in calculations |
+| `threshold` | integer | No | Minimum acceptable score for this factor (0-100). When set, `confvis gauge` fails if factor score is below this threshold |
 | `description` | string | No | Explanation of this factor |
 | `url` | string | No | Link to detailed report (clickable in dashboard and markdown output) |
 
@@ -210,6 +211,45 @@ Custom labels replace the default "PASS"/"FAIL" text in the gauge.
 
 Factor URLs can link to detailed reports or external tools.
 
+### Factors with Per-Factor Thresholds
+
+```json
+{
+  "title": "Quality Gates",
+  "threshold": 75,
+  "factors": [
+    {
+      "name": "Test Coverage",
+      "score": 85,
+      "weight": 40,
+      "threshold": 80,
+      "description": "Must maintain 80% coverage"
+    },
+    {
+      "name": "Security Scan",
+      "score": 95,
+      "weight": 35,
+      "threshold": 90,
+      "description": "Security requires 90% minimum"
+    },
+    {
+      "name": "Documentation",
+      "score": 70,
+      "weight": 25,
+      "description": "No threshold - informational only"
+    }
+  ]
+}
+```
+
+Per-factor thresholds allow you to enforce minimum scores on individual factors,
+independent of the aggregate score. The build fails if any factor's score drops
+below its threshold, even if the overall score passes.
+
+Thresholds can also be set via CLI (`--factor-threshold "Coverage:80"`) or config
+file (`gauge.factor_thresholds`). CLI takes precedence over config, which takes
+precedence over the factor's own threshold field.
+
 ## YAML Format
 
 All examples above can be written in YAML. confvis auto-detects the format based on file extension (`.yaml` or `.yml`) or content.
@@ -259,6 +299,28 @@ thresholds:
   yellowAbove: 70
 ```
 
+### Factors with Per-Factor Thresholds
+
+```yaml
+title: Quality Gates
+threshold: 75
+factors:
+  - name: Test Coverage
+    score: 85
+    weight: 40
+    threshold: 80
+    description: Must maintain 80% coverage
+  - name: Security Scan
+    score: 95
+    weight: 35
+    threshold: 90
+    description: Security requires 90% minimum
+  - name: Documentation
+    score: 70
+    weight: 25
+    description: No threshold - informational only
+```
+
 ## Score Thresholds
 
 The gauge uses color coding based on score. Default thresholds:
@@ -281,6 +343,7 @@ The pass/fail indicator is based solely on `score >= threshold` (separate from c
 - Factor `name` cannot be empty
 - Factor `score` must be between 0 and 100
 - Factor `weight` must be between 0 and 100
+- Factor `threshold` (if specified) must be between 0 and 100
 - `thresholds.greenAbove` must be between 0 and 100
 - `thresholds.yellowAbove` must be between 0 and 100
 - `thresholds.greenAbove` must be >= `thresholds.yellowAbove`
