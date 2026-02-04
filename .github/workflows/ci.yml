@@ -88,8 +88,18 @@ jobs:
         if: steps.check-token.outputs.skip != 'true'
         run: go test -coverprofile=coverage.out -covermode=atomic ./...
 
+      - name: Get version from git
+        if: steps.check-token.outputs.skip != 'true'
+        id: version
+        run: |
+          VERSION=$(git describe --tags --always 2>/dev/null || echo "dev")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
       - name: SonarCloud Scan
         if: steps.check-token.outputs.skip != 'true'
         uses: SonarSource/sonarqube-scan-action@fd88b7d7ccbaefd23d8f36f73b59db7a3d246602 # v6
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.projectVersion=${{ steps.version.outputs.version }}
