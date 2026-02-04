@@ -2,6 +2,8 @@
 
 [![confvis](./badges/badge.svg)](./badges/dashboard/index.html)
 
+(instead of)
+
 [![CI](https://github.com/boinger/confvis/actions/workflows/ci.yml/badge.svg)](https://github.com/boinger/confvis/actions/workflows/ci.yml)
 [![Coverage](https://codecov.io/gh/boinger/confvis/graph/badge.svg)](https://codecov.io/gh/boinger/confvis)
 [![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=boinger_confvis&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=boinger_confvis)
