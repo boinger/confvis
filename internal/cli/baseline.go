@@ -167,14 +167,8 @@ func runBaselineShow(_ *cobra.Command, _ []string) error {
 }
 
 func baselineSaveImpl(deps *BaselineDeps) error {
-	// Determine input format from filename
-	inputFormat := confidence.FormatAuto
-	if deps.Config == "-" {
-		inputFormat = confidence.FormatJSON
-	}
-
 	// Read the confidence report
-	report, err := parseBaselineConfig(deps, inputFormat)
+	report, err := parseBaselineConfig(deps)
 	if err != nil {
 		return err
 	}
@@ -193,24 +187,13 @@ func baselineSaveImpl(deps *BaselineDeps) error {
 	return saveBaseline(deps, b, useFile)
 }
 
-func parseBaselineConfig(deps *BaselineDeps, inputFormat confidence.Format) (*confidence.Report, error) {
-	if deps.Config == "-" {
-		report, err := confidence.ParseWithFormat(deps.Stdin, inputFormat)
-		if err != nil {
-			return nil, fmt.Errorf("parsing config: %w", err)
-		}
-		return report, nil
+func parseBaselineConfig(deps *BaselineDeps) (*confidence.Report, error) {
+	loader := &ReportLoader{
+		FS:     deps.FS,
+		Stdin:  deps.Stdin,
+		Config: deps.Config,
 	}
-
-	reader, format, err := openConfigFile(deps.FS, deps.Config, inputFormat)
-	if err != nil {
-		return nil, fmt.Errorf("opening config: %w", err)
-	}
-	report, err := confidence.ParseWithFormat(reader, format)
-	if err != nil {
-		return nil, fmt.Errorf("parsing config: %w", err)
-	}
-	return report, nil
+	return loader.LoadReport()
 }
 
 func saveBaseline(deps *BaselineDeps, b *baseline.Baseline, useFile bool) error {

@@ -276,24 +276,7 @@ func applyGitHubEnv(deps *CheckGitHubDeps, opts checks.CreateCheckOptions,
 }
 
 func applyRepoFromEnv(opts checks.CreateCheckOptions, env *checks.GitHubEnv) checks.CreateCheckOptions {
-	if opts.Owner != "" && opts.Repo != "" {
-		return opts
-	}
-	if env.Repository == "" {
-		return opts
-	}
-
-	owner, repo, err := checks.ParseRepository(env.Repository)
-	if err != nil {
-		return opts
-	}
-
-	if opts.Owner == "" {
-		opts.Owner = owner
-	}
-	if opts.Repo == "" {
-		opts.Repo = repo
-	}
+	opts.Owner, opts.Repo = ParseRepoFromEnv(opts.Owner, opts.Repo, env)
 	return opts
 }
 
@@ -314,28 +297,12 @@ func validateCheckOptions(opts checks.CreateCheckOptions, token string) error {
 }
 
 func parseCheckConfig(deps *CheckGitHubDeps) (*confidence.Report, error) {
-	inputFormat := confidence.FormatAuto
-	if deps.Config == "-" {
-		inputFormat = confidence.FormatJSON
+	loader := &ReportLoader{
+		FS:     deps.FS,
+		Stdin:  deps.Stdin,
+		Config: deps.Config,
 	}
-
-	if deps.Config == "-" {
-		report, err := confidence.ParseWithFormat(deps.Stdin, inputFormat)
-		if err != nil {
-			return nil, fmt.Errorf("parsing config: %w", err)
-		}
-		return report, nil
-	}
-
-	reader, format, err := openConfigFile(deps.FS, deps.Config, inputFormat)
-	if err != nil {
-		return nil, fmt.Errorf("opening config: %w", err)
-	}
-	report, err := confidence.ParseWithFormat(reader, format)
-	if err != nil {
-		return nil, fmt.Errorf("parsing config: %w", err)
-	}
-	return report, nil
+	return loader.LoadReport()
 }
 
 // Config getters for check command

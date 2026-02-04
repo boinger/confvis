@@ -7,6 +7,7 @@ import (
 
 	"github.com/boinger/confvis/internal/confidence"
 	"github.com/boinger/confvis/internal/sources"
+	"github.com/boinger/confvis/internal/sources/scoring"
 )
 
 const sourceName = "sonarqube"
@@ -65,19 +66,7 @@ func (s *Source) Fetch(ctx context.Context, opts sources.Options) (*confidence.R
 		title = opts.Project
 	}
 
-	// Build report
-	report := &confidence.Report{
-		Title:       title,
-		Threshold:   opts.Threshold,
-		Source:      sourceName,
-		GeneratedAt: time.Now().UTC().Format(time.RFC3339),
-		Factors:     factors,
-	}
-
-	// Calculate weighted score
-	report.Score = report.CalculateScore()
-
-	return report, nil
+	return scoring.BuildReport(title, sourceName, opts.Threshold, factors), nil
 }
 
 // measuresToFactors converts SonarQube measures to confidence factors.

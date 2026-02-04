@@ -171,3 +171,106 @@ func defaultOpts() sources.Options {
 		Threshold: 75,
 	}
 }
+
+func TestSource_Fetch_Success(t *testing.T) {
+	// Create a mock server
+	alerts := AlertsResponse{
+		{Number: 1, SecurityAdvisory: SecurityAdvisory{Severity: "high", GHSAID: "GHSA-1234"}},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(alerts)
+	}))
+	defer server.Close()
+
+	// Set environment variables for the test
+	t.Setenv("GITHUB_TOKEN", "test-token")
+	t.Setenv("GITHUB_API_URL", server.URL)
+
+	s := &Source{}
+	opts := sources.Options{
+		Project:   "owner/repo",
+		Threshold: 75,
+	}
+
+	report, err := s.Fetch(context.Background(), opts)
+	if err != nil {
+		t.Fatalf("Fetch() error = %v", err)
+	}
+
+	if report == nil {
+		t.Fatal("expected non-nil report")
+	}
+
+	if report.Source != sourceName {
+		t.Errorf("Source = %q, want %q", report.Source, sourceName)
+	}
+
+	// With 1 high severity alert: score should be 93
+	// (100*40 + 85*30 + 100*20 + 100*10) / 100 = 95.5 -> 95
+	if report.Score < 90 || report.Score > 100 {
+		t.Errorf("Score = %d, expected between 90-100 for single high severity", report.Score)
+	}
+}
+
+func TestSource_Fetch_MissingToken(t *testing.T) {
+	// Ensure no token environment variables are set
+	t.Setenv("DEPENDABOT_TOKEN", "")
+	t.Setenv("GITHUB_TOKEN", "")
+
+	s := &Source{}
+	opts := sources.Options{
+		Project:   "owner/repo",
+		Threshold: 75,
+	}
+
+	_, err := s.Fetch(context.Background(), opts)
+	if err == nil {
+		t.Error("expected error when token is missing")
+	}
+}
+
+func TestSource_Fetch_InvalidProject(t *testing.T) {
+	t.Setenv("GITHUB_TOKEN", "test-token")
+
+	s := &Source{}
+	opts := sources.Options{
+		Project:   "invalid-format", // missing slash
+		Threshold: 75,
+	}
+
+	_, err := s.Fetch(context.Background(), opts)
+	if err == nil {
+		t.Error("expected error for invalid project format")
+	}
+}
+
+func TestSource_Fetch_WithTitle(t *testing.T) {
+	alerts := AlertsResponse{}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(alerts)
+	}))
+	defer server.Close()
+
+	t.Setenv("GITHUB_TOKEN", "test-token")
+	t.Setenv("GITHUB_API_URL", server.URL)
+
+	s := &Source{}
+	opts := sources.Options{
+		Project:   "owner/repo",
+		Threshold: 75,
+		Title:     "Custom Title",
+	}
+
+	report, err := s.Fetch(context.Background(), opts)
+	if err != nil {
+		t.Fatalf("Fetch() error = %v", err)
+	}
+
+	if report.Title != "Custom Title" {
+		t.Errorf("Title = %q, want %q", report.Title, "Custom Title")
+	}
+}
