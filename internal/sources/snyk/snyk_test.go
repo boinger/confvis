@@ -111,11 +111,7 @@ func TestSource_Fetch_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := &Client{
-		baseURL:    server.URL,
-		token:      "test-token",
-		httpClient: server.Client(),
-	}
+	client := NewClientWithHTTP(server.URL, "test-token", server.Client())
 
 	ctx := context.Background()
 	project, err := client.FetchProject(ctx, "my-org-id", "my-project-id")
@@ -184,11 +180,7 @@ func TestSource_Fetch_NoIssueCounts(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := &Client{
-		baseURL:    server.URL,
-		token:      "test-token",
-		httpClient: server.Client(),
-	}
+	client := NewClientWithHTTP(server.URL, "test-token", server.Client())
 
 	project, err := client.FetchProject(context.Background(), "my-org-id", "my-project-id")
 	if err != nil {
@@ -239,11 +231,7 @@ func TestSource_Fetch_APIError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := &Client{
-		baseURL:    server.URL,
-		token:      "test-token",
-		httpClient: server.Client(),
-	}
+	client := NewClientWithHTTP(server.URL, "test-token", server.Client())
 
 	_, err := client.FetchProject(context.Background(), "my-org-id", "nonexistent")
 	if err == nil {
@@ -500,11 +488,7 @@ func TestClient_doRequest_InvalidJSON(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := &Client{
-		baseURL:    server.URL,
-		token:      "test-token",
-		httpClient: server.Client(),
-	}
+	client := NewClientWithHTTP(server.URL, "test-token", server.Client())
 
 	_, err := client.FetchProject(context.Background(), "my-org-id", "my-project-id")
 	if err == nil {

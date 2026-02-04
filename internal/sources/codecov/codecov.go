@@ -2,8 +2,6 @@ package codecov
 
 import (
 	"context"
-	"fmt"
-	"os"
 	"time"
 
 	"github.com/boinger/confvis/internal/confidence"
@@ -23,6 +21,13 @@ const (
 	EnvToken = "CODECOV_TOKEN"
 )
 
+var configResolver = &sources.ConfigResolver{
+	SourceName:     sourceName,
+	TokenEnvVar:    EnvToken,
+	TokenRequired:  true,
+	DefaultTimeout: 30 * time.Second,
+}
+
 // Source implements the sources.Source interface for Codecov.
 type Source struct{}
 
@@ -37,13 +42,9 @@ func (s *Source) Name() string {
 
 // Fetch retrieves coverage metrics from Codecov and converts them to a confidence report.
 func (s *Source) Fetch(ctx context.Context, opts sources.Options) (*confidence.Report, error) {
-	// Resolve token from option or environment
-	token := opts.Token
-	if token == "" {
-		token = os.Getenv(EnvToken)
-	}
-	if token == "" {
-		return nil, fmt.Errorf("codecov token required: use --token flag or set %s", EnvToken)
+	cfg, err := configResolver.Resolve(opts)
+	if err != nil {
+		return nil, err
 	}
 
 	// Get service from Extra options, default to github
@@ -54,12 +55,7 @@ func (s *Source) Fetch(ctx context.Context, opts sources.Options) (*confidence.R
 		}
 	}
 
-	// Create client with timeout
-	timeout := time.Duration(opts.Timeout) * time.Second
-	if timeout <= 0 {
-		timeout = 30 * time.Second
-	}
-	client := NewClient(token, timeout)
+	client := NewClient(cfg.Token, cfg.Timeout)
 
 	return s.FetchWithClient(ctx, client, opts, service)
 }

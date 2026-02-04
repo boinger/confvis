@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/boinger/confvis/internal/sources"
 )
@@ -63,11 +64,7 @@ func TestSource_Fetch_Success(t *testing.T) {
 	ctx := context.Background()
 
 	// Create a client with the mock server URL
-	client := &Client{
-		baseURL:    server.URL,
-		token:      "test-token",
-		httpClient: server.Client(),
-	}
+	client := NewClientWithHTTP(server.URL, "test-token", server.Client())
 
 	report, err := client.FetchReport(ctx, "github", "myorg/myrepo")
 	if err != nil {
@@ -103,11 +100,7 @@ func TestSource_Fetch_InvalidProject(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := &Client{
-		baseURL:    server.URL,
-		token:      "test-token",
-		httpClient: server.Client(),
-	}
+	client := NewClientWithHTTP(server.URL, "test-token", server.Client())
 
 	_, err := client.FetchReport(context.Background(), "github", "invalid-no-slash")
 	if err == nil {
@@ -121,11 +114,7 @@ func TestSource_Fetch_APIError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := &Client{
-		baseURL:    server.URL,
-		token:      "test-token",
-		httpClient: server.Client(),
-	}
+	client := NewClientWithHTTP(server.URL, "test-token", server.Client())
 
 	_, err := client.FetchReport(context.Background(), "github", "myorg/myrepo")
 	if err == nil {
@@ -173,11 +162,7 @@ func TestSource_Fetch_WithService(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := &Client{
-		baseURL:    server.URL,
-		token:      "test-token",
-		httpClient: server.Client(),
-	}
+	client := NewClientWithHTTP(server.URL, "test-token", server.Client())
 
 	report, err := client.FetchReport(context.Background(), "gitlab", "mygroup/myproject")
 	if err != nil {
@@ -209,11 +194,7 @@ func TestClient_FetchReport_Integration(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := &Client{
-		baseURL:    server.URL,
-		token:      "test-token",
-		httpClient: server.Client(),
-	}
+	client := NewClientWithHTTP(server.URL, "test-token", server.Client())
 
 	ctx := context.Background()
 	report, err := client.FetchReport(ctx, "github", "owner/repo")
@@ -295,11 +276,7 @@ func TestClient_doRequest_InvalidJSON(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := &Client{
-		baseURL:    server.URL,
-		token:      "test-token",
-		httpClient: server.Client(),
-	}
+	client := NewClientWithHTTP(server.URL, "test-token", server.Client())
 
 	_, err := client.FetchReport(context.Background(), "github", "owner/repo")
 	if err == nil {
@@ -323,11 +300,7 @@ func TestClient_doRequest_NoToken(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := &Client{
-		baseURL:    server.URL,
-		token:      "", // No token
-		httpClient: server.Client(),
-	}
+	client := NewClientWithHTTP(server.URL, "", server.Client())
 
 	_, err := client.FetchReport(context.Background(), "github", "owner/repo")
 	if err != nil {
@@ -336,12 +309,14 @@ func TestClient_doRequest_NoToken(t *testing.T) {
 }
 
 func TestNewClient_WithTimeout(t *testing.T) {
-	client := NewClient("token123", 60*1000000000) // 60 seconds in nanoseconds
-	if client.token != "token123" {
-		t.Errorf("token = %q, want %q", client.token, "token123")
-	}
+	client := NewClient("token123", 60*time.Second)
+	// Verify baseURL is set to default
 	if client.baseURL != defaultBaseURL {
 		t.Errorf("baseURL = %q, want %q", client.baseURL, defaultBaseURL)
+	}
+	// Verify http client is not nil
+	if client.http == nil {
+		t.Error("http client should not be nil")
 	}
 }
 
@@ -393,11 +368,7 @@ func TestSource_Fetch_CustomService(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := &Client{
-		baseURL:    server.URL,
-		token:      "test-token",
-		httpClient: server.Client(),
-	}
+	client := NewClientWithHTTP(server.URL, "test-token", server.Client())
 
 	report, err := client.FetchReport(context.Background(), "bitbucket", "team/repo")
 	if err != nil {
@@ -451,11 +422,7 @@ func TestSource_Fetch_ZeroCoverage(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := &Client{
-		baseURL:    server.URL,
-		token:      "test-token",
-		httpClient: server.Client(),
-	}
+	client := NewClientWithHTTP(server.URL, "test-token", server.Client())
 
 	report, err := client.FetchReport(context.Background(), "github", "owner/repo")
 	if err != nil {
@@ -486,11 +453,7 @@ func TestSource_Fetch_FullCoverage(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := &Client{
-		baseURL:    server.URL,
-		token:      "test-token",
-		httpClient: server.Client(),
-	}
+	client := NewClientWithHTTP(server.URL, "test-token", server.Client())
 
 	report, err := client.FetchReport(context.Background(), "github", "owner/repo")
 	if err != nil {

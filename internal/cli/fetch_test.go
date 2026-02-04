@@ -368,3 +368,27 @@ func TestFetch_VerboseOutput(t *testing.T) {
 		t.Errorf("verbose output should contain Score: %s", output)
 	}
 }
+
+func TestNopWriteCloser_Close(t *testing.T) {
+	var buf strings.Builder
+	nwc := nopWriteCloser{&buf}
+
+	// Write some data
+	n, err := nwc.Write([]byte("test data"))
+	if err != nil {
+		t.Errorf("Write() error = %v", err)
+	}
+	if n != 9 {
+		t.Errorf("Write() = %d, want 9", n)
+	}
+
+	// Close should return nil
+	if err := nwc.Close(); err != nil {
+		t.Errorf("Close() error = %v, want nil", err)
+	}
+
+	// Verify written data
+	if buf.String() != "test data" {
+		t.Errorf("written data = %q, want %q", buf.String(), "test data")
+	}
+}

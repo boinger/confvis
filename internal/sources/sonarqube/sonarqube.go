@@ -2,8 +2,6 @@ package sonarqube
 
 import (
 	"context"
-	"fmt"
-	"os"
 	"strconv"
 	"time"
 
@@ -19,6 +17,15 @@ const (
 	EnvToken = "SONARQUBE_TOKEN"
 )
 
+var configResolver = &sources.ConfigResolver{
+	SourceName:     "SonarQube",
+	TokenEnvVar:    EnvToken,
+	URLEnvVar:      EnvURL,
+	TokenRequired:  false, // Optional for public projects
+	URLRequired:    true,
+	DefaultTimeout: 30 * time.Second,
+}
+
 // Source implements the sources.Source interface for SonarQube.
 type Source struct{}
 
@@ -33,28 +40,12 @@ func (s *Source) Name() string {
 
 // Fetch retrieves metrics from SonarQube and converts them to a confidence report.
 func (s *Source) Fetch(ctx context.Context, opts sources.Options) (*confidence.Report, error) {
-	// Resolve URL from option or environment
-	serverURL := opts.URL
-	if serverURL == "" {
-		serverURL = os.Getenv(EnvURL)
-	}
-	if serverURL == "" {
-		return nil, fmt.Errorf("SonarQube URL required: use --url flag or set %s", EnvURL)
+	cfg, err := configResolver.Resolve(opts)
+	if err != nil {
+		return nil, err
 	}
 
-	// Resolve token from option or environment
-	token := opts.Token
-	if token == "" {
-		token = os.Getenv(EnvToken)
-	}
-	// Token is optional for public projects
-
-	// Create client with timeout
-	timeout := time.Duration(opts.Timeout) * time.Second
-	if timeout <= 0 {
-		timeout = 30 * time.Second
-	}
-	client := NewClient(serverURL, token, timeout)
+	client := NewClient(cfg.URL, cfg.Token, cfg.Timeout)
 
 	// Fetch measures
 	measures, err := client.FetchMeasures(ctx, opts.Project, opts.Branch)

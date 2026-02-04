@@ -25,10 +25,14 @@ confvis/
 │   │   └── history.go      # JSON lines format handling
 │   └── sources/            # External source modules
 │       ├── source.go       # Source interface and registry
-│       └── sonarqube/      # SonarQube implementation
-│           ├── sonarqube.go
-│           ├── client.go
-│           └── types.go
+│       ├── config.go       # Configuration resolver helper
+│       ├── httpclient/     # Common HTTP client
+│       │   └── client.go   # Configurable HTTP client (auth, headers)
+│       ├── sonarqube/      # SonarQube implementation
+│       ├── codecov/        # Codecov implementation
+│       ├── ghactions/      # GitHub Actions implementation
+│       ├── snyk/           # Snyk implementation
+│       └── trivy/          # Trivy implementation
 └── testdata/               # Test fixtures
 ```
 
@@ -101,13 +105,50 @@ Modular framework for fetching metrics from external systems:
 - `Source` interface defines the contract for all sources
 - Registry allows auto-registration via `init()`
 - Each source is a sub-package (e.g., `sources/sonarqube`)
+- `ConfigResolver` helper consolidates token/URL resolution from options and environment variables
+
+### `internal/sources/httpclient`
+
+Common HTTP client used by API-based sources:
+- Configurable authentication: Bearer, Token, Basic, or None
+- Custom Accept headers and extra headers (e.g., API version)
+- Centralized error handling and JSON decoding
+- Reduces duplication across source clients
 
 ### `internal/sources/sonarqube`
 
 SonarQube integration:
-- HTTP client with Basic auth support
+- Uses common `httpclient` with Basic auth
 - Maps SonarQube metrics to confidence factors
 - Converts A-E ratings to 0-100 scores
+
+### `internal/sources/codecov`
+
+Codecov integration:
+- Uses common `httpclient` with Bearer auth
+- Fetches coverage percentage from Codecov API
+- Supports GitHub, GitLab, and Bitbucket providers
+
+### `internal/sources/ghactions`
+
+GitHub Actions integration:
+- Uses common `httpclient` with Bearer auth and GitHub API headers
+- Calculates workflow success rate from recent runs
+- Supports GitHub Enterprise via custom API URL
+
+### `internal/sources/snyk`
+
+Snyk integration:
+- Uses common `httpclient` with Token auth
+- Converts vulnerability counts to severity-weighted scores
+- Requires organization ID and project ID
+
+### `internal/sources/trivy`
+
+Trivy integration:
+- Runs local Trivy scanner (not HTTP-based)
+- Parses JSON output to extract vulnerability counts
+- Supports custom Trivy command (e.g., Docker)
 
 ## Extension Points
 
@@ -132,7 +173,7 @@ The gauge rendering is self-contained in `gauge.go`. Modify:
 
 ### Adding New Sources
 
-1. Create new package under `internal/sources/` (e.g., `internal/sources/codecov`)
+1. Create new package under `internal/sources/` (e.g., `internal/sources/newsource`)
 2. Implement the `Source` interface:
    ```go
    type Source interface {
@@ -148,10 +189,52 @@ The gauge rendering is self-contained in `gauge.go`. Modify:
    ```
 4. Import the package in `internal/cli/fetch.go` with blank import:
    ```go
-   _ "github.com/boinger/confvis/internal/sources/codecov"
+   _ "github.com/boinger/confvis/internal/sources/newsource"
    ```
 
-The source will automatically be available via `confvis fetch codecov`.
+The source will automatically be available via `confvis fetch newsource`.
+
+#### Using Common Helpers
+
+For API-based sources, use the shared infrastructure:
+
+**HTTP Client** (`internal/sources/httpclient`):
+```go
+import "github.com/boinger/confvis/internal/sources/httpclient"
+
+client := httpclient.New(httpclient.Config{
+    BaseURL:  "https://api.example.com",
+    Token:    token,
+    AuthType: httpclient.AuthBearer, // or AuthToken, AuthBasic, AuthNone
+    Accept:   "application/json",
+    Timeout:  30 * time.Second,
+})
+
+var result ResponseType
+err := client.Get(ctx, endpoint, &result)
+```
+
+**Configuration Resolver** (`internal/sources/config.go`):
+```go
+var configResolver = &sources.ConfigResolver{
+    SourceName:     "newsource",
+    TokenEnvVar:    "NEWSOURCE_TOKEN",
+    URLEnvVar:      "NEWSOURCE_URL",
+    TokenRequired:  true,
+    URLRequired:    false,
+    DefaultTimeout: 30 * time.Second,
+}
+
+func (s *Source) Fetch(ctx context.Context, opts sources.Options) (*confidence.Report, error) {
+    cfg, err := configResolver.Resolve(opts)
+    if err != nil {
+        return nil, err
+    }
+    // cfg.Token, cfg.URL, cfg.Timeout are now resolved
+    client := NewClient(cfg.URL, cfg.Token, cfg.Timeout)
+    // ...
+}
+```
 
 #### Testability Pattern
 

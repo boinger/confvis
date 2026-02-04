@@ -25,6 +25,15 @@ const (
 	EnvAPIURL = "SNYK_API_URL"
 )
 
+var configResolver = &sources.ConfigResolver{
+	SourceName:     sourceName,
+	TokenEnvVar:    EnvToken,
+	URLEnvVar:      EnvAPIURL,
+	TokenRequired:  true,
+	URLRequired:    false, // Has default
+	DefaultTimeout: 30 * time.Second,
+}
+
 // Severity penalties (points deducted per issue).
 const (
 	PenaltyCritical = 33
@@ -55,13 +64,9 @@ func (s *Source) Name() string {
 
 // Fetch retrieves vulnerability metrics from Snyk and converts them to a confidence report.
 func (s *Source) Fetch(ctx context.Context, opts sources.Options) (*confidence.Report, error) {
-	// Resolve token from option or environment
-	token := opts.Token
-	if token == "" {
-		token = os.Getenv(EnvToken)
-	}
-	if token == "" {
-		return nil, fmt.Errorf("snyk token required: use --token flag or set %s", EnvToken)
+	cfg, err := configResolver.Resolve(opts)
+	if err != nil {
+		return nil, err
 	}
 
 	// Resolve org ID from Extra options or environment
@@ -76,24 +81,13 @@ func (s *Source) Fetch(ctx context.Context, opts sources.Options) (*confidence.R
 		return nil, fmt.Errorf("snyk organization ID required: use --org flag or set %s", EnvOrgID)
 	}
 
-	// Resolve API URL from option or environment
-	apiURL := opts.URL
-	if apiURL == "" {
-		apiURL = os.Getenv(EnvAPIURL)
-	}
-
 	// Project ID is required
 	projectID := opts.Project
 	if projectID == "" {
 		return nil, fmt.Errorf("snyk project ID required: use --project flag")
 	}
 
-	// Create client with timeout
-	timeout := time.Duration(opts.Timeout) * time.Second
-	if timeout <= 0 {
-		timeout = 30 * time.Second
-	}
-	client := NewClient(apiURL, token, timeout)
+	client := NewClient(cfg.URL, cfg.Token, cfg.Timeout)
 
 	return s.FetchWithClient(ctx, client, opts, orgID, projectID)
 }

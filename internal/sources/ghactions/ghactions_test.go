@@ -102,11 +102,7 @@ func TestSource_Fetch_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := &Client{
-		baseURL:    server.URL,
-		token:      "test-token",
-		httpClient: server.Client(),
-	}
+	client := NewClientWithHTTP(server.URL, "test-token", server.Client())
 
 	ctx := context.Background()
 	runsResp, err := client.FetchRuns(ctx, "myorg/myrepo", FetchRunsOptions{Count: 20})
@@ -150,11 +146,7 @@ func TestSource_Fetch_WithWorkflowFilter(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := &Client{
-		baseURL:    server.URL,
-		token:      "test-token",
-		httpClient: server.Client(),
-	}
+	client := NewClientWithHTTP(server.URL, "test-token", server.Client())
 
 	_, err := client.FetchRuns(context.Background(), "myorg/myrepo", FetchRunsOptions{
 		Workflow: "ci.yml",
@@ -183,11 +175,7 @@ func TestSource_Fetch_WithEventFilter(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := &Client{
-		baseURL:    server.URL,
-		token:      "test-token",
-		httpClient: server.Client(),
-	}
+	client := NewClientWithHTTP(server.URL, "test-token", server.Client())
 
 	_, err := client.FetchRuns(context.Background(), "myorg/myrepo", FetchRunsOptions{
 		Event: "push",
@@ -228,11 +216,7 @@ func TestSource_Fetch_APIError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := &Client{
-		baseURL:    server.URL,
-		token:      "test-token",
-		httpClient: server.Client(),
-	}
+	client := NewClientWithHTTP(server.URL, "test-token", server.Client())
 
 	_, err := client.FetchRuns(context.Background(), "myorg/myrepo", FetchRunsOptions{Count: 20})
 	if err == nil {
@@ -253,11 +237,7 @@ func TestSource_Fetch_NoRuns(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := &Client{
-		baseURL:    server.URL,
-		token:      "test-token",
-		httpClient: server.Client(),
-	}
+	client := NewClientWithHTTP(server.URL, "test-token", server.Client())
 
 	runsResp, err := client.FetchRuns(context.Background(), "myorg/myrepo", FetchRunsOptions{Count: 20})
 	if err != nil {
@@ -316,11 +296,7 @@ func TestSource_Fetch_AllFailures(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := &Client{
-		baseURL:    server.URL,
-		token:      "test-token",
-		httpClient: server.Client(),
-	}
+	client := NewClientWithHTTP(server.URL, "test-token", server.Client())
 
 	runsResp, err := client.FetchRuns(context.Background(), "myorg/myrepo", FetchRunsOptions{Count: 20})
 	if err != nil {
@@ -363,11 +339,7 @@ func TestSource_Fetch_MixedConclusions(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := &Client{
-		baseURL:    server.URL,
-		token:      "test-token",
-		httpClient: server.Client(),
-	}
+	client := NewClientWithHTTP(server.URL, "test-token", server.Client())
 
 	runsResp, err := client.FetchRuns(context.Background(), "myorg/myrepo", FetchRunsOptions{Count: 20})
 	if err != nil {
@@ -408,11 +380,7 @@ func TestSource_Fetch_WithTokenFromEnv(t *testing.T) {
 	t.Setenv(EnvToken, "env-token")
 
 	// Create client directly with env token behavior
-	client := &Client{
-		baseURL:    server.URL,
-		token:      "env-token",
-		httpClient: server.Client(),
-	}
+	client := NewClientWithHTTP(server.URL, "env-token", server.Client())
 
 	_, err := client.FetchRuns(context.Background(), "myorg/myrepo", FetchRunsOptions{Count: 20})
 	if err != nil {
@@ -437,8 +405,7 @@ func TestSource_Fetch_WithAPIURLFromEnv(t *testing.T) {
 	t.Setenv(EnvAPIURL, server.URL)
 
 	// Test env vars are used via NewClient
-	client := NewClient(server.URL, "test-token", 5*time.Second)
-	client.httpClient = server.Client() // Use test server client
+	client := NewClientWithHTTP(server.URL, "test-token", server.Client())
 
 	_, err := client.FetchRuns(context.Background(), "myorg/myrepo", FetchRunsOptions{Count: 20})
 	if err != nil {
@@ -497,11 +464,7 @@ func TestSource_Fetch_WithExtraOptions(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := &Client{
-		baseURL:    server.URL,
-		token:      "test-token",
-		httpClient: server.Client(),
-	}
+	client := NewClientWithHTTP(server.URL, "test-token", server.Client())
 
 	_, err := client.FetchRuns(context.Background(), "myorg/myrepo", FetchRunsOptions{
 		Workflow: "ci.yml",
@@ -522,11 +485,7 @@ func TestSource_Fetch_InvalidJSONResponse(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := &Client{
-		baseURL:    server.URL,
-		token:      "test-token",
-		httpClient: server.Client(),
-	}
+	client := NewClientWithHTTP(server.URL, "test-token", server.Client())
 
 	_, err := client.FetchRuns(context.Background(), "myorg/myrepo", FetchRunsOptions{Count: 20})
 	if err == nil {
@@ -561,11 +520,7 @@ func TestSource_Fetch_ExtraCountParsing(t *testing.T) {
 	defer server.Close()
 
 	// Test with invalid count string (should use default)
-	client := &Client{
-		baseURL:    server.URL,
-		token:      "test-token",
-		httpClient: server.Client(),
-	}
+	client := NewClientWithHTTP(server.URL, "test-token", server.Client())
 
 	_, err := client.FetchRuns(context.Background(), "myorg/myrepo", FetchRunsOptions{
 		Count: DefaultRunCount, // Uses default
@@ -608,11 +563,7 @@ func TestSource_Fetch_InvalidCountString(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := &Client{
-		baseURL:    server.URL,
-		token:      "test-token",
-		httpClient: server.Client(),
-	}
+	client := NewClientWithHTTP(server.URL, "test-token", server.Client())
 
 	// Test with invalid count string - should use default
 	_, err := client.FetchRuns(context.Background(), "myorg/myrepo", FetchRunsOptions{
@@ -643,11 +594,7 @@ func TestSource_Fetch_ZeroCount(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := &Client{
-		baseURL:    server.URL,
-		token:      "test-token",
-		httpClient: server.Client(),
-	}
+	client := NewClientWithHTTP(server.URL, "test-token", server.Client())
 
 	// Test with 0 count - the validation happens in Fetch, not FetchRuns
 	_, err := client.FetchRuns(context.Background(), "myorg/myrepo", FetchRunsOptions{
@@ -708,11 +655,7 @@ func TestSource_Fetch_EmptyWorkflowAndEvent(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := &Client{
-		baseURL:    server.URL,
-		token:      "test-token",
-		httpClient: server.Client(),
-	}
+	client := NewClientWithHTTP(server.URL, "test-token", server.Client())
 
 	_, err := client.FetchRuns(context.Background(), "myorg/myrepo", FetchRunsOptions{
 		Workflow: "", // Empty workflow

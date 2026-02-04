@@ -466,11 +466,7 @@ func TestClient_FetchQualityGate_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := &Client{
-		baseURL:    server.URL,
-		token:      "test-token",
-		httpClient: server.Client(),
-	}
+	client := NewClientWithHTTP(server.URL, "test-token", server.Client())
 
 	qg, err := client.FetchQualityGate(context.Background(), "myproject", "")
 	if err != nil {
@@ -501,11 +497,7 @@ func TestClient_FetchQualityGate_WithBranch(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := &Client{
-		baseURL:    server.URL,
-		token:      "test-token",
-		httpClient: server.Client(),
-	}
+	client := NewClientWithHTTP(server.URL, "test-token", server.Client())
 
 	qg, err := client.FetchQualityGate(context.Background(), "myproject", "main")
 	if err != nil {
@@ -523,11 +515,7 @@ func TestClient_FetchQualityGate_APIError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := &Client{
-		baseURL:    server.URL,
-		token:      "test-token",
-		httpClient: server.Client(),
-	}
+	client := NewClientWithHTTP(server.URL, "test-token", server.Client())
 
 	_, err := client.FetchQualityGate(context.Background(), "nonexistent", "")
 	if err == nil {
@@ -544,11 +532,7 @@ func TestClient_doRequest_InvalidJSON(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := &Client{
-		baseURL:    server.URL,
-		token:      "test-token",
-		httpClient: server.Client(),
-	}
+	client := NewClientWithHTTP(server.URL, "test-token", server.Client())
 
 	_, err := client.FetchMeasures(context.Background(), "myproject", "")
 	if err == nil {

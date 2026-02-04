@@ -3,7 +3,6 @@ package ghactions
 import (
 	"context"
 	"fmt"
-	"os"
 	"strconv"
 	"time"
 
@@ -30,6 +29,15 @@ const (
 	DefaultRunCount = 20
 )
 
+var configResolver = &sources.ConfigResolver{
+	SourceName:     "GitHub",
+	TokenEnvVar:    EnvToken,
+	URLEnvVar:      EnvAPIURL,
+	TokenRequired:  true,
+	URLRequired:    false, // Has default
+	DefaultTimeout: 30 * time.Second,
+}
+
 // Source implements the sources.Source interface for GitHub Actions.
 type Source struct{}
 
@@ -44,19 +52,9 @@ func (s *Source) Name() string {
 
 // Fetch retrieves workflow metrics from GitHub Actions and converts them to a confidence report.
 func (s *Source) Fetch(ctx context.Context, opts sources.Options) (*confidence.Report, error) {
-	// Resolve token from option or environment
-	token := opts.Token
-	if token == "" {
-		token = os.Getenv(EnvToken)
-	}
-	if token == "" {
-		return nil, fmt.Errorf("GitHub token required: use --token flag or set %s", EnvToken)
-	}
-
-	// Resolve API URL from option or environment
-	apiURL := opts.URL
-	if apiURL == "" {
-		apiURL = os.Getenv(EnvAPIURL)
+	cfg, err := configResolver.Resolve(opts)
+	if err != nil {
+		return nil, err
 	}
 
 	// Parse extra options
@@ -72,12 +70,7 @@ func (s *Source) Fetch(ctx context.Context, opts sources.Options) (*confidence.R
 		}
 	}
 
-	// Create client with timeout
-	timeout := time.Duration(opts.Timeout) * time.Second
-	if timeout <= 0 {
-		timeout = 30 * time.Second
-	}
-	client := NewClient(apiURL, token, timeout)
+	client := NewClient(cfg.URL, cfg.Token, cfg.Timeout)
 
 	return s.FetchWithClient(ctx, client, opts, FetchRunsOptions{
 		Workflow: workflow,

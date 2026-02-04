@@ -2,13 +2,13 @@ package snyk
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/boinger/confvis/internal/sources/httpclient"
 )
 
 const defaultBaseURL = "https://api.snyk.io"
@@ -18,9 +18,8 @@ const apiVersion = "2024-10-15"
 
 // Client is an HTTP client for the Snyk API.
 type Client struct {
-	baseURL    string
-	token      string
-	httpClient *http.Client
+	baseURL string
+	http    *httpclient.Client
 }
 
 // NewClient creates a new Snyk API client.
@@ -32,10 +31,32 @@ func NewClient(baseURL, token string, timeout time.Duration) *Client {
 
 	return &Client{
 		baseURL: baseURL,
-		token:   token,
-		httpClient: &http.Client{
-			Timeout: timeout,
-		},
+		http: httpclient.New(httpclient.Config{
+			BaseURL:  baseURL,
+			Token:    token,
+			AuthType: httpclient.AuthToken,
+			Accept:   "application/vnd.api+json",
+			Timeout:  timeout,
+		}),
+	}
+}
+
+// NewClientWithHTTP creates a new client with a custom HTTP client.
+// This is primarily intended for testing.
+func NewClientWithHTTP(baseURL, token string, httpClient *http.Client) *Client {
+	if baseURL == "" {
+		baseURL = defaultBaseURL
+	}
+	baseURL = strings.TrimRight(baseURL, "/")
+
+	return &Client{
+		baseURL: baseURL,
+		http: httpclient.NewWithHTTPClient(httpclient.Config{
+			BaseURL:  baseURL,
+			Token:    token,
+			AuthType: httpclient.AuthToken,
+			Accept:   "application/vnd.api+json",
+		}, httpClient),
 	}
 }
 
@@ -50,45 +71,11 @@ func (c *Client) FetchProject(ctx context.Context, orgID, projectID string) (*Pr
 		c.baseURL, url.PathEscape(orgID), url.PathEscape(projectID), params.Encode())
 
 	var result ProjectResponse
-	if err := c.doRequest(ctx, endpoint, &result); err != nil {
+	if err := c.http.Get(ctx, endpoint, &result); err != nil {
 		return nil, err
 	}
 
 	return &result, nil
-}
-
-// doRequest performs an HTTP GET request with Snyk token authentication.
-func (c *Client) doRequest(ctx context.Context, endpoint string, result interface{}) (err error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
-	if err != nil {
-		return fmt.Errorf("creating request: %w", err)
-	}
-
-	if c.token != "" {
-		req.Header.Set("Authorization", "token "+c.token)
-	}
-	req.Header.Set("Accept", "application/vnd.api+json")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("making request: %w", err)
-	}
-	defer func() {
-		if cerr := resp.Body.Close(); cerr != nil && err == nil {
-			err = fmt.Errorf("closing response body: %w", cerr)
-		}
-	}()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(body))
-	}
-
-	if err := json.NewDecoder(resp.Body).Decode(result); err != nil {
-		return fmt.Errorf("decoding response: %w", err)
-	}
-
-	return nil
 }
 
 // ProjectURL returns the web URL for a project in Snyk.
