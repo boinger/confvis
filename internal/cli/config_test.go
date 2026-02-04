@@ -564,398 +564,226 @@ gauge:
 	}
 }
 
-// Unit tests for config getter functions
+// Unit tests for config getter functions using table-driven tests
 
-func TestGetGaugeWidth_Default(t *testing.T) {
-	// Reset viper state
-	viper.Reset()
+func TestConfigGetters_IntWithDefault(t *testing.T) {
+	tests := []struct {
+		name       string
+		getter     func() int
+		key        string
+		defaultVal int
+		setValue   int
+	}{
+		{"GaugeWidth", getGaugeWidth, "gauge.width", 200, 300},
+		{"GaugeHeight", getGaugeHeight, "gauge.height", 120, 180},
+		{"GaugeHistoryCount", getGaugeHistoryCount, "gauge.history_count", 10, 20},
+		{"FetchTimeout", getFetchTimeout, "fetch.timeout", 30, 60},
+		{"FetchThreshold", getFetchThreshold, "fetch.threshold", 75, 80},
+	}
 
-	width := getGaugeWidth()
-	if width != 200 {
-		t.Errorf("expected default width 200, got %d", width)
+	for _, tt := range tests {
+		t.Run(tt.name+"_Default", func(t *testing.T) {
+			viper.Reset()
+			if got := tt.getter(); got != tt.defaultVal {
+				t.Errorf("%s() = %d, want %d", tt.name, got, tt.defaultVal)
+			}
+		})
+		t.Run(tt.name+"_FromConfig", func(t *testing.T) {
+			viper.Reset()
+			viper.Set(tt.key, tt.setValue)
+			if got := tt.getter(); got != tt.setValue {
+				t.Errorf("%s() = %d, want %d", tt.name, got, tt.setValue)
+			}
+		})
 	}
 }
 
-func TestGetGaugeWidth_FromConfig(t *testing.T) {
-	viper.Reset()
-	viper.Set("gauge.width", 300)
+func TestConfigGetters_IntNoDefault(t *testing.T) {
+	tests := []struct {
+		name     string
+		getter   func() int
+		key      string
+		setValue int
+	}{
+		{"GaugeFailUnder", getGaugeFailUnder, "gauge.fail_under", 80},
+		{"GaugeGreenAbove", getGaugeGreenAbove, "gauge.green_above", 80},
+		{"GaugeYellowAbove", getGaugeYellowAbove, "gauge.yellow_above", 50},
+	}
 
-	width := getGaugeWidth()
-	if width != 300 {
-		t.Errorf("expected width 300, got %d", width)
+	for _, tt := range tests {
+		t.Run(tt.name+"_Default", func(t *testing.T) {
+			viper.Reset()
+			if got := tt.getter(); got != 0 {
+				t.Errorf("%s() = %d, want 0", tt.name, got)
+			}
+		})
+		t.Run(tt.name+"_FromConfig", func(t *testing.T) {
+			viper.Reset()
+			viper.Set(tt.key, tt.setValue)
+			if got := tt.getter(); got != tt.setValue {
+				t.Errorf("%s() = %d, want %d", tt.name, got, tt.setValue)
+			}
+		})
 	}
 }
 
-func TestGetGaugeHeight_Default(t *testing.T) {
-	viper.Reset()
+func TestConfigGetters_StringWithDefault(t *testing.T) {
+	tests := []struct {
+		name       string
+		getter     func() string
+		key        string
+		defaultVal string
+		setValue   string
+	}{
+		{"GaugeStyle", getGaugeStyle, "gauge.style", "github", "minimal"},
+		{"GaugeBadgeType", getGaugeBadgeType, "gauge.badge_type", "gauge", "flat"},
+		{"GaugeBaselineRef", getGaugeBaselineRef, "gauge.baseline_ref", baseline.DefaultBaselineRef, "refs/custom/baseline"},
+	}
 
-	height := getGaugeHeight()
-	if height != 120 {
-		t.Errorf("expected default height 120, got %d", height)
+	for _, tt := range tests {
+		t.Run(tt.name+"_Default", func(t *testing.T) {
+			viper.Reset()
+			if got := tt.getter(); got != tt.defaultVal {
+				t.Errorf("%s() = %q, want %q", tt.name, got, tt.defaultVal)
+			}
+		})
+		t.Run(tt.name+"_FromConfig", func(t *testing.T) {
+			viper.Reset()
+			viper.Set(tt.key, tt.setValue)
+			if got := tt.getter(); got != tt.setValue {
+				t.Errorf("%s() = %q, want %q", tt.name, got, tt.setValue)
+			}
+		})
 	}
 }
 
-func TestGetGaugeHeight_FromConfig(t *testing.T) {
-	viper.Reset()
-	viper.Set("gauge.height", 180)
+func TestConfigGetters_StringNoDefault(t *testing.T) {
+	tests := []struct {
+		name     string
+		getter   func() string
+		key      string
+		setValue string
+	}{
+		{"GaugeHistoryFile", getGaugeHistoryFile, "gauge.history_file", "history.json"},
+		{"GaugeHistoryRef", getGaugeHistoryRef, "gauge.history_ref", "refs/custom/history"},
+		{"GaugeBaselineFile", getGaugeBaselineFile, "gauge.baseline_file", "baseline.json"},
+	}
 
-	height := getGaugeHeight()
-	if height != 180 {
-		t.Errorf("expected height 180, got %d", height)
+	for _, tt := range tests {
+		t.Run(tt.name+"_Default", func(t *testing.T) {
+			viper.Reset()
+			if got := tt.getter(); got != "" {
+				t.Errorf("%s() = %q, want empty", tt.name, got)
+			}
+		})
+		t.Run(tt.name+"_FromConfig", func(t *testing.T) {
+			viper.Reset()
+			viper.Set(tt.key, tt.setValue)
+			if got := tt.getter(); got != tt.setValue {
+				t.Errorf("%s() = %q, want %q", tt.name, got, tt.setValue)
+			}
+		})
 	}
 }
 
-func TestGetGaugeStyle_Default(t *testing.T) {
-	viper.Reset()
+func TestConfigGetters_Bool(t *testing.T) {
+	tests := []struct {
+		name   string
+		getter func() bool
+		key    string
+	}{
+		{"GaugeDark", getGaugeDark, "gauge.dark"},
+		{"GaugeHistoryAuto", getGaugeHistoryAuto, "gauge.history_auto"},
+		{"GaugeCompareBaseline", getGaugeCompareBaseline, "gauge.compare_baseline"},
+	}
 
-	style := getGaugeStyle()
-	if style != "github" {
-		t.Errorf("expected default style 'github', got %q", style)
+	for _, tt := range tests {
+		t.Run(tt.name+"_Default", func(t *testing.T) {
+			viper.Reset()
+			if got := tt.getter(); got {
+				t.Errorf("%s() = true, want false", tt.name)
+			}
+		})
+		t.Run(tt.name+"_True", func(t *testing.T) {
+			viper.Reset()
+			viper.Set(tt.key, true)
+			if got := tt.getter(); !got {
+				t.Errorf("%s() = false, want true", tt.name)
+			}
+		})
 	}
 }
 
-func TestGetGaugeStyle_FromConfig(t *testing.T) {
-	viper.Reset()
-	viper.Set("gauge.style", "minimal")
+func TestConfigGetters_SourceSpecific(t *testing.T) {
+	t.Run("GetSourceURL", func(t *testing.T) {
+		viper.Reset()
+		if got := getSourceURL("sonarqube"); got != "" {
+			t.Errorf("getSourceURL() = %q, want empty", got)
+		}
+		viper.Set("sources.sonarqube.url", "https://sonar.example.com")
+		if got := getSourceURL("sonarqube"); got != "https://sonar.example.com" {
+			t.Errorf("getSourceURL() = %q, want %q", got, "https://sonar.example.com")
+		}
+	})
 
-	style := getGaugeStyle()
-	if style != "minimal" {
-		t.Errorf("expected style 'minimal', got %q", style)
-	}
+	t.Run("GetSourceOrg", func(t *testing.T) {
+		viper.Reset()
+		if got := getSourceOrg("snyk"); got != "" {
+			t.Errorf("getSourceOrg() = %q, want empty", got)
+		}
+		viper.Set("sources.snyk.org", "my-org")
+		if got := getSourceOrg("snyk"); got != "my-org" {
+			t.Errorf("getSourceOrg() = %q, want %q", got, "my-org")
+		}
+	})
+
+	t.Run("GetSourceService", func(t *testing.T) {
+		viper.Reset()
+		if got := getSourceService("codecov"); got != "" {
+			t.Errorf("getSourceService() = %q, want empty", got)
+		}
+		viper.Set("sources.codecov.service", "gitlab")
+		if got := getSourceService("codecov"); got != "gitlab" {
+			t.Errorf("getSourceService() = %q, want %q", got, "gitlab")
+		}
+	})
 }
 
-func TestGetGaugeDark(t *testing.T) {
+func TestGetConfigFile(t *testing.T) {
 	viper.Reset()
-
-	dark := getGaugeDark()
-	if dark {
-		t.Error("expected dark mode false by default")
-	}
-
-	viper.Set("gauge.dark", true)
-	dark = getGaugeDark()
-	if !dark {
-		t.Error("expected dark mode true when set")
-	}
-}
-
-func TestGetGaugeFailUnder(t *testing.T) {
-	viper.Reset()
-
-	failUnder := getGaugeFailUnder()
-	if failUnder != 0 {
-		t.Errorf("expected fail_under 0 by default, got %d", failUnder)
-	}
-
-	viper.Set("gauge.fail_under", 80)
-	failUnder = getGaugeFailUnder()
-	if failUnder != 80 {
-		t.Errorf("expected fail_under 80, got %d", failUnder)
-	}
-}
-
-func TestGetGaugeBadgeType_Default(t *testing.T) {
-	viper.Reset()
-
-	badgeType := getGaugeBadgeType()
-	if badgeType != "gauge" {
-		t.Errorf("expected default badge type 'gauge', got %q", badgeType)
-	}
-}
-
-func TestGetGaugeBadgeType_FromConfig(t *testing.T) {
-	viper.Reset()
-	viper.Set("gauge.badge_type", "flat")
-
-	badgeType := getGaugeBadgeType()
-	if badgeType != "flat" {
-		t.Errorf("expected badge type 'flat', got %q", badgeType)
-	}
-}
-
-func TestGetGaugeHistoryFile(t *testing.T) {
-	viper.Reset()
-
-	file := getGaugeHistoryFile()
-	if file != "" {
-		t.Errorf("expected empty history file by default, got %q", file)
-	}
-
-	viper.Set("gauge.history_file", "history.json")
-	file = getGaugeHistoryFile()
-	if file != "history.json" {
-		t.Errorf("expected history file 'history.json', got %q", file)
-	}
-}
-
-func TestGetGaugeHistoryCount_Default(t *testing.T) {
-	viper.Reset()
-
-	count := getGaugeHistoryCount()
-	if count != 10 {
-		t.Errorf("expected default history count 10, got %d", count)
-	}
-}
-
-func TestGetGaugeHistoryCount_FromConfig(t *testing.T) {
-	viper.Reset()
-	viper.Set("gauge.history_count", 20)
-
-	count := getGaugeHistoryCount()
-	if count != 20 {
-		t.Errorf("expected history count 20, got %d", count)
-	}
-}
-
-func TestGetGaugeHistoryRef(t *testing.T) {
-	viper.Reset()
-
-	ref := getGaugeHistoryRef()
-	if ref != "" {
-		t.Errorf("expected empty history ref by default, got %q", ref)
-	}
-
-	viper.Set("gauge.history_ref", "refs/custom/history")
-	ref = getGaugeHistoryRef()
-	if ref != "refs/custom/history" {
-		t.Errorf("expected history ref 'refs/custom/history', got %q", ref)
-	}
-}
-
-func TestGetGaugeHistoryAuto(t *testing.T) {
-	viper.Reset()
-
-	auto := getGaugeHistoryAuto()
-	if auto {
-		t.Error("expected history auto false by default")
-	}
-
-	viper.Set("gauge.history_auto", true)
-	auto = getGaugeHistoryAuto()
-	if !auto {
-		t.Error("expected history auto true when set")
-	}
-}
-
-func TestGetGaugeGreenAbove(t *testing.T) {
-	viper.Reset()
-
-	green := getGaugeGreenAbove()
-	if green != 0 {
-		t.Errorf("expected green_above 0 by default, got %d", green)
-	}
-
-	viper.Set("gauge.green_above", 80)
-	green = getGaugeGreenAbove()
-	if green != 80 {
-		t.Errorf("expected green_above 80, got %d", green)
-	}
-}
-
-func TestGetGaugeYellowAbove(t *testing.T) {
-	viper.Reset()
-
-	yellow := getGaugeYellowAbove()
-	if yellow != 0 {
-		t.Errorf("expected yellow_above 0 by default, got %d", yellow)
-	}
-
-	viper.Set("gauge.yellow_above", 50)
-	yellow = getGaugeYellowAbove()
-	if yellow != 50 {
-		t.Errorf("expected yellow_above 50, got %d", yellow)
-	}
-}
-
-func TestGetGaugeCompareBaseline(t *testing.T) {
-	viper.Reset()
-
-	compare := getGaugeCompareBaseline()
-	if compare {
-		t.Error("expected compare_baseline false by default")
-	}
-
-	viper.Set("gauge.compare_baseline", true)
-	compare = getGaugeCompareBaseline()
-	if !compare {
-		t.Error("expected compare_baseline true when set")
-	}
-}
-
-func TestGetGaugeBaselineRef_Default(t *testing.T) {
-	viper.Reset()
-
-	ref := getGaugeBaselineRef()
-	if ref != baseline.DefaultBaselineRef {
-		t.Errorf("expected default baseline ref %q, got %q", baseline.DefaultBaselineRef, ref)
-	}
-}
-
-func TestGetGaugeBaselineRef_FromConfig(t *testing.T) {
-	viper.Reset()
-	viper.Set("gauge.baseline_ref", "refs/custom/baseline")
-
-	ref := getGaugeBaselineRef()
-	if ref != "refs/custom/baseline" {
-		t.Errorf("expected baseline ref 'refs/custom/baseline', got %q", ref)
-	}
-}
-
-func TestGetGaugeBaselineFile(t *testing.T) {
-	viper.Reset()
-
-	file := getGaugeBaselineFile()
-	if file != "" {
-		t.Errorf("expected empty baseline file by default, got %q", file)
-	}
-
-	viper.Set("gauge.baseline_file", "baseline.json")
-	file = getGaugeBaselineFile()
-	if file != "baseline.json" {
-		t.Errorf("expected baseline file 'baseline.json', got %q", file)
-	}
-}
-
-func TestGetFetchTimeout_Default(t *testing.T) {
-	viper.Reset()
-
-	timeout := getFetchTimeout()
-	if timeout != 30 {
-		t.Errorf("expected default fetch timeout 30, got %d", timeout)
-	}
-}
-
-func TestGetFetchTimeout_FromConfig(t *testing.T) {
-	viper.Reset()
-	viper.Set("fetch.timeout", 60)
-
-	timeout := getFetchTimeout()
-	if timeout != 60 {
-		t.Errorf("expected fetch timeout 60, got %d", timeout)
-	}
-}
-
-func TestGetFetchThreshold_Default(t *testing.T) {
-	viper.Reset()
-
-	threshold := getFetchThreshold()
-	if threshold != 75 {
-		t.Errorf("expected default fetch threshold 75, got %d", threshold)
-	}
-}
-
-func TestGetFetchThreshold_FromConfig(t *testing.T) {
-	viper.Reset()
-	viper.Set("fetch.threshold", 80)
-
-	threshold := getFetchThreshold()
-	if threshold != 80 {
-		t.Errorf("expected fetch threshold 80, got %d", threshold)
-	}
-}
-
-func TestGetSourceURL(t *testing.T) {
-	viper.Reset()
-
-	url := getSourceURL("sonarqube")
-	if url != "" {
-		t.Errorf("expected empty URL by default, got %q", url)
-	}
-
-	viper.Set("sources.sonarqube.url", "https://sonar.example.com")
-	url = getSourceURL("sonarqube")
-	if url != "https://sonar.example.com" {
-		t.Errorf("expected URL 'https://sonar.example.com', got %q", url)
-	}
-}
-
-func TestGetSourceOrg(t *testing.T) {
-	viper.Reset()
-
-	org := getSourceOrg("snyk")
-	if org != "" {
-		t.Errorf("expected empty org by default, got %q", org)
-	}
-
-	viper.Set("sources.snyk.org", "my-org")
-	org = getSourceOrg("snyk")
-	if org != "my-org" {
-		t.Errorf("expected org 'my-org', got %q", org)
-	}
-}
-
-func TestGetSourceService(t *testing.T) {
-	viper.Reset()
-
-	service := getSourceService("codecov")
-	if service != "" {
-		t.Errorf("expected empty service by default, got %q", service)
-	}
-
-	viper.Set("sources.codecov.service", "gitlab")
-	service = getSourceService("codecov")
-	if service != "gitlab" {
-		t.Errorf("expected service 'gitlab', got %q", service)
-	}
-}
-
-func TestGetConfigFile_None(t *testing.T) {
-	viper.Reset()
-
-	// With no config file loaded, should return empty string
-	configFile := GetConfigFile()
-	// This may or may not be empty depending on test environment
-	_ = configFile // Exercise the function
+	_ = GetConfigFile() // Exercise the function; result depends on test environment
 }
 
 func TestGetGaugeFactorThresholds(t *testing.T) {
-	viper.Reset()
-
-	// Default should be empty map
-	thresholds := getGaugeFactorThresholds()
-	if len(thresholds) != 0 {
-		t.Errorf("expected empty factor thresholds by default, got %v", thresholds)
-	}
-
-	// Test with int values
-	viper.Set("gauge.factor_thresholds", map[string]interface{}{
-		"Coverage": 80,
-		"Security": 90,
+	t.Run("Default", func(t *testing.T) {
+		viper.Reset()
+		if got := getGaugeFactorThresholds(); len(got) != 0 {
+			t.Errorf("expected empty map, got %v", got)
+		}
 	})
 
-	thresholds = getGaugeFactorThresholds()
-	if thresholds["coverage"] != 80 {
-		t.Errorf("expected Coverage threshold 80, got %d", thresholds["coverage"])
-	}
-	if thresholds["security"] != 90 {
-		t.Errorf("expected Security threshold 90, got %d", thresholds["security"])
-	}
-}
-
-func TestGetGaugeFactorThresholds_FloatValues(t *testing.T) {
-	viper.Reset()
-
-	// Test with float64 values (YAML often parses numbers as float64)
-	viper.Set("gauge.factor_thresholds", map[string]interface{}{
-		"Coverage": 80.5,
+	t.Run("IntValues", func(t *testing.T) {
+		viper.Reset()
+		viper.Set("gauge.factor_thresholds", map[string]interface{}{"Coverage": 80, "Security": 90})
+		got := getGaugeFactorThresholds()
+		if got["coverage"] != 80 || got["security"] != 90 {
+			t.Errorf("unexpected thresholds: %v", got)
+		}
 	})
 
-	thresholds := getGaugeFactorThresholds()
-	if thresholds["coverage"] != 80 {
-		t.Errorf("expected Coverage threshold 80 (from float64), got %d", thresholds["coverage"])
-	}
-}
-
-func TestGetGaugeFactorThresholds_Int64Values(t *testing.T) {
-	viper.Reset()
-
-	// Test with int64 values
-	viper.Set("gauge.factor_thresholds", map[string]interface{}{
-		"Coverage": int64(85),
+	t.Run("FloatValues", func(t *testing.T) {
+		viper.Reset()
+		viper.Set("gauge.factor_thresholds", map[string]interface{}{"Coverage": 80.5})
+		if got := getGaugeFactorThresholds(); got["coverage"] != 80 {
+			t.Errorf("expected 80, got %d", got["coverage"])
+		}
 	})
 
-	thresholds := getGaugeFactorThresholds()
-	if thresholds["coverage"] != 85 {
-		t.Errorf("expected Coverage threshold 85 (from int64), got %d", thresholds["coverage"])
-	}
+	t.Run("Int64Values", func(t *testing.T) {
+		viper.Reset()
+		viper.Set("gauge.factor_thresholds", map[string]interface{}{"Coverage": int64(85)})
+		if got := getGaugeFactorThresholds(); got["coverage"] != 85 {
+			t.Errorf("expected 85, got %d", got["coverage"])
+		}
+	})
 }
