@@ -3,6 +3,8 @@ name: Confidence Badge
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   schedule:
     - cron: '0 8 * * *'  # Daily at 8 AM UTC
   workflow_dispatch:
@@ -13,6 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      checks: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -53,6 +56,7 @@ jobs:
         continue-on-error: true
 
       - name: Aggregate confidence (with available sources)
+        id: aggregate
         run: |
           # Build list of available config files
           CONFIGS=""
@@ -63,10 +67,74 @@ jobs:
 
           if [ -z "$CONFIGS" ]; then
             echo "No metric files available, skipping aggregation"
+            echo "has_metrics=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          ./confvis aggregate $CONFIGS -o ./badges --badge-type flat --icon "M7 1 A6 6 0 1 1 4 1.8 L7 7 Z" --label confvis --fail-under 0
+          echo "has_metrics=true" >> "$GITHUB_OUTPUT"
+
+          # Generate badge and dashboard (fail-under from .confvis.yaml)
+          ./confvis aggregate $CONFIGS -o ./badges --badge-type flat --icon "M7 1 A6 6 0 1 1 4 1.8 L7 7 Z" --label confvis
+
+      - name: Create aggregate confidence.json
+        if: steps.aggregate.outputs.has_metrics == 'true'
+        run: |
+          # Create aggregate report JSON for check and baseline commands
+          # Collect available sources as factors
+          FACTORS="[]"
+          add_factor() {
+            local file=$1 weight=$2
+            if [ -f "$file" ]; then
+              local title=$(jq -r '.title' "$file")
+              local score=$(jq -r '.score' "$file")
+              FACTORS=$(echo "$FACTORS" | jq --arg name "$title" --argjson score "$score" --argjson weight "$weight" \
+                '. + [{"name": $name, "score": $score, "weight": $weight}]')
+            fi
+          }
+
+          add_factor "coverage.json" 30
+          add_factor "quality.json" 30
+          add_factor "ci.json" 20
+          add_factor "security.json" 20
+
+          # Calculate weighted average
+          SCORE=$(echo "$FACTORS" | jq '[.[] | .score * .weight] | add / ([.[] | .weight] | add) | floor')
+
+          # Create the aggregate JSON
+          jq -n --argjson score "$SCORE" --argjson factors "$FACTORS" '{
+            "title": "confvis Confidence",
+            "score": $score,
+            "threshold": 80,
+            "factors": $factors
+          }' > badges/confidence.json
+
+          echo "Aggregate score: $SCORE"
+
+      - name: Generate sparkline badge
+        if: steps.aggregate.outputs.has_metrics == 'true'
+        run: |
+          # Generate sparkline showing score trend over time
+          # Uses --history-auto to store history in git refs
+          ./confvis gauge -c badges/confidence.json -o badges/sparkline.svg --badge-type sparkline --history-auto
+        continue-on-error: true
+
+      - name: Compare against baseline (PRs only)
+        if: steps.aggregate.outputs.has_metrics == 'true' && github.event_name == 'pull_request'
+        run: |
+          # Compare current score against stored baseline
+          # Fail if score regressed
+          ./confvis gauge -c badges/confidence.json -o - -f text --compare-baseline --fail-on-regression
+        continue-on-error: true
+
+      - name: Save baseline (main only)
+        if: steps.aggregate.outputs.has_metrics == 'true' && github.ref == 'refs/heads/main'
+        run: ./confvis baseline save -c badges/confidence.json
+
+      - name: Create GitHub Check
+        if: steps.aggregate.outputs.has_metrics == 'true'
+        run: ./confvis check github -c badges/confidence.json --name "Confidence Score"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Commit badge
         if: github.ref == 'refs/heads/main'

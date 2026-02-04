@@ -1,6 +1,7 @@
 # confvis
 
 [![confvis](./badges/badge.svg)](./badges/dashboard/index.html)
+![Trend](./badges/sparkline.svg)
 
 (instead of)
 

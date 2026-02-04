@@ -1,0 +1,20 @@
+# confvis configuration
+# This file demonstrates the config-driven workflow for confvis.
+# Precedence: config file < environment variables < CLI flags
+#
+# See docs/cli-reference.md#configuration-file for full documentation.
+
+gauge:
+  style: github
+  badge_type: flat       # flat badge for main badge (gauge refinement pending)
+  fail_under: 80         # enforce minimum score
+  compare_baseline: true # compare against stored baseline
+  history_auto: true     # auto-store history in git refs for sparkline
+
+# Note: aggregate.fail_under is not yet wired to config file - use CLI flag
+# aggregate:
+#   fail_under: 80
+
+sources:
+  sonarqube:
+    url: https://sonarcloud.io
