@@ -70,25 +70,33 @@ runs:
     - name: Determine OS and architecture
       id: platform
       shell: bash
+      env:
+        RUNNER_OS: ${{ runner.os }}
+        RUNNER_ARCH: ${{ runner.arch }}
       run: |
-        case "${{ runner.os }}" in
+        case "$RUNNER_OS" in
           Linux)  echo "os=linux" >> $GITHUB_OUTPUT ;;
           macOS)  echo "os=darwin" >> $GITHUB_OUTPUT ;;
           Windows) echo "os=windows" >> $GITHUB_OUTPUT ;;
-          *) echo "::error::Unsupported OS: ${{ runner.os }}"; exit 1 ;;
+          *) echo "::error::Unsupported OS: $RUNNER_OS"; exit 1 ;;
         esac
-        case "${{ runner.arch }}" in
+        case "$RUNNER_ARCH" in
           X64)   echo "arch=amd64" >> $GITHUB_OUTPUT ;;
           ARM64) echo "arch=arm64" >> $GITHUB_OUTPUT ;;
-          *) echo "::error::Unsupported architecture: ${{ runner.arch }}"; exit 1 ;;
+          *) echo "::error::Unsupported architecture: $RUNNER_ARCH"; exit 1 ;;
         esac
 
     - name: Install confvis
       shell: bash
+      env:
+        INPUT_VERSION: ${{ inputs.version }}
+        PLATFORM_OS: ${{ steps.platform.outputs.os }}
+        PLATFORM_ARCH: ${{ steps.platform.outputs.arch }}
+        ACTION_PATH: ${{ github.action_path }}
       run: |
-        VERSION="${{ inputs.version }}"
-        OS="${{ steps.platform.outputs.os }}"
-        ARCH="${{ steps.platform.outputs.arch }}"
+        VERSION="$INPUT_VERSION"
+        OS="$PLATFORM_OS"
+        ARCH="$PLATFORM_ARCH"
 
         if [ "$VERSION" = "latest" ]; then
           # Get latest release tag from GitHub API
@@ -108,8 +116,8 @@ runs:
         if [ "$OS" = "windows" ]; then
           curl -sSL "${DOWNLOAD_URL%.tar.gz}.zip" -o /tmp/confvis.zip
           unzip -q /tmp/confvis.zip -d /tmp
-          mv /tmp/confvis.exe "${{ github.action_path }}/confvis.exe"
-          echo "${{ github.action_path }}" >> $GITHUB_PATH
+          mv /tmp/confvis.exe "$ACTION_PATH/confvis.exe"
+          echo "$ACTION_PATH" >> $GITHUB_PATH
         else
           curl -sSL "$DOWNLOAD_URL" | tar xz -C /tmp
           chmod +x /tmp/confvis
@@ -123,45 +131,56 @@ runs:
       shell: bash
       env:
         GITHUB_TOKEN: ${{ github.token }}
+        INPUT_COMMAND: ${{ inputs.command }}
+        INPUT_CONFIG: ${{ inputs.config }}
+        INPUT_OUTPUT: ${{ inputs.output }}
+        INPUT_FORMAT: ${{ inputs.format }}
+        INPUT_BADGE_TYPE: ${{ inputs.badge-type }}
+        INPUT_STYLE: ${{ inputs.style }}
+        INPUT_DARK: ${{ inputs.dark }}
+        INPUT_FAIL_UNDER: ${{ inputs.fail-under }}
+        INPUT_COMPARE_BASELINE: ${{ inputs.compare-baseline }}
+        INPUT_FAIL_ON_REGRESSION: ${{ inputs.fail-on-regression }}
+        INPUT_HISTORY_AUTO: ${{ inputs.history-auto }}
       run: |
         # Build command arguments
         ARGS=()
-        ARGS+=("-c" "${{ inputs.config }}")
-        ARGS+=("-o" "${{ inputs.output }}")
+        ARGS+=("-c" "$INPUT_CONFIG")
+        ARGS+=("-o" "$INPUT_OUTPUT")
 
         # Add format for gauge command
-        if [ "${{ inputs.command }}" = "gauge" ]; then
-          ARGS+=("--format" "${{ inputs.format }}")
-          ARGS+=("--badge-type" "${{ inputs.badge-type }}")
-          ARGS+=("--style" "${{ inputs.style }}")
+        if [ "$INPUT_COMMAND" = "gauge" ]; then
+          ARGS+=("--format" "$INPUT_FORMAT")
+          ARGS+=("--badge-type" "$INPUT_BADGE_TYPE")
+          ARGS+=("--style" "$INPUT_STYLE")
 
-          if [ "${{ inputs.dark }}" = "true" ]; then
+          if [ "$INPUT_DARK" = "true" ]; then
             ARGS+=("--dark")
           fi
 
-          if [ "${{ inputs.fail-under }}" != "0" ]; then
-            ARGS+=("--fail-under" "${{ inputs.fail-under }}")
+          if [ "$INPUT_FAIL_UNDER" != "0" ]; then
+            ARGS+=("--fail-under" "$INPUT_FAIL_UNDER")
           fi
 
-          if [ "${{ inputs.compare-baseline }}" = "true" ]; then
+          if [ "$INPUT_COMPARE_BASELINE" = "true" ]; then
             ARGS+=("--compare-baseline")
           fi
 
-          if [ "${{ inputs.fail-on-regression }}" = "true" ]; then
+          if [ "$INPUT_FAIL_ON_REGRESSION" = "true" ]; then
             ARGS+=("--fail-on-regression")
           fi
 
-          if [ "${{ inputs.history-auto }}" = "true" ]; then
+          if [ "$INPUT_HISTORY_AUTO" = "true" ]; then
             ARGS+=("--history-auto")
           fi
         fi
 
         # Run the command and capture JSON output for extracting values
-        echo "Running: confvis ${{ inputs.command }} ${ARGS[*]}"
-        confvis "${{ inputs.command }}" "${ARGS[@]}"
+        echo "Running: confvis $INPUT_COMMAND ${ARGS[*]}"
+        confvis "$INPUT_COMMAND" "${ARGS[@]}"
 
         # Get score data as JSON for outputs
-        JSON_OUTPUT=$(confvis gauge -c "${{ inputs.config }}" -o - --format json 2>/dev/null || echo '{}')
+        JSON_OUTPUT=$(confvis gauge -c "$INPUT_CONFIG" -o - --format json 2>/dev/null || echo '{}')
 
         SCORE=$(echo "$JSON_OUTPUT" | jq -r '.score // empty')
         PASSED=$(echo "$JSON_OUTPUT" | jq -r '.passed // empty')
@@ -176,15 +195,19 @@ runs:
     - name: Save baseline
       if: inputs.save-baseline == 'true'
       shell: bash
+      env:
+        INPUT_CONFIG: ${{ inputs.config }}
       run: |
         echo "Saving baseline..."
-        confvis baseline save -c "${{ inputs.config }}"
+        confvis baseline save -c "$INPUT_CONFIG"
 
     - name: Create GitHub Check
       if: inputs.create-check == 'true'
       shell: bash
       env:
         GITHUB_TOKEN: ${{ github.token }}
+        INPUT_CONFIG: ${{ inputs.config }}
+        INPUT_CHECK_NAME: ${{ inputs.check-name }}
       run: |
         echo "Creating GitHub Check Run..."
-        confvis check github -c "${{ inputs.config }}" --name "${{ inputs.check-name }}"
+        confvis check github -c "$INPUT_CONFIG" --name "$INPUT_CHECK_NAME"
