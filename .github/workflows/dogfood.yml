@@ -18,10 +18,10 @@ jobs:
       checks: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6
         with:
           go-version: '1.23'
 
@@ -147,7 +147,7 @@ jobs:
 
       - name: Commit badge
         if: github.ref == 'refs/heads/main'
-        uses: stefanzweifel/git-auto-commit-action@v7
+        uses: stefanzweifel/git-auto-commit-action@04702edda442b2e678b25b537cec683a1493fcb9 # v7
         with:
           commit_message: "chore: update confidence badge [skip ci]"
           file_pattern: "badges/*"
