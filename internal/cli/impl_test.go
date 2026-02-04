@@ -2038,6 +2038,100 @@ func TestGaugeImpl_FileWriteError_CurrentBehavior(t *testing.T) {
 	}
 }
 
+func TestGaugeImpl_EmitJSON_Success(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "EmitJSON Test", "score": 85, "threshold": 75}`)
+
+	deps := defaultGaugeDeps(fs)
+	deps.Config = "config.json"
+	deps.Output = "/output.svg"
+	deps.EmitJSON = "/metadata.json"
+
+	err := gaugeImpl(deps)
+	if err != nil {
+		t.Fatalf("gaugeImpl() error = %v", err)
+	}
+
+	// Verify SVG was written
+	svg := fs.GetFileContent("/output.svg")
+	if !strings.Contains(svg, "<svg") {
+		t.Error("SVG output should be written")
+	}
+
+	// Verify JSON metadata was written
+	jsonOut := fs.GetFileContent("/metadata.json")
+	if !strings.Contains(jsonOut, `"score": 85`) {
+		t.Error("JSON metadata should contain score")
+	}
+	if !strings.Contains(jsonOut, `"passed": true`) {
+		t.Error("JSON metadata should contain passed status")
+	}
+}
+
+func TestGaugeImpl_EmitJSON_WithBaseline(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "EmitJSON Test", "score": 85, "threshold": 75}`)
+	fs.SetFileContent("baseline.json", `{"title": "Baseline", "score": 80, "threshold": 75}`)
+
+	deps := defaultGaugeDeps(fs)
+	deps.Config = "config.json"
+	deps.Output = "/output.svg"
+	deps.EmitJSON = "/metadata.json"
+	deps.Compare = "baseline.json"
+
+	err := gaugeImpl(deps)
+	if err != nil {
+		t.Fatalf("gaugeImpl() error = %v", err)
+	}
+
+	// Verify JSON metadata includes delta
+	jsonOut := fs.GetFileContent("/metadata.json")
+	if !strings.Contains(jsonOut, `"delta": 5`) {
+		t.Errorf("JSON metadata should contain delta, got: %s", jsonOut)
+	}
+	if !strings.Contains(jsonOut, `"baseline": 80`) {
+		t.Errorf("JSON metadata should contain baseline, got: %s", jsonOut)
+	}
+}
+
+func TestGaugeImpl_EmitJSON_CreateError(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Test", "score": 85, "threshold": 75}`)
+	fs.SetError("create:/metadata.json", errors.New("permission denied"))
+
+	deps := defaultGaugeDeps(fs)
+	deps.Config = "config.json"
+	deps.Output = "/output.svg"
+	deps.EmitJSON = "/metadata.json"
+
+	err := gaugeImpl(deps)
+	if err == nil {
+		t.Fatal("expected error when emit-json file creation fails")
+	}
+	if !strings.Contains(err.Error(), "creating emit-json file") {
+		t.Errorf("error should mention creating emit-json file, got: %v", err)
+	}
+}
+
+func TestGaugeImpl_EmitJSON_CloseError(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Test", "score": 85, "threshold": 75}`)
+	fs.SetError("close:/metadata.json", errors.New("disk full"))
+
+	deps := defaultGaugeDeps(fs)
+	deps.Config = "config.json"
+	deps.Output = "/output.svg"
+	deps.EmitJSON = "/metadata.json"
+
+	err := gaugeImpl(deps)
+	if err == nil {
+		t.Fatal("expected error when emit-json file close fails")
+	}
+	if !strings.Contains(err.Error(), "closing emit-json file") {
+		t.Errorf("error should mention closing emit-json file, got: %v", err)
+	}
+}
+
 func TestGaugeImpl_VerboseOutput(t *testing.T) {
 	fs := NewMockFileSystem()
 	fs.SetFileContent("config.json", `{"title": "Verbose Test", "score": 85, "threshold": 75}`)

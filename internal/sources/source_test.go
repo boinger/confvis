@@ -107,26 +107,22 @@ func TestNames_Multiple(t *testing.T) {
 	origRegistry := Registry
 	defer func() { Registry = origRegistry }()
 
-	// Create fresh registry with multiple sources
+	// Create fresh registry with multiple sources (inserted out of order)
 	Registry = make(map[string]Source)
+	Registry["gamma"] = &mockSource{name: "gamma"}
 	Registry["alpha"] = &mockSource{name: "alpha"}
 	Registry["beta"] = &mockSource{name: "beta"}
-	Registry["gamma"] = &mockSource{name: "gamma"}
 
 	got := Names()
 	if len(got) != 3 {
 		t.Errorf("Names() returned %d names, want 3", len(got))
 	}
 
-	// Check all names are present (order may vary)
-	found := make(map[string]bool)
-	for _, name := range got {
-		found[name] = true
-	}
-
-	for _, expected := range []string{"alpha", "beta", "gamma"} {
-		if !found[expected] {
-			t.Errorf("Names() missing %q", expected)
+	// Verify names are sorted alphabetically
+	expected := []string{"alpha", "beta", "gamma"}
+	for i, name := range expected {
+		if got[i] != name {
+			t.Errorf("Names()[%d] = %q, want %q (should be sorted)", i, got[i], name)
 		}
 	}
 }
