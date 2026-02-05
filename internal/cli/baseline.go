@@ -99,10 +99,10 @@ func init() {
 // bindBaselineFlags binds baseline command flags to viper configuration keys.
 func bindBaselineFlags(cmd *cobra.Command) {
 	if cmd.Flags().Lookup("ref") != nil {
-		_ = viper.BindPFlag("baseline.ref", cmd.Flags().Lookup("ref"))
+		must(viper.BindPFlag("baseline.ref", cmd.Flags().Lookup("ref")))
 	}
 	if cmd.Flags().Lookup("file") != nil {
-		_ = viper.BindPFlag("baseline.file", cmd.Flags().Lookup("file"))
+		must(viper.BindPFlag("baseline.file", cmd.Flags().Lookup("file")))
 	}
 }
 

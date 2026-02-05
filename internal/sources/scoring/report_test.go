@@ -55,6 +55,20 @@ func TestBuildReport_EmptyFactors(t *testing.T) {
 	}
 }
 
+func TestBuildReport_PanicsOnInvalidReport(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("BuildReport should panic on invalid report")
+		}
+	}()
+
+	// Factor with score > 100 should trigger validation panic
+	factors := []confidence.Factor{
+		{Name: "Bad Factor", Score: 150, Weight: 50},
+	}
+	BuildReport("Test", "testsource", 75, factors)
+}
+
 func TestBuildReport_PerfectScore(t *testing.T) {
 	factors := []confidence.Factor{
 		{Name: "Factor1", Score: 100, Weight: 50},

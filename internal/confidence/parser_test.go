@@ -493,6 +493,33 @@ factors:
 	}
 }
 
+func TestIsKnownFormatExtension(t *testing.T) {
+	tests := []struct {
+		path string
+		want bool
+	}{
+		{"config.json", true},
+		{"config.yaml", true},
+		{"config.yml", true},
+		{"config.JSON", true},
+		{"config.YAML", true},
+		{"config.YML", true},
+		{"config.txt", false},
+		{"config", false},
+		{"config.toml", false},
+		{"config.xml", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			got := IsKnownFormatExtension(tt.path)
+			if got != tt.want {
+				t.Errorf("IsKnownFormatExtension(%q) = %v, want %v", tt.path, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestDetectFormat(t *testing.T) {
 	tests := []struct {
 		path string
@@ -588,6 +615,43 @@ func TestParseFileWithFormat_AutoDetect(t *testing.T) {
 
 	if report.ScoreValue() != 85 {
 		t.Errorf("Score = %d, want %d", report.ScoreValue(), 85)
+	}
+}
+
+func TestParseFileWithFormat_UnknownExtensionError(t *testing.T) {
+	// Files with unrecognized extensions that fail to parse should mention the extension
+	tmpDir := t.TempDir()
+	txtPath := filepath.Join(tmpDir, "report.txt")
+	if err := os.WriteFile(txtPath, []byte("not valid json"), 0o644); err != nil {
+		t.Fatalf("writing temp file: %v", err)
+	}
+
+	_, err := ParseFileWithFormat(txtPath, FormatAuto)
+	if err == nil {
+		t.Fatal("expected error for invalid content with unknown extension")
+	}
+	if !strings.Contains(err.Error(), "unrecognized extension") {
+		t.Errorf("error = %q, want to contain 'unrecognized extension'", err.Error())
+	}
+	if !strings.Contains(err.Error(), ".json, .yaml, or .yml") {
+		t.Errorf("error = %q, want to list recognized extensions", err.Error())
+	}
+}
+
+func TestParseFileWithFormat_KnownExtensionError(t *testing.T) {
+	// Files with known extensions that fail to parse should NOT mention extension
+	tmpDir := t.TempDir()
+	jsonPath := filepath.Join(tmpDir, "report.json")
+	if err := os.WriteFile(jsonPath, []byte("not valid json"), 0o644); err != nil {
+		t.Fatalf("writing temp file: %v", err)
+	}
+
+	_, err := ParseFileWithFormat(jsonPath, FormatAuto)
+	if err == nil {
+		t.Fatal("expected error for invalid JSON")
+	}
+	if strings.Contains(err.Error(), "unrecognized extension") {
+		t.Errorf("error for known .json extension should not mention 'unrecognized extension': %q", err.Error())
 	}
 }
 

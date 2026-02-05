@@ -1,6 +1,7 @@
 package scoring
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/boinger/confvis/internal/confidence"
@@ -8,6 +9,7 @@ import (
 
 // BuildReport creates a confidence.Report with standard fields.
 // This eliminates duplicated report building code across sources.
+// Panics if the constructed report fails validation, which indicates a programming error.
 func BuildReport(title, sourceName string, threshold int, factors []confidence.Factor) *confidence.Report {
 	report := &confidence.Report{
 		Title:       title,
@@ -18,5 +20,10 @@ func BuildReport(title, sourceName string, threshold int, factors []confidence.F
 	}
 	score := report.CalculateScore()
 	report.Score = &score
+
+	if err := confidence.Validate(report); err != nil {
+		panic(fmt.Sprintf("BuildReport produced invalid report: %v", err))
+	}
+
 	return report
 }

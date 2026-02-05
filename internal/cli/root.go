@@ -35,3 +35,10 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
 	rootCmd.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "suppress non-error output")
 }
+
+// must panics if err is non-nil. Used for init-time binding that must not fail.
+func must(err error) {
+	if err != nil {
+		panic(err)
+	}
+}

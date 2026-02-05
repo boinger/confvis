@@ -49,6 +49,7 @@ const (
 var (
 	errOwnerRepoRequired = errors.New("owner and repo are required")
 	errPRRequired        = errors.New("PR number is required")
+	errNoPRInEvent       = errors.New("no PR number found in event")
 )
 
 // GitHubClient is an HTTP client for the GitHub Checks API.
@@ -310,25 +311,32 @@ func (c *GitHubClient) FindComment(ctx context.Context, opts CommentOptions) (*C
 		return nil, errPRRequired
 	}
 
-	endpoint := fmt.Sprintf(issueCommentsEndpoint, c.baseURL, opts.Owner, opts.Repo, opts.PR)
+	baseEndpoint := fmt.Sprintf(issueCommentsEndpoint, c.baseURL, opts.Owner, opts.Repo, opts.PR)
 
-	respBody, err := c.doRequest(ctx, http.MethodGet, endpoint, nil, http.StatusOK)
-	if err != nil {
-		return nil, err
-	}
+	for page := 1; ; page++ {
+		endpoint := fmt.Sprintf("%s?per_page=100&page=%d", baseEndpoint, page)
 
-	var comments issueCommentsResponse
-	if err := json.Unmarshal(respBody, &comments); err != nil {
-		return nil, fmt.Errorf(errDecodingResponse, err)
-	}
+		respBody, err := c.doRequest(ctx, http.MethodGet, endpoint, nil, http.StatusOK)
+		if err != nil {
+			return nil, err
+		}
 
-	// Find comment with our marker
-	for _, comment := range comments {
-		if strings.Contains(comment.Body, CommentMarker) {
-			return &CommentResponse{
-				ID:   comment.ID,
-				Body: comment.Body,
-			}, nil
+		var comments issueCommentsResponse
+		if err := json.Unmarshal(respBody, &comments); err != nil {
+			return nil, fmt.Errorf(errDecodingResponse, err)
+		}
+
+		for _, comment := range comments {
+			if strings.Contains(comment.Body, CommentMarker) {
+				return &CommentResponse{
+					ID:   comment.ID,
+					Body: comment.Body,
+				}, nil
+			}
+		}
+
+		if len(comments) < 100 {
+			break
 		}
 	}
 
@@ -406,26 +414,33 @@ func (c *GitHubClient) FindAllConfvisComments(ctx context.Context, opts CommentO
 		return nil, errPRRequired
 	}
 
-	endpoint := fmt.Sprintf(issueCommentsEndpoint, c.baseURL, opts.Owner, opts.Repo, opts.PR)
+	baseEndpoint := fmt.Sprintf(issueCommentsEndpoint, c.baseURL, opts.Owner, opts.Repo, opts.PR)
 
-	respBody, err := c.doRequest(ctx, http.MethodGet, endpoint, nil, http.StatusOK)
-	if err != nil {
-		return nil, err
-	}
-
-	var comments issueCommentsResponse
-	if err := json.Unmarshal(respBody, &comments); err != nil {
-		return nil, fmt.Errorf(errDecodingResponse, err)
-	}
-
-	// Find all comments with our marker
 	var result []CommentResponse
-	for _, comment := range comments {
-		if strings.Contains(comment.Body, CommentMarker) {
-			result = append(result, CommentResponse{
-				ID:   comment.ID,
-				Body: comment.Body,
-			})
+	for page := 1; ; page++ {
+		endpoint := fmt.Sprintf("%s?per_page=100&page=%d", baseEndpoint, page)
+
+		respBody, err := c.doRequest(ctx, http.MethodGet, endpoint, nil, http.StatusOK)
+		if err != nil {
+			return nil, err
+		}
+
+		var comments issueCommentsResponse
+		if err := json.Unmarshal(respBody, &comments); err != nil {
+			return nil, fmt.Errorf(errDecodingResponse, err)
+		}
+
+		for _, comment := range comments {
+			if strings.Contains(comment.Body, CommentMarker) {
+				result = append(result, CommentResponse{
+					ID:   comment.ID,
+					Body: comment.Body,
+				})
+			}
+		}
+
+		if len(comments) < 100 {
+			break
 		}
 	}
 
@@ -448,8 +463,11 @@ func LoadGitHubEnvWithPR() (*GitHubEnv, int, error) {
 
 	prNumber, parseErr := parsePRNumberFromEvent(eventPath)
 	if parseErr != nil {
-		// Not an error - just means we're not in a PR context
-		return env, 0, nil //nolint:nilerr // parse error means no PR number, which is valid
+		if errors.Is(parseErr, errNoPRInEvent) {
+			return env, 0, nil
+		}
+		fmt.Fprintf(os.Stderr, "Warning: failed to parse PR from event file %s: %v\n", eventPath, parseErr)
+		return env, 0, nil
 	}
 
 	return env, prNumber, nil
@@ -486,5 +504,5 @@ func parsePRNumberFromEvent(eventPath string) (int, error) {
 		return event.Number, nil
 	}
 
-	return 0, fmt.Errorf("no PR number found in event")
+	return 0, errNoPRInEvent
 }

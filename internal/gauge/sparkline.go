@@ -99,9 +99,9 @@ func calculateSparklineCoords(scores []int, x, y, width, height int) ([]int, []i
 	xs := make([]int, len(scores))
 	ys := make([]int, len(scores))
 
-	step := float64(width) / float64(len(scores)-1)
-	if len(scores) == 1 {
-		step = 0
+	var step float64
+	if len(scores) > 1 {
+		step = float64(width) / float64(len(scores)-1)
 	}
 
 	for i, score := range scores {

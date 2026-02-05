@@ -286,12 +286,24 @@ func TestParseConfigsWithWeights_NegativeWeight(t *testing.T) {
 }
 
 func TestParseConfigsWithWeights_InvalidWeight(t *testing.T) {
-	// Non-numeric suffix should be treated as part of path (and fail on file not found)
+	// Non-numeric suffix after colon should return an explicit invalid weight error
 	_, err := parseConfigsWithWeights([]string{"../../testdata/sample.json:notanumber"})
-	// Since "notanumber" is not a valid int, it stays part of the path
-	// and the file "../../testdata/sample.json:notanumber" doesn't exist
 	if err == nil {
-		t.Error("expected error for invalid (non-existent) path")
+		t.Error("expected error for invalid weight")
+	}
+	if !strings.Contains(err.Error(), "invalid weight") {
+		t.Errorf("error = %q, want to contain 'invalid weight'", err.Error())
+	}
+}
+
+func TestParseConfigsWithWeights_GlobNoMatches(t *testing.T) {
+	// Glob pattern with metacharacters that matches nothing should return an error
+	_, err := parseConfigsWithWeights([]string{"../../testdata/nonexistent_*.json"})
+	if err == nil {
+		t.Error("expected error for glob pattern with no matches")
+	}
+	if !strings.Contains(err.Error(), "no files matched glob pattern") {
+		t.Errorf("error = %q, want to contain 'no files matched glob pattern'", err.Error())
 	}
 }
 

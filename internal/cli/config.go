@@ -49,27 +49,27 @@ func initConfig() {
 // This allows config file values to be overridden by environment variables and flags.
 func bindGaugeFlags(cmd *cobra.Command) {
 	// Bind flags to viper keys
-	_ = viper.BindPFlag("gauge.width", cmd.Flags().Lookup("width"))
-	_ = viper.BindPFlag("gauge.height", cmd.Flags().Lookup("height"))
-	_ = viper.BindPFlag("gauge.style", cmd.Flags().Lookup("style"))
-	_ = viper.BindPFlag("gauge.dark", cmd.Flags().Lookup("dark"))
-	_ = viper.BindPFlag("gauge.fail_under", cmd.Flags().Lookup("fail-under"))
-	_ = viper.BindPFlag("gauge.badge_type", cmd.Flags().Lookup("badge-type"))
-	_ = viper.BindPFlag("gauge.history_file", cmd.Flags().Lookup("history-file"))
-	_ = viper.BindPFlag("gauge.history_count", cmd.Flags().Lookup("history-count"))
-	_ = viper.BindPFlag("gauge.history_ref", cmd.Flags().Lookup("history-ref"))
-	_ = viper.BindPFlag("gauge.history_auto", cmd.Flags().Lookup("history-auto"))
-	_ = viper.BindPFlag("gauge.green_above", cmd.Flags().Lookup("green-above"))
-	_ = viper.BindPFlag("gauge.yellow_above", cmd.Flags().Lookup("yellow-above"))
-	_ = viper.BindPFlag("gauge.compare_baseline", cmd.Flags().Lookup("compare-baseline"))
-	_ = viper.BindPFlag("gauge.baseline_ref", cmd.Flags().Lookup("baseline-ref"))
-	_ = viper.BindPFlag("gauge.baseline_file", cmd.Flags().Lookup("baseline-file"))
+	must(viper.BindPFlag("gauge.width", cmd.Flags().Lookup("width")))
+	must(viper.BindPFlag("gauge.height", cmd.Flags().Lookup("height")))
+	must(viper.BindPFlag("gauge.style", cmd.Flags().Lookup("style")))
+	must(viper.BindPFlag("gauge.dark", cmd.Flags().Lookup("dark")))
+	must(viper.BindPFlag("gauge.fail_under", cmd.Flags().Lookup("fail-under")))
+	must(viper.BindPFlag("gauge.badge_type", cmd.Flags().Lookup("badge-type")))
+	must(viper.BindPFlag("gauge.history_file", cmd.Flags().Lookup("history-file")))
+	must(viper.BindPFlag("gauge.history_count", cmd.Flags().Lookup("history-count")))
+	must(viper.BindPFlag("gauge.history_ref", cmd.Flags().Lookup("history-ref")))
+	must(viper.BindPFlag("gauge.history_auto", cmd.Flags().Lookup("history-auto")))
+	must(viper.BindPFlag("gauge.green_above", cmd.Flags().Lookup("green-above")))
+	must(viper.BindPFlag("gauge.yellow_above", cmd.Flags().Lookup("yellow-above")))
+	must(viper.BindPFlag("gauge.compare_baseline", cmd.Flags().Lookup("compare-baseline")))
+	must(viper.BindPFlag("gauge.baseline_ref", cmd.Flags().Lookup("baseline-ref")))
+	must(viper.BindPFlag("gauge.baseline_file", cmd.Flags().Lookup("baseline-file")))
 }
 
 // bindFetchFlags binds fetch command flags to viper configuration keys.
 func bindFetchFlags(cmd *cobra.Command) {
-	_ = viper.BindPFlag("fetch.timeout", cmd.Flags().Lookup("timeout"))
-	_ = viper.BindPFlag("fetch.threshold", cmd.Flags().Lookup("threshold"))
+	must(viper.BindPFlag("fetch.timeout", cmd.Flags().Lookup("timeout")))
+	must(viper.BindPFlag("fetch.threshold", cmd.Flags().Lookup("threshold")))
 }
 
 // getGaugeWidth returns the gauge width from config/env/flag with defaults.

@@ -83,10 +83,10 @@ func init() {
 }
 
 func bindCommentGitHubFlags(cmd *cobra.Command) {
-	_ = viper.BindPFlag("comment.github.owner", cmd.Flags().Lookup("owner"))
-	_ = viper.BindPFlag("comment.github.repo", cmd.Flags().Lookup("repo"))
-	_ = viper.BindPFlag("comment.github.mode", cmd.Flags().Lookup("mode"))
-	_ = viper.BindPFlag("comment.github.api_url", cmd.Flags().Lookup("api-url"))
+	must(viper.BindPFlag("comment.github.owner", cmd.Flags().Lookup("owner")))
+	must(viper.BindPFlag("comment.github.repo", cmd.Flags().Lookup("repo")))
+	must(viper.BindPFlag("comment.github.mode", cmd.Flags().Lookup("mode")))
+	must(viper.BindPFlag("comment.github.api_url", cmd.Flags().Lookup("api-url")))
 }
 
 // CommentGitHubDeps contains dependencies for the comment github command.
@@ -258,8 +258,11 @@ func resolveCommentOptions(deps *CommentGitHubDeps) (checks.CommentOptions, *che
 
 func applyCommentGitHubEnv(deps *CommentGitHubDeps, opts checks.CommentOptions, token, apiURL string) (checks.CommentOptions, string, string, error) {
 	env, prNumber, err := deps.LoadGitHubEnvPR()
-	if err != nil && token == "" {
-		return opts, token, apiURL, fmt.Errorf("loading GitHub environment: %w", err)
+	if err != nil {
+		if token == "" {
+			return opts, token, apiURL, fmt.Errorf("loading GitHub environment: %w", err)
+		}
+		_, _ = fmt.Fprintf(deps.Stderr, "Warning: loading GitHub environment: %v\n", err)
 	}
 
 	if env == nil {

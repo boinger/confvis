@@ -35,18 +35,26 @@ func ParseFileWithFormat(path string, format Format) (*Report, error) {
 	}
 
 	// Auto-detect format from extension
+	autoDetected := false
 	if format == FormatAuto {
 		format = DetectFormat(path)
+		autoDetected = true
 	}
 
 	report, err := ParseWithFormat(f, format)
 	if closeErr := f.Close(); closeErr != nil && err == nil {
 		return nil, fmt.Errorf("closing file: %w", closeErr)
 	}
+	if err != nil && autoDetected && !IsKnownFormatExtension(path) {
+		return nil, fmt.Errorf("parsing %q as %s (unrecognized extension; expected .json, .yaml, or .yml): %w",
+			path, format, err)
+	}
 	return report, err
 }
 
 // DetectFormat returns the format based on file extension.
+// Returns FormatJSON for .json files and unknown extensions.
+// Callers can use IsKnownFormatExtension to check if the extension was recognized.
 func DetectFormat(path string) Format {
 	ext := strings.ToLower(filepath.Ext(path))
 	switch ext {
@@ -54,6 +62,17 @@ func DetectFormat(path string) Format {
 		return FormatYAML
 	default:
 		return FormatJSON
+	}
+}
+
+// IsKnownFormatExtension returns true if the file extension maps to a recognized format.
+func IsKnownFormatExtension(path string) bool {
+	ext := strings.ToLower(filepath.Ext(path))
+	switch ext {
+	case ".json", ".yaml", ".yml":
+		return true
+	default:
+		return false
 	}
 }
 

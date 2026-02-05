@@ -83,10 +83,10 @@ func init() {
 
 // bindCheckFlags binds check command flags to viper configuration keys.
 func bindCheckFlags(cmd *cobra.Command) {
-	_ = viper.BindPFlag("check.github.owner", cmd.Flags().Lookup("owner"))
-	_ = viper.BindPFlag("check.github.repo", cmd.Flags().Lookup("repo"))
-	_ = viper.BindPFlag("check.github.name", cmd.Flags().Lookup("name"))
-	_ = viper.BindPFlag("check.github.api_url", cmd.Flags().Lookup("api-url"))
+	must(viper.BindPFlag("check.github.owner", cmd.Flags().Lookup("owner")))
+	must(viper.BindPFlag("check.github.repo", cmd.Flags().Lookup("repo")))
+	must(viper.BindPFlag("check.github.name", cmd.Flags().Lookup("name")))
+	must(viper.BindPFlag("check.github.api_url", cmd.Flags().Lookup("api-url")))
 }
 
 // CheckGitHubDeps contains dependencies for the check github command.

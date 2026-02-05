@@ -1,43 +1,317 @@
-<style scoped>
-{{template "base-styles"}}
-
+<style>
     .confvis-dashboard {
+        --bg-primary: #ffffff;
+        --bg-secondary: #f6f8fa;
+        --text-primary: #24292f;
+        --text-muted: #57606a;
+        --border-color: #d0d7de;
+        --success-color: #1a7f37;
+        --success-bg: #dafbe1;
+        --warning-color: #9a6700;
+        --warning-bg: #fff8c5;
+        --danger-color: #cf222e;
+        --danger-bg: #ffebe9;
+        --track-color: #e1e4e8;
         max-width: 1000px;
         margin: 0 auto;
         padding: 24px;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
+        line-height: 1.5;
+        box-sizing: border-box;
+    }
+
+    .confvis-dashboard.dark {
+        --bg-primary: #0d1117;
+        --bg-secondary: #161b22;
+        --text-primary: #e6edf3;
+        --text-muted: #8b949e;
+        --border-color: #30363d;
+        --success-color: #3fb950;
+        --success-bg: #238636;
+        --warning-color: #d29922;
+        --warning-bg: #9e6a03;
+        --danger-color: #f85149;
+        --danger-bg: #da3633;
+        --track-color: #30363d;
     }
 
     .confvis-dashboard-compact {
         max-width: 700px;
     }
 
-{{template "multi-dashboard-styles"}}
+    .confvis-dashboard *,
+    .confvis-dashboard *::before,
+    .confvis-dashboard *::after {
+        box-sizing: border-box;
+    }
+
+    .confvis-dashboard .confvis-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 24px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .confvis-dashboard .confvis-title {
+        font-size: 24px;
+        font-weight: 600;
+        margin: 0;
+        padding: 0;
+    }
+
+    .confvis-dashboard .confvis-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 12px;
+        border-radius: 16px;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .confvis-dashboard .confvis-badge-pass {
+        background-color: var(--success-bg);
+        color: var(--success-color);
+    }
+
+    .confvis-dashboard .confvis-badge-fail {
+        background-color: var(--danger-bg);
+        color: var(--danger-color);
+    }
+
+    .confvis-dashboard .confvis-badge-sm {
+        font-size: 10px;
+        padding: 2px 6px;
+        margin-left: 8px;
+        vertical-align: middle;
+    }
+
+    .confvis-dashboard .confvis-gauge-container {
+        display: flex;
+        justify-content: center;
+        margin: 16px 0;
+    }
+
+    .confvis-dashboard .confvis-factor-name {
+        font-weight: 500;
+    }
+
+    .confvis-dashboard .confvis-factor-link {
+        color: var(--text-primary);
+        text-decoration: none;
+    }
+
+    .confvis-dashboard .confvis-factor-link:hover {
+        text-decoration: underline;
+        color: var(--success-color);
+    }
+
+    .confvis-dashboard .confvis-factor-failed {
+        background-color: var(--danger-bg);
+        border-radius: 4px;
+        padding: 2px 4px;
+        margin: -2px -4px;
+    }
+
+    .confvis-dashboard .confvis-factor-threshold {
+        color: var(--text-muted);
+        font-size: 12px;
+    }
+
+    .confvis-dashboard .confvis-aggregate-section {
+        background-color: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        padding: 24px;
+        margin-bottom: 32px;
+    }
+
+    .confvis-dashboard .confvis-aggregate-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 16px;
+    }
+
+    .confvis-dashboard .confvis-aggregate-title {
+        font-size: 18px;
+        font-weight: 600;
+        margin: 0;
+        padding: 0;
+    }
+
+    .confvis-dashboard .confvis-reports-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 16px;
+    }
+
+    .confvis-dashboard .confvis-report-card {
+        background-color: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        padding: 16px;
+    }
+
+    .confvis-dashboard .confvis-report-card.confvis-report-failed {
+        border-color: var(--danger-color);
+        border-width: 2px;
+    }
+
+    .confvis-dashboard .confvis-report-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 12px;
+    }
+
+    .confvis-dashboard .confvis-report-title {
+        font-size: 16px;
+        font-weight: 600;
+    }
+
+    .confvis-dashboard .confvis-report-path {
+        font-size: 12px;
+        color: var(--text-muted);
+        margin-top: 4px;
+        word-break: break-all;
+    }
+
+    .confvis-dashboard .confvis-report-weight {
+        font-size: 12px;
+        color: var(--text-muted);
+        background-color: var(--bg-primary);
+        padding: 2px 8px;
+        border-radius: 12px;
+        white-space: nowrap;
+    }
+
+    .confvis-dashboard .confvis-report-gauge {
+        display: flex;
+        justify-content: center;
+        margin: 12px 0;
+    }
+
+    .confvis-dashboard .confvis-report-gauge svg {
+        max-width: 160px;
+        height: auto;
+    }
+
+    .confvis-dashboard .confvis-factors-list {
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid var(--border-color);
+    }
+
+    .confvis-dashboard .confvis-factor-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 4px 0;
+        font-size: 14px;
+    }
+
+    .confvis-dashboard .confvis-factor-score {
+        color: var(--text-muted);
+    }
+
+    .confvis-dashboard .confvis-section-title {
+        font-size: 18px;
+        font-weight: 600;
+        margin-bottom: 16px;
+    }
+
+    .confvis-dashboard .confvis-component-breakdown {
+        margin-top: 16px;
+        padding-top: 16px;
+        border-top: 1px solid var(--border-color);
+    }
+
+    .confvis-dashboard .confvis-component-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 4px 0;
+        font-size: 13px;
+    }
+
+    .confvis-dashboard .confvis-component-name {
+        font-weight: 500;
+    }
+
+    .confvis-dashboard .confvis-component-meta {
+        color: var(--text-muted);
+        display: flex;
+        gap: 12px;
+    }
 </style>
 
 <div class="confvis-dashboard{{if .DarkMode}} dark{{end}}{{if eq (len .Reports) 2}} confvis-dashboard-compact{{end}}">
-    <header class="header">
-        <h1 class="title">Aggregate Confidence Report</h1>
-        <span class="badge {{if .Aggregate.Passed}}badge-pass{{else}}badge-fail{{end}}">
+    <header class="confvis-header">
+        <h1 class="confvis-title">Aggregate Confidence Report</h1>
+        <span class="confvis-badge {{if .Aggregate.Passed}}confvis-badge-pass{{else}}confvis-badge-fail{{end}}">
             {{if .Aggregate.Passed}}Pass{{else}}Fail{{end}}
         </span>
     </header>
 
-    <section class="aggregate-section">
-        <div class="aggregate-header">
-            <h2 class="aggregate-title">Overall Score</h2>
-            <span class="report-weight">{{len .Reports}} reports</span>
+    <section class="confvis-aggregate-section">
+        <div class="confvis-aggregate-header">
+            <h2 class="confvis-aggregate-title">Overall Score</h2>
+            <span class="confvis-report-weight">{{len .Reports}} reports</span>
         </div>
-        <div class="gauge-container">
+        <div class="confvis-gauge-container">
             {{.AggregateSVG}}
         </div>
-        {{template "component-breakdown" .Reports}}
+        <div class="confvis-component-breakdown">
+            {{range .Reports}}
+            <div class="confvis-component-row">
+                <span class="confvis-component-name">
+                    {{.Report.Title}}
+                    <span class="confvis-badge confvis-badge-sm {{if .Report.Passed}}confvis-badge-pass{{else}}confvis-badge-fail{{end}}">
+                        {{if .Report.Passed}}Pass{{else}}Fail{{end}}
+                    </span>
+                </span>
+                <span class="confvis-component-meta">
+                    <span>score: {{.Report.ScoreValue}}</span>
+                    <span>weight: {{.Weight}}</span>
+                </span>
+            </div>
+            {{end}}
+        </div>
     </section>
 
-    <h2 class="section-title">Components</h2>
-    <div class="reports-grid">
+    <h2 class="confvis-section-title">Components</h2>
+    <div class="confvis-reports-grid">
         {{range .Reports}}
-        {{template "report-card" .}}
+        <div class="confvis-report-card{{if not .Report.Passed}} confvis-report-failed{{end}}">
+            <div class="confvis-report-card-header">
+                <div>
+                    <div class="confvis-report-title">
+                        {{.Report.Title}}
+                        <span class="confvis-badge confvis-badge-sm {{if .Report.Passed}}confvis-badge-pass{{else}}confvis-badge-fail{{end}}">
+                            {{if .Report.Passed}}Pass{{else}}Fail{{end}}
+                        </span>
+                    </div>
+                    <div class="confvis-report-path">{{.Path}}</div>
+                </div>
+                <span class="confvis-report-weight">weight: {{.Weight}}</span>
+            </div>
+            <div class="confvis-report-gauge">
+                {{.GaugeSVG}}
+            </div>
+            {{if .Report.Factors}}
+            <div class="confvis-factors-list">
+                {{range .Report.Factors}}
+                <div class="confvis-factor-row{{if and .Threshold (lt .Score .Threshold)}} confvis-factor-failed{{end}}">
+                    <span class="confvis-factor-name">{{if .URL}}<a href="{{.URL}}" class="confvis-factor-link" target="_blank" rel="noopener noreferrer">{{.Name}}</a>{{else}}{{.Name}}{{end}}</span>
+                    <span class="confvis-factor-score">{{.Score}}%{{if .Threshold}} <span class="confvis-factor-threshold">(min: {{.Threshold}}%)</span>{{end}}</span>
+                </div>
+                {{end}}
+            </div>
+            {{end}}
+        </div>
         {{end}}
     </div>
 </div>

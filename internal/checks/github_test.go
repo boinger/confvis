@@ -654,6 +654,111 @@ func TestGitHubClient_FindAllConfvisComments(t *testing.T) {
 	}
 }
 
+func TestGitHubClient_FindComment_Pagination(t *testing.T) {
+	requestCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		w.WriteHeader(http.StatusOK)
+		if requestCount == 1 {
+			// Return exactly 100 non-confvis comments (triggers next page)
+			var comments []struct {
+				ID   int64  `json:"id"`
+				Body string `json:"body"`
+			}
+			for i := 0; i < 100; i++ {
+				comments = append(comments, struct {
+					ID   int64  `json:"id"`
+					Body string `json:"body"`
+				}{int64(i + 1), "regular comment"})
+			}
+			if err := json.NewEncoder(w).Encode(comments); err != nil {
+				t.Errorf("encoding response: %v", err)
+			}
+		} else {
+			// Second page has the confvis comment
+			_, _ = w.Write([]byte(`[{"id": 999, "body": "<!-- confvis-comment -->\nFound it"}]`))
+		}
+	}))
+	defer server.Close()
+
+	client := NewGitHubClientWithHTTP(
+		GitHubClientConfig{BaseURL: server.URL, Token: "test-token"},
+		server.Client(),
+	)
+
+	resp, err := client.FindComment(context.Background(), CommentOptions{
+		Owner: "owner",
+		Repo:  "repo",
+		PR:    1,
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp == nil {
+		t.Fatal("expected to find comment on page 2")
+	}
+	if resp.ID != 999 {
+		t.Errorf("ID = %d, want 999", resp.ID)
+	}
+	if requestCount != 2 {
+		t.Errorf("expected 2 page requests, got %d", requestCount)
+	}
+}
+
+func TestGitHubClient_FindAllConfvisComments_Pagination(t *testing.T) {
+	requestCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		w.WriteHeader(http.StatusOK)
+		if requestCount == 1 {
+			// First page: 100 comments, one is confvis
+			var comments []struct {
+				ID   int64  `json:"id"`
+				Body string `json:"body"`
+			}
+			for i := 0; i < 99; i++ {
+				comments = append(comments, struct {
+					ID   int64  `json:"id"`
+					Body string `json:"body"`
+				}{int64(i + 1), "regular comment"})
+			}
+			comments = append(comments, struct {
+				ID   int64  `json:"id"`
+				Body string `json:"body"`
+			}{100, "<!-- confvis-comment -->\nFirst"})
+			if err := json.NewEncoder(w).Encode(comments); err != nil {
+				t.Errorf("encoding response: %v", err)
+			}
+		} else {
+			// Second page: another confvis comment
+			_, _ = w.Write([]byte(`[{"id": 200, "body": "<!-- confvis-comment -->\nSecond"}]`))
+		}
+	}))
+	defer server.Close()
+
+	client := NewGitHubClientWithHTTP(
+		GitHubClientConfig{BaseURL: server.URL, Token: "test-token"},
+		server.Client(),
+	)
+
+	comments, err := client.FindAllConfvisComments(context.Background(), CommentOptions{
+		Owner: "owner",
+		Repo:  "repo",
+		PR:    1,
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(comments) != 2 {
+		t.Errorf("got %d confvis comments, want 2 across pages", len(comments))
+	}
+	if requestCount != 2 {
+		t.Errorf("expected 2 page requests, got %d", requestCount)
+	}
+}
+
 func TestLoadGitHubEnvWithPR(t *testing.T) {
 	t.Run("from pull_request event", func(t *testing.T) {
 		// Create a temporary event file
@@ -718,6 +823,71 @@ func TestLoadGitHubEnvWithPR(t *testing.T) {
 
 		if env == nil {
 			t.Fatal("env is nil")
+		}
+		if prNumber != 0 {
+			t.Errorf("prNumber = %d, want 0", prNumber)
+		}
+	})
+
+	t.Run("unreadable event file warns but succeeds", func(t *testing.T) {
+		t.Setenv("GITHUB_TOKEN", "test-token")
+		t.Setenv("GITHUB_REPOSITORY", "owner/repo")
+		t.Setenv("GITHUB_EVENT_PATH", "/nonexistent/path/event.json")
+
+		env, prNumber, err := LoadGitHubEnvWithPR()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if env == nil {
+			t.Fatal("env should not be nil")
+		}
+		if prNumber != 0 {
+			t.Errorf("prNumber = %d, want 0", prNumber)
+		}
+	})
+
+	t.Run("invalid JSON event file warns but succeeds", func(t *testing.T) {
+		tmpFile := t.TempDir() + "/bad.json"
+		if err := writeFile(tmpFile, "not valid json"); err != nil {
+			t.Fatalf("failed to write event file: %v", err)
+		}
+
+		t.Setenv("GITHUB_TOKEN", "test-token")
+		t.Setenv("GITHUB_REPOSITORY", "owner/repo")
+		t.Setenv("GITHUB_EVENT_PATH", tmpFile)
+
+		env, prNumber, err := LoadGitHubEnvWithPR()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if env == nil {
+			t.Fatal("env should not be nil")
+		}
+		if prNumber != 0 {
+			t.Errorf("prNumber = %d, want 0", prNumber)
+		}
+	})
+
+	t.Run("valid event without PR fields returns zero silently", func(t *testing.T) {
+		eventJSON := `{"action": "completed"}`
+		tmpFile := t.TempDir() + "/event.json"
+		if err := writeFile(tmpFile, eventJSON); err != nil {
+			t.Fatalf("failed to write event file: %v", err)
+		}
+
+		t.Setenv("GITHUB_TOKEN", "test-token")
+		t.Setenv("GITHUB_REPOSITORY", "owner/repo")
+		t.Setenv("GITHUB_EVENT_PATH", tmpFile)
+
+		env, prNumber, err := LoadGitHubEnvWithPR()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if env == nil {
+			t.Fatal("env should not be nil")
 		}
 		if prNumber != 0 {
 			t.Errorf("prNumber = %d, want 0", prNumber)

@@ -234,9 +234,12 @@ func parseConfigsWithWeightsFS(fs FileSystem, configs []string) ([]reportWithWei
 		weight := 100
 
 		if idx := strings.LastIndex(cfg, ":"); idx > 0 {
-			// Check if it's a weight suffix (number) not a Windows drive letter
 			suffix := cfg[idx+1:]
-			if w, err := strconv.Atoi(suffix); err == nil {
+			if suffix != "" {
+				w, err := strconv.Atoi(suffix)
+				if err != nil {
+					return nil, fmt.Errorf("invalid weight %q in config %q: must be an integer", suffix, cfg)
+				}
 				path = cfg[:idx]
 				weight = w
 			}
@@ -248,8 +251,12 @@ func parseConfigsWithWeightsFS(fs FileSystem, configs []string) ([]reportWithWei
 			return nil, fmt.Errorf("invalid glob pattern %q: %w", path, err)
 		}
 
-		// If no glob matches, treat as literal path
+		// If no glob matches, treat as literal path — but error if the path
+		// contains glob metacharacters, since that means the pattern matched nothing.
 		if len(matches) == 0 {
+			if strings.ContainsAny(path, "*?[") {
+				return nil, fmt.Errorf("no files matched glob pattern %q", path)
+			}
 			matches = []string{path}
 		}
 

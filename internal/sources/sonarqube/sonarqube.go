@@ -3,6 +3,7 @@ package sonarqube
 import (
 	"context"
 	"fmt"
+	"os"
 	"strconv"
 	"time"
 
@@ -118,6 +119,7 @@ func (s *Source) measuresToFactors(measures *MeasuresResponse, client *Client, p
 		}
 		score, err := convertMetricValue(val, m.Kind)
 		if err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: skipping SonarQube metric %q (%s): %v\n", m.Key, m.Name, err)
 			continue
 		}
 		factors = append(factors, confidence.Factor{
@@ -136,16 +138,28 @@ func convertMetricValue(val string, kind metricKind) (int, error) {
 	switch kind {
 	case metricKindPercentage:
 		f, err := strconv.ParseFloat(val, 64)
-		return int(f), err
+		if err != nil {
+			return 0, err
+		}
+		return int(f), nil
 	case metricKindRating:
 		f, err := strconv.ParseFloat(val, 64)
-		return RatingToScore(f), err
+		if err != nil {
+			return 0, err
+		}
+		return RatingToScore(f), nil
 	case metricKindCount:
 		n, err := strconv.Atoi(val)
-		return CountToScore(n), err
+		if err != nil {
+			return 0, err
+		}
+		return CountToScore(n), nil
 	case metricKindDuplication:
 		f, err := strconv.ParseFloat(val, 64)
-		return DuplicationToScore(f), err
+		if err != nil {
+			return 0, err
+		}
+		return DuplicationToScore(f), nil
 	default:
 		return 0, fmt.Errorf("unknown metric kind: %d", kind)
 	}

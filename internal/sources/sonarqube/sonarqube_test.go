@@ -1,10 +1,14 @@
 package sonarqube
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -688,6 +692,67 @@ func TestConvertMetricValue(t *testing.T) {
 				t.Errorf("convertMetricValue(%q, %d) = %d, want %d", tt.val, tt.kind, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestSource_Fetch_InvalidMetricWarnsStderr(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := MeasuresResponse{
+			Component: ComponentMeasures{
+				Key:  "myproject",
+				Name: "My Project",
+				Measures: []Measure{
+					{Metric: "coverage", Value: "85.0"},          // Valid percentage
+					{Metric: "reliability_rating", Value: "abc"}, // Invalid - should warn and skip
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Errorf("encoding response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	// Capture stderr to verify warning
+	oldStderr := os.Stderr
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("creating pipe: %v", err)
+	}
+	os.Stderr = w
+
+	s := &Source{}
+	report, fetchErr := s.Fetch(context.Background(), sources.Options{
+		URL:     server.URL,
+		Project: "myproject",
+		Timeout: 5,
+	})
+
+	_ = w.Close()
+	os.Stderr = oldStderr
+
+	var stderrBuf bytes.Buffer
+	if _, copyErr := io.Copy(&stderrBuf, r); copyErr != nil {
+		t.Fatalf("reading stderr: %v", copyErr)
+	}
+
+	if fetchErr != nil {
+		t.Fatalf("Fetch() error = %v", fetchErr)
+	}
+
+	// Only coverage should be a factor (reliability_rating had invalid value)
+	if len(report.Factors) != 1 {
+		t.Errorf("len(Factors) = %d, want 1 (invalid metric should be skipped)", len(report.Factors))
+	}
+
+	// Should have warning on stderr
+	stderr := stderrBuf.String()
+	if !strings.Contains(stderr, "Warning: skipping SonarQube metric") {
+		t.Errorf("stderr = %q, want to contain warning about skipped metric", stderr)
+	}
+	if !strings.Contains(stderr, "reliability_rating") {
+		t.Errorf("stderr = %q, want to mention the metric key", stderr)
 	}
 }
 
