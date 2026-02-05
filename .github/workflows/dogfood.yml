@@ -32,6 +32,13 @@ jobs:
         run: |
           curl -sfL --proto =https https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
 
+      - name: Install GitLeaks
+        run: |
+          curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.18.4/gitleaks_8.18.4_linux_x64.tar.gz | tar -xz -C /usr/local/bin gitleaks
+
+      - name: Install Gosec
+        run: go install github.com/securego/gosec/v2/cmd/gosec@latest
+
       - name: Fetch Codecov metrics
         run: ./confvis fetch codecov -p boinger/confvis -o coverage.json
         env:
@@ -55,15 +62,25 @@ jobs:
         run: ./confvis fetch trivy -p . -o security.json
         continue-on-error: true
 
+      - name: Fetch GitLeaks metrics
+        run: ./confvis fetch gitleaks -p . -o gitleaks.json
+        continue-on-error: true
+
+      - name: Fetch Gosec metrics
+        run: ./confvis fetch gosec -p . -o gosec.json
+        continue-on-error: true
+
       - name: Aggregate confidence (with available sources)
         id: aggregate
         run: |
           # Build list of available config files
           CONFIGS=""
-          if [ -f coverage.json ]; then CONFIGS="$CONFIGS -c coverage.json:30"; fi
-          if [ -f quality.json ]; then CONFIGS="$CONFIGS -c quality.json:30"; fi
-          if [ -f ci.json ]; then CONFIGS="$CONFIGS -c ci.json:20"; fi
-          if [ -f security.json ]; then CONFIGS="$CONFIGS -c security.json:20"; fi
+          if [ -f coverage.json ]; then CONFIGS="$CONFIGS -c coverage.json:25"; fi
+          if [ -f quality.json ]; then CONFIGS="$CONFIGS -c quality.json:25"; fi
+          if [ -f ci.json ]; then CONFIGS="$CONFIGS -c ci.json:15"; fi
+          if [ -f security.json ]; then CONFIGS="$CONFIGS -c security.json:15"; fi
+          if [ -f gitleaks.json ]; then CONFIGS="$CONFIGS -c gitleaks.json:10"; fi
+          if [ -f gosec.json ]; then CONFIGS="$CONFIGS -c gosec.json:10"; fi
 
           if [ -z "$CONFIGS" ]; then
             echo "No metric files available, skipping aggregation"

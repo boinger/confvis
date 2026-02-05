@@ -21,7 +21,7 @@ type Fetcher interface {
 
 // Environment variable names for configuration.
 const (
-	EnvToken  = "SNYK_TOKEN"
+	EnvToken  = "SNYK_TOKEN" // #nosec G101 -- not a credential, just env var name
 	EnvOrgID  = "SNYK_ORG_ID"
 	EnvAPIURL = "SNYK_API_URL"
 )

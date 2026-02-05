@@ -17,7 +17,7 @@ const sourceName = "sonarqube"
 // Environment variable names for configuration.
 const (
 	EnvURL   = "SONARQUBE_URL"
-	EnvToken = "SONARQUBE_TOKEN"
+	EnvToken = "SONARQUBE_TOKEN" // #nosec G101 -- not a credential, just env var name
 )
 
 var configResolver = &sources.ConfigResolver{

@@ -1,4 +1,4 @@
-package dependabot
+package codeql
 
 import (
 	"context"
@@ -12,18 +12,18 @@ import (
 	"github.com/boinger/confvis/internal/sources/scoring"
 )
 
-const sourceName = "dependabot"
+const sourceName = "codeql"
 
-// Fetcher defines the interface for fetching Dependabot data.
+// Fetcher defines the interface for fetching CodeQL data.
 type Fetcher interface {
-	FetchAlerts(ctx context.Context, owner, repo string) (AlertsResponse, error)
+	FetchAlerts(ctx context.Context, owner, repo, toolName string) (AlertsResponse, error)
 	AlertsURL(owner, repo string) string
 }
 
 // Environment variable names for configuration.
 const (
-	EnvToken         = "DEPENDABOT_TOKEN" // #nosec G101 -- not a credential, just env var name
-	EnvTokenFallback = "GITHUB_TOKEN"     // #nosec G101 -- not a credential, just env var name
+	EnvToken         = "CODEQL_TOKEN"  // #nosec G101 -- not a credential, just env var name
+	EnvTokenFallback = "GITHUB_TOKEN"  // #nosec G101 -- not a credential, just env var name
 	EnvAPIURL        = "GITHUB_API_URL"
 )
 
@@ -52,7 +52,7 @@ const (
 	weightLow      = 10
 )
 
-// Source implements the sources.Source interface for Dependabot.
+// Source implements the sources.Source interface for CodeQL.
 type Source struct{}
 
 func init() {
@@ -64,7 +64,7 @@ func (s *Source) Name() string {
 	return sourceName
 }
 
-// Fetch retrieves vulnerability metrics from Dependabot and converts them to a confidence report.
+// Fetch retrieves code scanning alerts from CodeQL and converts them to a confidence report.
 func (s *Source) Fetch(ctx context.Context, opts sources.Options) (*confidence.Report, error) {
 	cfg, err := configResolver.Resolve(opts)
 	if err != nil {
@@ -77,7 +77,7 @@ func (s *Source) Fetch(ctx context.Context, opts sources.Options) (*confidence.R
 		token = os.Getenv(EnvTokenFallback)
 	}
 	if token == "" {
-		return nil, fmt.Errorf("dependabot token required: use --token flag or set %s (or %s)", EnvToken, EnvTokenFallback)
+		return nil, fmt.Errorf("codeql token required: use --token flag or set %s (or %s)", EnvToken, EnvTokenFallback)
 	}
 
 	// Parse owner/repo from project (format: owner/repo)
@@ -86,16 +86,19 @@ func (s *Source) Fetch(ctx context.Context, opts sources.Options) (*confidence.R
 		return nil, err
 	}
 
+	// Get optional tool filter from Extra options
+	toolName := opts.Extra["tool"]
+
 	client := NewClient(cfg.URL, token, cfg.Timeout)
 
-	return s.FetchWithClient(ctx, client, opts, owner, repo)
+	return s.FetchWithClient(ctx, client, opts, owner, repo, toolName)
 }
 
-// FetchWithClient retrieves vulnerability metrics using the provided Fetcher.
+// FetchWithClient retrieves code scanning alerts using the provided Fetcher.
 // This allows injecting mock clients for testing.
-func (s *Source) FetchWithClient(ctx context.Context, fetcher Fetcher, opts sources.Options, owner, repo string) (*confidence.Report, error) {
+func (s *Source) FetchWithClient(ctx context.Context, fetcher Fetcher, opts sources.Options, owner, repo, toolName string) (*confidence.Report, error) {
 	// Fetch alerts
-	alerts, err := fetcher.FetchAlerts(ctx, owner, repo)
+	alerts, err := fetcher.FetchAlerts(ctx, owner, repo, toolName)
 	if err != nil {
 		return nil, err
 	}

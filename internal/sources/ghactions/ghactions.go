@@ -21,7 +21,7 @@ type Fetcher interface {
 
 // Environment variable names for configuration.
 const (
-	EnvToken  = "GITHUB_TOKEN"
+	EnvToken  = "GITHUB_TOKEN"   // #nosec G101 -- not a credential, just env var name
 	EnvAPIURL = "GITHUB_API_URL"
 )
 

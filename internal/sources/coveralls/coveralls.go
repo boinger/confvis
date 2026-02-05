@@ -1,4 +1,4 @@
-package codecov
+package coveralls
 
 import (
 	"context"
@@ -10,9 +10,9 @@ import (
 	"github.com/boinger/confvis/internal/sources/scoring"
 )
 
-const sourceName = "codecov"
+const sourceName = "coveralls"
 
-// Fetcher defines the interface for fetching Codecov data.
+// Fetcher defines the interface for fetching Coveralls data.
 type Fetcher interface {
 	FetchReport(ctx context.Context, service, ownerRepo string) (*ReportResponse, error)
 	ReportURL(service, ownerRepo string) string
@@ -20,17 +20,17 @@ type Fetcher interface {
 
 // Environment variable names for configuration.
 const (
-	EnvToken = "CODECOV_TOKEN" // #nosec G101 -- not a credential, just env var name
+	EnvToken = "COVERALLS_TOKEN"
 )
 
 var configResolver = &sources.ConfigResolver{
 	SourceName:     sourceName,
 	TokenEnvVar:    EnvToken,
-	TokenRequired:  true,
+	TokenRequired:  false, // Public repos don't require a token
 	DefaultTimeout: 30 * time.Second,
 }
 
-// Source implements the sources.Source interface for Codecov.
+// Source implements the sources.Source interface for Coveralls.
 type Source struct{}
 
 func init() {
@@ -42,7 +42,7 @@ func (s *Source) Name() string {
 	return sourceName
 }
 
-// Fetch retrieves coverage metrics from Codecov and converts them to a confidence report.
+// Fetch retrieves coverage metrics from Coveralls and converts them to a confidence report.
 func (s *Source) Fetch(ctx context.Context, opts sources.Options) (*confidence.Report, error) {
 	cfg, err := configResolver.Resolve(opts)
 	if err != nil {
@@ -81,7 +81,7 @@ func (s *Source) FetchWithClient(ctx context.Context, fetcher Fetcher, opts sour
 	factors := []confidence.Factor{
 		{
 			Name:   "Code Coverage",
-			Score:  int(math.Round(report.Totals.Coverage)),
+			Score:  int(math.Round(report.CoveredPercent)),
 			Weight: 100,
 			URL:    fetcher.ReportURL(service, opts.Project),
 		},

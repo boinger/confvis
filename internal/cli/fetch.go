@@ -16,13 +16,18 @@ import (
 	"github.com/boinger/confvis/internal/sources"
 	// Import sources to register them
 	_ "github.com/boinger/confvis/internal/sources/codecov"
+	_ "github.com/boinger/confvis/internal/sources/codeql"
+	_ "github.com/boinger/confvis/internal/sources/coveralls"
 	_ "github.com/boinger/confvis/internal/sources/dependabot"
 	_ "github.com/boinger/confvis/internal/sources/ghactions"
+	_ "github.com/boinger/confvis/internal/sources/gitleaks"
+	_ "github.com/boinger/confvis/internal/sources/gosec"
 	_ "github.com/boinger/confvis/internal/sources/grype"
 	_ "github.com/boinger/confvis/internal/sources/semgrep"
 	_ "github.com/boinger/confvis/internal/sources/snyk"
 	_ "github.com/boinger/confvis/internal/sources/sonarqube"
 	_ "github.com/boinger/confvis/internal/sources/trivy"
+	_ "github.com/boinger/confvis/internal/sources/trufflehog"
 )
 
 var (
@@ -45,6 +50,11 @@ var (
 	fetchSemgrepConf string // semgrep: config/rules
 	fetchFromStdin   bool   // semgrep: read from stdin
 	fetchTrivyCmd    string // trivy: command to run
+	fetchToolName    string // codeql: tool name filter
+	fetchGitleaksCmd   string // gitleaks: command to run
+	fetchTrufflehogCmd string // trufflehog: command to run
+	fetchScanMode      string // trufflehog: scan mode (filesystem or git)
+	fetchGosecCmd      string // gosec: command to run
 )
 
 var fetchCmd = &cobra.Command{
@@ -55,12 +65,17 @@ var fetchCmd = &cobra.Command{
 Available sources:
   sonarqube      Code quality metrics from SonarQube
   codecov        Coverage metrics from Codecov
+  codeql         Code scanning alerts from GitHub CodeQL
+  coveralls      Coverage metrics from Coveralls
   dependabot     Vulnerability alerts from GitHub Dependabot
   github-actions CI/CD workflow metrics from GitHub Actions
+  gitleaks       Secret detection with GitLeaks
+  gosec          Go security analysis with Gosec
   grype          Security vulnerability scanning with Grype
   semgrep        Static analysis findings from Semgrep
   snyk           Vulnerability metrics from Snyk
   trivy          Security vulnerability scanning with Trivy
+  trufflehog     Secret detection with TruffleHog
 
 Examples:
   # Fetch from SonarQube
@@ -70,6 +85,16 @@ Examples:
   export CODECOV_TOKEN=xxx
   confvis fetch codecov -p myorg/myrepo -o confidence.json
 
+  # Fetch from CodeQL (GitHub code scanning)
+  export GITHUB_TOKEN=xxx
+  confvis fetch codeql -p owner/repo -o codeql.json
+  confvis fetch codeql -p owner/repo --tool CodeQL -o codeql.json
+
+  # Fetch from Coveralls (coverage metrics)
+  confvis fetch coveralls -p myorg/myrepo -o confidence.json
+  export COVERALLS_TOKEN=xxx  # optional, for private repos
+  confvis fetch coveralls -p myorg/myrepo --service gitlab -o confidence.json
+
   # Fetch from Dependabot (GitHub vulnerability alerts)
   export GITHUB_TOKEN=xxx
   confvis fetch dependabot -p owner/repo -o dependabot.json
@@ -77,6 +102,14 @@ Examples:
   # Fetch from GitHub Actions
   export GITHUB_TOKEN=xxx
   confvis fetch github-actions -p myorg/myrepo --workflow ci.yml --count 20 -o confidence.json
+
+  # Fetch from GitLeaks (secret detection)
+  confvis fetch gitleaks -p . -o gitleaks.json
+  confvis fetch gitleaks -p /path/to/repo --gitleaks-cmd "docker run zricethezav/gitleaks" -o gitleaks.json
+
+  # Fetch from Gosec (Go security analysis)
+  confvis fetch gosec -p ./... -o gosec.json
+  confvis fetch gosec -p ./cmd/... -o gosec.json
 
   # Fetch from Grype (container/filesystem scan)
   confvis fetch grype -p . -o grype.json
@@ -93,6 +126,10 @@ Examples:
   # Fetch from Trivy (local security scan)
   confvis fetch trivy -p . -o security.json
   confvis fetch trivy -p . --trivy-cmd "docker run aquasec/trivy" -o security.json
+
+  # Fetch from TruffleHog (secret detection with verification)
+  confvis fetch trufflehog -p . -o trufflehog.json
+  confvis fetch trufflehog -p https://github.com/org/repo.git --scan-mode git -o trufflehog.json
 
   # Fetch and pipe directly to gauge
   confvis fetch sonarqube -p myproject -o - | confvis gauge -c - -o badge.svg`,
@@ -123,6 +160,11 @@ func init() {
 	fetchCmd.Flags().StringVar(&fetchSemgrepConf, "semgrep-config", "", "semgrep: config/rules to use (default: auto)")
 	fetchCmd.Flags().BoolVar(&fetchFromStdin, "from-stdin", false, "semgrep: read JSON output from stdin")
 	fetchCmd.Flags().StringVar(&fetchTrivyCmd, "trivy-cmd", "", "trivy: command to run (default: trivy)")
+	fetchCmd.Flags().StringVar(&fetchToolName, "tool", "", "codeql: filter alerts by tool name")
+	fetchCmd.Flags().StringVar(&fetchGitleaksCmd, "gitleaks-cmd", "", "gitleaks: command to run (default: gitleaks)")
+	fetchCmd.Flags().StringVar(&fetchTrufflehogCmd, "trufflehog-cmd", "", "trufflehog: command to run (default: trufflehog)")
+	fetchCmd.Flags().StringVar(&fetchScanMode, "scan-mode", "", "trufflehog: scan mode (filesystem or git)")
+	fetchCmd.Flags().StringVar(&fetchGosecCmd, "gosec-cmd", "", "gosec: command to run (default: gosec)")
 
 	// Bind flags to viper for config file support
 	bindFetchFlags(fetchCmd)
@@ -215,6 +257,11 @@ func runFetch(_ *cobra.Command, args []string) error {
 			"config":      fetchSemgrepConf,
 			"from-stdin":  strconv.FormatBool(fetchFromStdin),
 			"trivy-cmd":   fetchTrivyCmd,
+			"tool":         fetchToolName,
+			"gitleaks-cmd":   fetchGitleaksCmd,
+			"trufflehog-cmd": fetchTrufflehogCmd,
+			"mode":           fetchScanMode,
+			"gosec-cmd":     fetchGosecCmd,
 		},
 	})
 }

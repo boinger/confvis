@@ -8,12 +8,17 @@ confvis can fetch metrics directly from external systems using the `confvis fetc
 |--------|-------------|--------|
 | `sonarqube` | Code quality metrics from SonarQube | Available |
 | `codecov` | Coverage metrics from Codecov | Available |
+| `codeql` | Code scanning alerts from GitHub CodeQL | Available |
+| `coveralls` | Coverage metrics from Coveralls | Available |
 | `dependabot` | Vulnerability alerts from GitHub Dependabot | Available |
 | `github-actions` | CI/CD workflow metrics from GitHub Actions | Available |
+| `gitleaks` | Secret detection with GitLeaks | Available |
+| `gosec` | Go security analysis with Gosec | Available |
 | `grype` | Security vulnerability scanning with Grype | Available |
 | `semgrep` | Static analysis findings from Semgrep | Available |
 | `snyk` | Security vulnerability metrics from Snyk | Available |
 | `trivy` | Local security vulnerability scanning with Trivy | Available |
+| `trufflehog` | Secret detection with TruffleHog | Available |
 
 ## Usage
 
