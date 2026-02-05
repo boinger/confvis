@@ -159,7 +159,7 @@ func TestGenerateFlat_CustomColorThresholds(t *testing.T) {
 	}
 
 	svg := buf.String()
-	scheme := GitHubLight()
+	scheme := gitHubLight()
 
 	// Should use warning color since 85 < 90 but 85 >= 80
 	if !strings.Contains(svg, scheme.Warning) {
@@ -186,7 +186,7 @@ func TestGenerateFlat_ReportColorThresholds(t *testing.T) {
 	}
 
 	svg := buf.String()
-	scheme := GitHubLight()
+	scheme := gitHubLight()
 
 	// Should use warning color since 85 < 90 (report threshold)
 	if !strings.Contains(svg, scheme.Warning) {

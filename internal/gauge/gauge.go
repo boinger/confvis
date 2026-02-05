@@ -27,8 +27,8 @@ type Options struct {
 	TransparentBG bool // Omit background rect (for inline HTML embedding)
 }
 
-// DefaultOptions returns sensible defaults for gauge rendering.
-func DefaultOptions() Options {
+// defaultOptions returns sensible defaults for gauge rendering.
+func defaultOptions() Options {
 	return Options{
 		Width: 200,
 		Height: 120,

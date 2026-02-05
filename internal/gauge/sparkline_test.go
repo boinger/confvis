@@ -259,7 +259,7 @@ func TestGenerateSparkline_CustomColorThresholds(t *testing.T) {
 	}
 
 	svg := buf.String()
-	scheme := GitHubLight()
+	scheme := gitHubLight()
 
 	// Score 85 with greenAbove=90 should be warning (yellow)
 	if !strings.Contains(svg, scheme.Warning) {
@@ -285,7 +285,7 @@ func TestGenerateSparkline_DarkMode(t *testing.T) {
 	}
 
 	svg := buf.String()
-	scheme := GitHubDark()
+	scheme := gitHubDark()
 
 	// Should use dark mode background
 	if !strings.Contains(svg, scheme.Background) {

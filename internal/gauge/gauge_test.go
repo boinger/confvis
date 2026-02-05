@@ -19,7 +19,7 @@ func TestGenerate_ContainsExpectedElements(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	err := Generate(&buf, report, DefaultOptions())
+	err := Generate(&buf, report, defaultOptions())
 	if err != nil {
 		t.Fatalf("Generate() error = %v", err)
 	}
@@ -55,7 +55,7 @@ func TestGenerate_FailingReport(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	err := Generate(&buf, report, DefaultOptions())
+	err := Generate(&buf, report, defaultOptions())
 	if err != nil {
 		t.Fatalf("Generate() error = %v", err)
 	}
@@ -75,7 +75,7 @@ func TestGenerate_DarkMode(t *testing.T) {
 		Threshold: 75,
 	}
 
-	opts := DefaultOptions()
+	opts := defaultOptions()
 	opts.DarkMode = true
 
 	var buf bytes.Buffer
@@ -121,7 +121,7 @@ func TestGenerate_CustomDimensions(t *testing.T) {
 }
 
 func TestScoreColor(t *testing.T) {
-	scheme := GitHubLight()
+	scheme := gitHubLight()
 
 	// Test with default thresholds (75, 50)
 	tests := []struct {
@@ -145,7 +145,7 @@ func TestScoreColor(t *testing.T) {
 }
 
 func TestScoreColor_CustomThresholds(t *testing.T) {
-	scheme := GitHubLight()
+	scheme := gitHubLight()
 
 	// Test with custom thresholds (90, 70)
 	tests := []struct {
@@ -175,7 +175,7 @@ func TestGenerateToString(t *testing.T) {
 		Threshold: 75,
 	}
 
-	svg, err := GenerateToString(report, DefaultOptions())
+	svg, err := GenerateToString(report, defaultOptions())
 	if err != nil {
 		t.Fatalf("GenerateToString() error = %v", err)
 	}
@@ -219,16 +219,16 @@ func TestGetColorScheme(t *testing.T) {
 }
 
 func TestStyleNames(t *testing.T) {
-	names := StyleNames()
+	names := styleNames()
 	expected := []string{"github", "minimal", "corporate", "high-contrast"}
 
 	if len(names) != len(expected) {
-		t.Errorf("StyleNames() returned %d names, want %d", len(names), len(expected))
+		t.Errorf("styleNames() returned %d names, want %d", len(names), len(expected))
 	}
 
 	for i, name := range expected {
 		if names[i] != name {
-			t.Errorf("StyleNames()[%d] = %q, want %q", i, names[i], name)
+			t.Errorf("styleNames()[%d] = %q, want %q", i, names[i], name)
 		}
 	}
 }
@@ -241,7 +241,7 @@ func TestGenerate_TransparentBG(t *testing.T) {
 	}
 
 	// With TransparentBG, output should not contain a background rect
-	opts := DefaultOptions()
+	opts := defaultOptions()
 	opts.TransparentBG = true
 
 	var buf bytes.Buffer
@@ -268,7 +268,7 @@ func TestGenerate_ViewBox(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	err := Generate(&buf, report, DefaultOptions())
+	err := Generate(&buf, report, defaultOptions())
 	if err != nil {
 		t.Fatalf("Generate() error = %v", err)
 	}
@@ -289,7 +289,7 @@ func TestGenerate_OpaqueBackground(t *testing.T) {
 
 	// Default (TransparentBG=false) should include background rect
 	var buf bytes.Buffer
-	err := Generate(&buf, report, DefaultOptions())
+	err := Generate(&buf, report, defaultOptions())
 	if err != nil {
 		t.Fatalf("Generate() error = %v", err)
 	}
@@ -309,7 +309,7 @@ func TestGenerate_ScoreZero(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	err := Generate(&buf, report, DefaultOptions())
+	err := Generate(&buf, report, defaultOptions())
 	if err != nil {
 		t.Fatalf("Generate() error = %v", err)
 	}
@@ -330,7 +330,7 @@ func TestGenerate_ScoreZero_TransparentBG(t *testing.T) {
 		Threshold: 75,
 	}
 
-	opts := DefaultOptions()
+	opts := defaultOptions()
 	opts.TransparentBG = true
 
 	var buf bytes.Buffer
@@ -356,7 +356,7 @@ func TestGenerate_Score100(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	err := Generate(&buf, report, DefaultOptions())
+	err := Generate(&buf, report, defaultOptions())
 	if err != nil {
 		t.Fatalf("Generate() error = %v", err)
 	}
@@ -380,7 +380,7 @@ func TestGenerate_DarkMode_TransparentBG(t *testing.T) {
 		Threshold: 75,
 	}
 
-	opts := DefaultOptions()
+	opts := defaultOptions()
 	opts.DarkMode = true
 	opts.TransparentBG = true
 

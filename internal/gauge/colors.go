@@ -21,8 +21,8 @@ type ColorScheme struct {
 	Border      string
 }
 
-// GitHubLight returns the light mode color scheme inspired by GitHub.
-func GitHubLight() ColorScheme {
+// gitHubLight returns the light mode color scheme inspired by GitHub.
+func gitHubLight() ColorScheme {
 	return ColorScheme{
 		Background:  colorWhite,
 		TrackColor:  "#e1e4e8",
@@ -35,8 +35,8 @@ func GitHubLight() ColorScheme {
 	}
 }
 
-// GitHubDark returns the dark mode color scheme inspired by GitHub.
-func GitHubDark() ColorScheme {
+// gitHubDark returns the dark mode color scheme inspired by GitHub.
+func gitHubDark() ColorScheme {
 	return ColorScheme{
 		Background:  "#0d1117",
 		TrackColor:  "#30363d",
@@ -61,8 +61,8 @@ func (cs ColorScheme) ScoreColor(score, greenAbove, yellowAbove int) string {
 	}
 }
 
-// Minimal returns a clean, simple color scheme with subtle colors.
-func Minimal() ColorScheme {
+// minimal returns a clean, simple color scheme with subtle colors.
+func minimal() ColorScheme {
 	return ColorScheme{
 		Background:  "#fafafa",
 		TrackColor:  colorLightGray,
@@ -75,8 +75,8 @@ func Minimal() ColorScheme {
 	}
 }
 
-// MinimalDark returns a minimal color scheme for dark mode.
-func MinimalDark() ColorScheme {
+// minimalDark returns a minimal color scheme for dark mode.
+func minimalDark() ColorScheme {
 	return ColorScheme{
 		Background:  "#1a1a1a",
 		TrackColor:  colorDarkGray,
@@ -89,8 +89,8 @@ func MinimalDark() ColorScheme {
 	}
 }
 
-// Corporate returns a professional, muted color scheme.
-func Corporate() ColorScheme {
+// corporate returns a professional, muted color scheme.
+func corporate() ColorScheme {
 	return ColorScheme{
 		Background:  "#f5f5f5",
 		TrackColor:  "#d9d9d9",
@@ -103,8 +103,8 @@ func Corporate() ColorScheme {
 	}
 }
 
-// CorporateDark returns a corporate color scheme for dark mode.
-func CorporateDark() ColorScheme {
+// corporateDark returns a corporate color scheme for dark mode.
+func corporateDark() ColorScheme {
 	return ColorScheme{
 		Background:  "#141414",
 		TrackColor:  "#303030",
@@ -117,8 +117,8 @@ func CorporateDark() ColorScheme {
 	}
 }
 
-// HighContrast returns an accessibility-focused high contrast color scheme.
-func HighContrast() ColorScheme {
+// highContrast returns an accessibility-focused high contrast color scheme.
+func highContrast() ColorScheme {
 	return ColorScheme{
 		Background:  colorWhite,
 		TrackColor:  "#767676",
@@ -131,8 +131,8 @@ func HighContrast() ColorScheme {
 	}
 }
 
-// HighContrastDark returns a high contrast color scheme for dark mode.
-func HighContrastDark() ColorScheme {
+// highContrastDark returns a high contrast color scheme for dark mode.
+func highContrastDark() ColorScheme {
 	return ColorScheme{
 		Background:  colorBlack,
 		TrackColor:  "#767676",
@@ -145,8 +145,8 @@ func HighContrastDark() ColorScheme {
 	}
 }
 
-// StyleNames returns the list of available style names.
-func StyleNames() []string {
+// styleNames returns the list of available style names.
+func styleNames() []string {
 	return []string{"github", "minimal", "corporate", "high-contrast"}
 }
 
@@ -156,23 +156,23 @@ func GetColorScheme(style string, darkMode bool) ColorScheme {
 	switch style {
 	case "minimal":
 		if darkMode {
-			return MinimalDark()
+			return minimalDark()
 		}
-		return Minimal()
+		return minimal()
 	case "corporate":
 		if darkMode {
-			return CorporateDark()
+			return corporateDark()
 		}
-		return Corporate()
+		return corporate()
 	case "high-contrast":
 		if darkMode {
-			return HighContrastDark()
+			return highContrastDark()
 		}
-		return HighContrast()
+		return highContrast()
 	default: // "github" or unknown
 		if darkMode {
-			return GitHubDark()
+			return gitHubDark()
 		}
-		return GitHubLight()
+		return gitHubLight()
 	}
 }

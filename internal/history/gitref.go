@@ -28,8 +28,8 @@ type GitRefWriter interface {
 // GitRefStorage implements git ref-based history storage.
 type GitRefStorage struct{}
 
-// NewGitRefStorage creates a new GitRefStorage.
-func NewGitRefStorage() *GitRefStorage {
+// newGitRefStorage creates a new GitRefStorage.
+func newGitRefStorage() *GitRefStorage {
 	return &GitRefStorage{}
 }
 
@@ -151,15 +151,15 @@ func serializeHistory(h *History) (string, error) {
 
 // ReadFromGitRef reads history from a git ref using the default storage.
 func ReadFromGitRef(ref string) (*History, error) {
-	return NewGitRefStorage().ReadFromRef(ref)
+	return newGitRefStorage().ReadFromRef(ref)
 }
 
 // WriteToGitRef writes history to a git ref using the default storage.
 func WriteToGitRef(ref string, h *History) error {
-	return NewGitRefStorage().WriteToRef(ref, h)
+	return newGitRefStorage().WriteToRef(ref, h)
 }
 
 // AppendToGitRef appends an entry to history stored in a git ref.
 func AppendToGitRef(ref string, entry Entry) error {
-	return NewGitRefStorage().AppendToRef(ref, entry)
+	return newGitRefStorage().AppendToRef(ref, entry)
 }

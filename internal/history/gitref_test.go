@@ -90,7 +90,7 @@ func TestGitRefStorage_ReadFromRef_NotExists(t *testing.T) {
 		t.Fatalf("changing to repo directory: %v", err)
 	}
 
-	storage := NewGitRefStorage()
+	storage := newGitRefStorage()
 	hist, err := storage.ReadFromRef("refs/confvis/nonexistent")
 	if err != nil {
 		t.Fatalf("ReadFromRef() error = %v", err)
@@ -114,7 +114,7 @@ func TestGitRefStorage_WriteAndRead(t *testing.T) {
 		t.Fatalf("changing to repo directory: %v", err)
 	}
 
-	storage := NewGitRefStorage()
+	storage := newGitRefStorage()
 
 	// Create history with entries
 	hist := &History{
@@ -169,7 +169,7 @@ func TestGitRefStorage_AppendToRef(t *testing.T) {
 		t.Fatalf("changing to repo directory: %v", err)
 	}
 
-	storage := NewGitRefStorage()
+	storage := newGitRefStorage()
 	ref := "refs/confvis/append-test"
 
 	// Append first entry to non-existent ref
@@ -221,7 +221,7 @@ func TestGitRefStorage_WriteEmptyHistory(t *testing.T) {
 		t.Fatalf("changing to repo directory: %v", err)
 	}
 
-	storage := NewGitRefStorage()
+	storage := newGitRefStorage()
 	ref := "refs/confvis/empty-test"
 
 	// Write empty history
@@ -378,7 +378,7 @@ func TestGitRefStorage_VerifyWithGitCatFile(t *testing.T) {
 		t.Fatalf("changing to repo directory: %v", err)
 	}
 
-	storage := NewGitRefStorage()
+	storage := newGitRefStorage()
 	ref := "refs/confvis/verify-test"
 
 	hist := &History{

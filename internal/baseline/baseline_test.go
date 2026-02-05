@@ -48,7 +48,7 @@ func TestFileStorage_ReadWrite(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "baseline.json")
 
-	storage := NewFileStorage()
+	storage := newFileStorage()
 
 	// Read non-existent file should return nil
 	b, err := storage.Read(path)
@@ -111,7 +111,7 @@ func TestFileStorage_ReadInvalid(t *testing.T) {
 		t.Fatalf("failed to write file: %v", err)
 	}
 
-	storage := NewFileStorage()
+	storage := newFileStorage()
 	_, err := storage.Read(path)
 	if err == nil {
 		t.Error("expected error reading invalid JSON")
@@ -149,7 +149,7 @@ func TestGitRefStorage_ReadWrite(t *testing.T) {
 	}
 	defer func() { _ = os.Chdir(oldDir) }()
 
-	storage := NewGitRefStorage()
+	storage := newGitRefStorage()
 	ref := "refs/confvis/test-baseline"
 
 	// Read non-existent ref should return nil

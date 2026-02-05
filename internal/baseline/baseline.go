@@ -45,8 +45,8 @@ func NewBaseline(report *confidence.Report) *Baseline {
 // GitRefStorage implements git ref-based baseline storage.
 type GitRefStorage struct{}
 
-// NewGitRefStorage creates a new GitRefStorage.
-func NewGitRefStorage() *GitRefStorage {
+// newGitRefStorage creates a new GitRefStorage.
+func newGitRefStorage() *GitRefStorage {
 	return &GitRefStorage{}
 }
 
@@ -116,8 +116,8 @@ func (g *GitRefStorage) Write(ref string, b *Baseline) error {
 // FileStorage implements file-based baseline storage.
 type FileStorage struct{}
 
-// NewFileStorage creates a new FileStorage.
-func NewFileStorage() *FileStorage {
+// newFileStorage creates a new FileStorage.
+func newFileStorage() *FileStorage {
 	return &FileStorage{}
 }
 
@@ -194,20 +194,20 @@ func GetCurrentBranch() string {
 
 // ReadFromGitRef reads a baseline from a git ref using the default storage.
 func ReadFromGitRef(ref string) (*Baseline, error) {
-	return NewGitRefStorage().Read(ref)
+	return newGitRefStorage().Read(ref)
 }
 
 // WriteToGitRef writes a baseline to a git ref using the default storage.
 func WriteToGitRef(ref string, b *Baseline) error {
-	return NewGitRefStorage().Write(ref, b)
+	return newGitRefStorage().Write(ref, b)
 }
 
 // ReadFromFile reads a baseline from a file using the default storage.
 func ReadFromFile(path string) (*Baseline, error) {
-	return NewFileStorage().Read(path)
+	return newFileStorage().Read(path)
 }
 
 // WriteToFile writes a baseline to a file using the default storage.
 func WriteToFile(path string, b *Baseline) error {
-	return NewFileStorage().Write(path, b)
+	return newFileStorage().Write(path, b)
 }
