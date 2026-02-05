@@ -27,7 +27,7 @@ type osFS struct{}
 var DefaultFileSystem FileSystem = osFS{}
 
 func (osFS) Create(name string) (io.WriteCloser, error) {
-	return os.Create(name)
+	return os.Create(name) //#nosec G304 -- path from CLI argument or config, not untrusted input
 }
 
 func (osFS) MkdirAll(path string, perm os.FileMode) error {
@@ -35,11 +35,11 @@ func (osFS) MkdirAll(path string, perm os.FileMode) error {
 }
 
 func (osFS) Open(name string) (io.ReadCloser, error) {
-	return os.Open(name)
+	return os.Open(name) //#nosec G304 -- path from CLI argument or config, not untrusted input
 }
 
 func (osFS) ReadFile(name string) ([]byte, error) {
-	return os.ReadFile(name)
+	return os.ReadFile(name) //#nosec G304 -- path from CLI argument or config, not untrusted input
 }
 
 func (osFS) Glob(pattern string) ([]string, error) {

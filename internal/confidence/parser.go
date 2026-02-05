@@ -23,7 +23,7 @@ const (
 // ParseFileWithFormat reads and parses a confidence report from a file path
 // using the specified format. If format is FormatAuto, it's detected from the extension.
 func ParseFileWithFormat(path string, format Format) (*Report, error) {
-	f, err := os.Open(path)
+	f, err := os.Open(path) //#nosec G304 -- path from CLI argument or config, not untrusted input
 	if err != nil {
 		return nil, fmt.Errorf("opening file: %w", err)
 	}

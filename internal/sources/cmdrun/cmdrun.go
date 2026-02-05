@@ -34,7 +34,7 @@ func Run(ctx context.Context, command string, args []string, toolName string) (*
 	cmdName := cmdParts[0]
 	cmdArgs := append(cmdParts[1:], args...)
 
-	cmd := exec.CommandContext(ctx, cmdName, cmdArgs...)
+	cmd := exec.CommandContext(ctx, cmdName, cmdArgs...) //#nosec G204 -- command from validated source defaults, not untrusted input
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

@@ -31,9 +31,10 @@ func NewClient(command string) *Client {
 func (c *Client) Scan(ctx context.Context, path string) (*Report, error) {
 	// Build command arguments: gosec -fmt=json ./...
 	// Note: gosec outputs JSON to stdout when -fmt=json is specified
+	// We omit -quiet because it suppresses all stdout when combined with
+	// -fmt=json and there are no issues. Logging goes to stderr anyway.
 	args := []string{
 		"-fmt=json",
-		"-quiet", // Suppress banner and other output
 		path,
 	}
 

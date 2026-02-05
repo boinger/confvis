@@ -45,7 +45,7 @@ func (g *GitRefStorage) ReadFromRef(ref string) (*History, error) {
 	defer cancel()
 
 	// Read the content from the ref
-	cmd := exec.CommandContext(ctx, gitutil.ResolveGitPath(), "cat-file", "-p", ref)
+	cmd := exec.CommandContext(ctx, gitutil.ResolveGitPath(), "cat-file", "-p", ref) //#nosec G204 -- git path resolved via exec.LookPath, args are internal
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -71,7 +71,7 @@ func (g *GitRefStorage) WriteToRef(ref string, h *History) error {
 	}
 
 	// Create a blob object with the content
-	cmd := exec.CommandContext(ctx, gitutil.ResolveGitPath(), "hash-object", "-w", "--stdin")
+	cmd := exec.CommandContext(ctx, gitutil.ResolveGitPath(), "hash-object", "-w", "--stdin") //#nosec G204 -- git path resolved via exec.LookPath, args are internal
 	cmd.Stdin = strings.NewReader(content)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -84,7 +84,7 @@ func (g *GitRefStorage) WriteToRef(ref string, h *History) error {
 	sha := strings.TrimSpace(stdout.String())
 
 	// Update the ref to point to the blob
-	cmd = exec.CommandContext(ctx, gitutil.ResolveGitPath(), "update-ref", ref, sha)
+	cmd = exec.CommandContext(ctx, gitutil.ResolveGitPath(), "update-ref", ref, sha) //#nosec G204 -- git path resolved via exec.LookPath, args are internal
 	stderr.Reset()
 	cmd.Stderr = &stderr
 

@@ -60,7 +60,7 @@ func (g *GitRefStorage) Read(ref string) (*Baseline, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), gitutil.CommandTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, gitutil.ResolveGitPath(), "cat-file", "-p", ref)
+	cmd := exec.CommandContext(ctx, gitutil.ResolveGitPath(), "cat-file", "-p", ref) //#nosec G204 -- git path resolved via exec.LookPath, args are internal
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -89,7 +89,7 @@ func (g *GitRefStorage) Write(ref string, b *Baseline) error {
 	content = append(content, '\n')
 
 	// Create a blob object with the content
-	cmd := exec.CommandContext(ctx, gitutil.ResolveGitPath(), "hash-object", "-w", "--stdin")
+	cmd := exec.CommandContext(ctx, gitutil.ResolveGitPath(), "hash-object", "-w", "--stdin") //#nosec G204 -- git path resolved via exec.LookPath, args are internal
 	cmd.Stdin = bytes.NewReader(content)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -102,7 +102,7 @@ func (g *GitRefStorage) Write(ref string, b *Baseline) error {
 	sha := strings.TrimSpace(stdout.String())
 
 	// Update the ref to point to the blob
-	cmd = exec.CommandContext(ctx, gitutil.ResolveGitPath(), "update-ref", ref, sha)
+	cmd = exec.CommandContext(ctx, gitutil.ResolveGitPath(), "update-ref", ref, sha) //#nosec G204 -- git path resolved via exec.LookPath, args are internal
 	stderr.Reset()
 	cmd.Stderr = &stderr
 
@@ -124,7 +124,7 @@ func newFileStorage() *FileStorage {
 // Read reads a baseline from a file.
 // Returns nil, nil if the file doesn't exist (not an error condition).
 func (f *FileStorage) Read(path string) (*Baseline, error) {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //#nosec G304 -- path from CLI argument or config, not untrusted input
 	if os.IsNotExist(err) {
 		return nil, nil //nolint:nilnil // nil baseline with no error means "not found"
 	}
@@ -148,6 +148,7 @@ func (f *FileStorage) Write(path string, b *Baseline) error {
 	}
 	content = append(content, '\n')
 
+	// #nosec G306 -- baseline metrics file, world-readable is appropriate
 	if err := os.WriteFile(path, content, 0o644); err != nil {
 		return fmt.Errorf("writing baseline file %s: %w", path, err)
 	}
@@ -160,7 +161,7 @@ func GetCurrentCommit() string {
 	ctx, cancel := context.WithTimeout(context.Background(), gitutil.CommandTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, gitutil.ResolveGitPath(), gitCmdRevParse, "HEAD")
+	cmd := exec.CommandContext(ctx, gitutil.ResolveGitPath(), gitCmdRevParse, "HEAD") //#nosec G204 -- git path resolved via exec.LookPath, args are internal
 	var stdout bytes.Buffer
 	cmd.Stdout = &stdout
 
@@ -176,7 +177,7 @@ func GetCurrentBranch() string {
 	ctx, cancel := context.WithTimeout(context.Background(), gitutil.CommandTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, gitutil.ResolveGitPath(), gitCmdRevParse, "--abbrev-ref", "HEAD")
+	cmd := exec.CommandContext(ctx, gitutil.ResolveGitPath(), gitCmdRevParse, "--abbrev-ref", "HEAD") //#nosec G204 -- git path resolved via exec.LookPath, args are internal
 	var stdout bytes.Buffer
 	cmd.Stdout = &stdout
 

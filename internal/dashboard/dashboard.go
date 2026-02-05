@@ -78,7 +78,7 @@ func Generate(w io.Writer, report *confidence.Report, opts Options) error {
 
 	data := TemplateData{
 		Report:   report,
-		GaugeSVG: template.HTML(stripXMLDeclaration(gaugeSVG)),
+		GaugeSVG: template.HTML(stripXMLDeclaration(gaugeSVG)), //#nosec G203 -- SVG generated internally by gauge package, not user input
 		DarkMode: opts.DarkMode,
 	}
 
@@ -100,7 +100,7 @@ func GenerateMulti(w io.Writer, reports []ReportSummary, aggregate *confidence.R
 		if err != nil {
 			return err
 		}
-		reports[i].GaugeSVG = template.HTML(stripXMLDeclaration(svgStr))
+		reports[i].GaugeSVG = template.HTML(stripXMLDeclaration(svgStr)) //#nosec G203 -- SVG generated internally by gauge package, not user input
 	}
 
 	// Generate aggregate gauge
@@ -124,7 +124,7 @@ func GenerateMulti(w io.Writer, reports []ReportSummary, aggregate *confidence.R
 	data := MultiTemplateData{
 		Reports:      reports,
 		Aggregate:    aggregate,
-		AggregateSVG: template.HTML(stripXMLDeclaration(aggregateSVG)),
+		AggregateSVG: template.HTML(stripXMLDeclaration(aggregateSVG)), //#nosec G203 -- SVG generated internally by gauge package, not user input
 		DarkMode:     opts.DarkMode,
 	}
 

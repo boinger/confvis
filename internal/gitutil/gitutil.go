@@ -36,7 +36,7 @@ func IsGitRepo() bool {
 	ctx, cancel := context.WithTimeout(context.Background(), CommandTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, ResolveGitPath(), "rev-parse", "--git-dir")
+	cmd := exec.CommandContext(ctx, ResolveGitPath(), "rev-parse", "--git-dir") //#nosec G204 -- git path resolved via exec.LookPath, args are internal
 	return cmd.Run() == nil
 }
 
@@ -45,6 +45,6 @@ func RefExists(ref string) bool {
 	ctx, cancel := context.WithTimeout(context.Background(), CommandTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, ResolveGitPath(), "show-ref", "--verify", "--quiet", ref)
+	cmd := exec.CommandContext(ctx, ResolveGitPath(), "show-ref", "--verify", "--quiet", ref) //#nosec G204 -- git path resolved via exec.LookPath, args are internal
 	return cmd.Run() == nil
 }

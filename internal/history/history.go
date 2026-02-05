@@ -24,7 +24,7 @@ type History struct {
 // Each line should be a valid JSON object with score and timestamp.
 // Returns an empty history if the file doesn't exist.
 func ReadFile(path string) (*History, error) {
-	f, err := os.Open(path)
+	f, err := os.Open(path) //#nosec G304 -- path from CLI argument or config, not untrusted input
 	if os.IsNotExist(err) {
 		return &History{}, nil
 	}
@@ -60,7 +60,7 @@ func ReadFile(path string) (*History, error) {
 // AppendToFile appends a new entry to the history file.
 // Creates the file if it doesn't exist.
 func AppendToFile(path string, entry Entry) error {
-	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644) // #nosec G302 G304 -- history log file, world-readable is appropriate, path from CLI argument
 	if err != nil {
 		return fmt.Errorf("opening history file for append: %w", err)
 	}
