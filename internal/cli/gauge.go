@@ -12,6 +12,7 @@ import (
 	"github.com/boinger/confvis/internal/baseline"
 	"github.com/boinger/confvis/internal/confidence"
 	"github.com/boinger/confvis/internal/gauge"
+	"github.com/boinger/confvis/internal/gitutil"
 	"github.com/boinger/confvis/internal/history"
 )
 
@@ -156,7 +157,7 @@ func runGauge(_ *cobra.Command, _ []string) error {
 		GitRefAppender:       history.AppendToGitRef,
 		BaselineGitRefReader: baseline.ReadFromGitRef,
 		BaselineFileReader:   baseline.ReadFromFile,
-		IsGitRepo:            baseline.IsGitRepo,
+		IsGitRepo:            gitutil.IsGitRepo,
 		Config:               gaugeConfig,
 		Output:               gaugeOutput,
 		Format:               gaugeFormat,

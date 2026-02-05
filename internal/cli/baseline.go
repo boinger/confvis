@@ -10,6 +10,7 @@ import (
 
 	"github.com/boinger/confvis/internal/baseline"
 	"github.com/boinger/confvis/internal/confidence"
+	"github.com/boinger/confvis/internal/gitutil"
 )
 
 var (
@@ -138,7 +139,7 @@ func runBaselineSave(_ *cobra.Command, _ []string) error {
 		Ref:          getBaselineRef(),
 		File:         getBaselineFile(),
 		DryRun:       baselineDryRun,
-		IsGitRepo:    baseline.IsGitRepo,
+		IsGitRepo:    gitutil.IsGitRepo,
 		GitRefReader: baseline.ReadFromGitRef,
 		GitRefWriter: baseline.WriteToGitRef,
 		FileReader:   baseline.ReadFromFile,
@@ -157,7 +158,7 @@ func runBaselineShow(_ *cobra.Command, _ []string) error {
 		Ref:          getBaselineRef(),
 		File:         getBaselineFile(),
 		Format:       baselineFormat,
-		IsGitRepo:    baseline.IsGitRepo,
+		IsGitRepo:    gitutil.IsGitRepo,
 		GitRefReader: baseline.ReadFromGitRef,
 		GitRefWriter: baseline.WriteToGitRef,
 		FileReader:   baseline.ReadFromFile,

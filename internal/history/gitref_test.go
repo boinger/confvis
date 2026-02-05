@@ -5,6 +5,8 @@ import (
 	"os/exec"
 	"testing"
 	"time"
+
+	"github.com/boinger/confvis/internal/gitutil"
 )
 
 // setupGitRepo creates a temporary git repository for testing.
@@ -51,7 +53,7 @@ func TestIsGitRepo_InRepo(t *testing.T) {
 		t.Fatalf("changing to repo directory: %v", err)
 	}
 
-	if !IsGitRepo() {
+	if !gitutil.IsGitRepo() {
 		t.Error("IsGitRepo() = false, want true in git repo")
 	}
 }
@@ -70,7 +72,7 @@ func TestIsGitRepo_NotInRepo(t *testing.T) {
 		t.Fatalf("changing to temp directory: %v", err)
 	}
 
-	if IsGitRepo() {
+	if gitutil.IsGitRepo() {
 		t.Error("IsGitRepo() = true, want false outside git repo")
 	}
 }

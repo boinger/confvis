@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/boinger/confvis/internal/confidence"
+	"github.com/boinger/confvis/internal/gitutil"
 )
 
 // intPtrT is a test helper that returns a pointer to an int.
@@ -325,7 +326,7 @@ func TestIsGitRepo(t *testing.T) {
 		t.Fatalf("failed to change to temp dir: %v", err)
 	}
 
-	if !IsGitRepo() {
+	if !gitutil.IsGitRepo() {
 		t.Error("expected IsGitRepo to return true in a git repo")
 	}
 
@@ -335,7 +336,7 @@ func TestIsGitRepo(t *testing.T) {
 		t.Fatalf("failed to change to non-git dir: %v", err)
 	}
 
-	if IsGitRepo() {
+	if gitutil.IsGitRepo() {
 		t.Error("expected IsGitRepo to return false outside a git repo")
 	}
 

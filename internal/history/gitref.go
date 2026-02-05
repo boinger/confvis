@@ -7,35 +7,12 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
-	"sync"
-	"time"
+
+	"github.com/boinger/confvis/internal/gitutil"
 )
 
 // DefaultHistoryRef is the default git ref for storing history.
 const DefaultHistoryRef = "refs/confvis/history"
-
-var (
-	gitPath     string
-	gitPathOnce sync.Once
-)
-
-// resolveGitPath finds the git executable path once and caches it.
-// This satisfies security scanners that warn about PATH-based command execution.
-func resolveGitPath() string {
-	gitPathOnce.Do(func() {
-		path, err := exec.LookPath("git")
-		if err != nil {
-			// Fall back to "git" if LookPath fails (will use PATH at runtime)
-			gitPath = "git"
-		} else {
-			gitPath = path
-		}
-	})
-	return gitPath
-}
-
-// gitCommandTimeout is the timeout for git commands.
-const gitCommandTimeout = 30 * time.Second
 
 // GitRefReader provides an interface for reading history from git refs.
 // This allows for dependency injection in tests.
@@ -56,38 +33,19 @@ func NewGitRefStorage() *GitRefStorage {
 	return &GitRefStorage{}
 }
 
-// IsGitRepo checks if the current directory is inside a git repository.
-func IsGitRepo() bool {
-	ctx, cancel := context.WithTimeout(context.Background(), gitCommandTimeout)
-	defer cancel()
-
-	cmd := exec.CommandContext(ctx, resolveGitPath(), "rev-parse", "--git-dir")
-	err := cmd.Run()
-	return err == nil
-}
-
-// refExists checks if a git ref exists.
-func refExists(ref string) bool {
-	ctx, cancel := context.WithTimeout(context.Background(), gitCommandTimeout)
-	defer cancel()
-
-	cmd := exec.CommandContext(ctx, resolveGitPath(), "show-ref", "--verify", "--quiet", ref)
-	return cmd.Run() == nil
-}
-
 // ReadFromRef reads history from a git ref.
 // Returns an empty history if the ref doesn't exist.
 func (g *GitRefStorage) ReadFromRef(ref string) (*History, error) {
 	// Check if the ref exists - if not, return empty history (not an error)
-	if !refExists(ref) {
+	if !gitutil.RefExists(ref) {
 		return &History{}, nil
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), gitCommandTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), gitutil.CommandTimeout)
 	defer cancel()
 
 	// Read the content from the ref
-	cmd := exec.CommandContext(ctx, resolveGitPath(), "cat-file", "-p", ref)
+	cmd := exec.CommandContext(ctx, gitutil.ResolveGitPath(), "cat-file", "-p", ref)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -103,7 +61,7 @@ func (g *GitRefStorage) ReadFromRef(ref string) (*History, error) {
 // WriteToRef writes history to a git ref.
 // Creates or updates the ref to point to a blob containing the history.
 func (g *GitRefStorage) WriteToRef(ref string, h *History) error {
-	ctx, cancel := context.WithTimeout(context.Background(), gitCommandTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), gitutil.CommandTimeout)
 	defer cancel()
 
 	// Serialize history to JSON lines
@@ -113,7 +71,7 @@ func (g *GitRefStorage) WriteToRef(ref string, h *History) error {
 	}
 
 	// Create a blob object with the content
-	cmd := exec.CommandContext(ctx, resolveGitPath(), "hash-object", "-w", "--stdin")
+	cmd := exec.CommandContext(ctx, gitutil.ResolveGitPath(), "hash-object", "-w", "--stdin")
 	cmd.Stdin = strings.NewReader(content)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -126,7 +84,7 @@ func (g *GitRefStorage) WriteToRef(ref string, h *History) error {
 	sha := strings.TrimSpace(stdout.String())
 
 	// Update the ref to point to the blob
-	cmd = exec.CommandContext(ctx, resolveGitPath(), "update-ref", ref, sha)
+	cmd = exec.CommandContext(ctx, gitutil.ResolveGitPath(), "update-ref", ref, sha)
 	stderr.Reset()
 	cmd.Stderr = &stderr
 
