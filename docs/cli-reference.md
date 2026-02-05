@@ -659,6 +659,7 @@ confvis aggregate -c <config>[:weight] [-c <config>[:weight] ...] -o <output-dir
 | `--dark` | false | Use dark mode colors |
 | `--fail-under` | 0 | Exit with code 1 if aggregate score is below this value |
 | `--emit-json` | | Write aggregate report JSON to this path (useful for CI/CD pipelines) |
+| `--fragment` | false | Output HTML fragment without DOCTYPE/html wrapper (for embedding in Confluence, wikis, etc.) |
 
 #### Config Format
 
@@ -705,6 +706,9 @@ confvis aggregate -c api.json -c web.json -o ./output --badge-type flat --icon "
 
 # Emit JSON metadata for CI pipelines
 confvis aggregate -c api.json -c web.json -o ./output --emit-json ./output/confidence.json
+
+# Generate embeddable fragment (no DOCTYPE wrapper)
+confvis aggregate -c api.json -c web.json -o ./output --fragment
 ```
 
 ---

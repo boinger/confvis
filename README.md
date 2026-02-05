@@ -256,6 +256,10 @@ Creates:
 - `output/dashboard/index.html` - Multi-report dashboard with all components
 - `output/<report-title>.svg` - Individual badges for each report
 
+Use `--fragment` to generate an embeddable HTML fragment (no DOCTYPE wrapper) for Confluence or other systems.
+
+See [examples/dashboard](examples/dashboard) for a working example with embedding instructions.
+
 ### `confvis baseline`
 
 Manage baselines for regression detection in CI/CD.

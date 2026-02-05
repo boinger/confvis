@@ -97,10 +97,13 @@
             color: var(--success-color);
         }
 
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
         .theme-toggle {
-            position: fixed;
-            top: 16px;
-            right: 16px;
             background: var(--bg-secondary);
             border: 1px solid var(--border-color);
             border-radius: 6px;
@@ -113,10 +116,217 @@
         .theme-toggle:hover {
             background: var(--border-color);
         }
+
+        .badge-sm {
+            font-size: 10px;
+            padding: 2px 6px;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+
+        .factor-failed {
+            background-color: var(--danger-bg);
+            border-radius: 4px;
+            padding: 2px 4px;
+            margin: -2px -4px;
+        }
+
+        .factor-threshold {
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+        .factor-weight {
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+        .report-card.report-failed {
+            border-color: var(--danger-color);
+            border-width: 2px;
+        }
 {{end}}
 
 {{define "theme-toggle"}}
     <button class="theme-toggle" onclick="document.body.classList.toggle('dark')">
         Toggle Theme
     </button>
+{{end}}
+
+{{/* Shared CSS for multi-dashboard layout - used by both full and fragment templates */}}
+{{define "multi-dashboard-styles"}}
+        .aggregate-section {
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 24px;
+            margin-bottom: 32px;
+        }
+
+        .aggregate-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+
+        .aggregate-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .gauge-container {
+            margin: 16px 0;
+        }
+
+        .reports-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 16px;
+        }
+
+        .report-card {
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 16px;
+        }
+
+        .report-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+
+        .report-title {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .report-path {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 4px;
+            word-break: break-all;
+        }
+
+        .report-weight {
+            font-size: 12px;
+            color: var(--text-muted);
+            background-color: var(--bg-primary);
+            padding: 2px 8px;
+            border-radius: 12px;
+            white-space: nowrap;
+        }
+
+        .report-gauge {
+            display: flex;
+            justify-content: center;
+            margin: 12px 0;
+        }
+
+        .report-gauge svg {
+            max-width: 160px;
+            height: auto;
+        }
+
+        .factors-list {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .factor-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 4px 0;
+            font-size: 14px;
+        }
+
+        .factor-score {
+            color: var(--text-muted);
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        .component-breakdown {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .component-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 4px 0;
+            font-size: 13px;
+        }
+
+        .component-name {
+            font-weight: 500;
+        }
+
+        .component-meta {
+            color: var(--text-muted);
+            display: flex;
+            gap: 12px;
+        }
+{{end}}
+
+{{/* Component weight breakdown - shown in aggregate section */}}
+{{define "component-breakdown"}}
+        <div class="component-breakdown">
+            {{range .}}
+            <div class="component-row">
+                <span class="component-name">
+                    {{.Report.Title}}
+                    <span class="badge badge-sm {{if .Report.Passed}}badge-pass{{else}}badge-fail{{end}}">
+                        {{if .Report.Passed}}Pass{{else}}Fail{{end}}
+                    </span>
+                </span>
+                <span class="component-meta">
+                    <span>score: {{.Report.ScoreValue}}</span>
+                    <span>weight: {{.Weight}}</span>
+                </span>
+            </div>
+            {{end}}
+        </div>
+{{end}}
+
+{{/* Shared report card rendering - used by both full and fragment templates */}}
+{{define "report-card"}}
+<div class="report-card{{if not .Report.Passed}} report-failed{{end}}">
+    <div class="report-card-header">
+        <div>
+            <div class="report-title">
+                {{.Report.Title}}
+                <span class="badge badge-sm {{if .Report.Passed}}badge-pass{{else}}badge-fail{{end}}">
+                    {{if .Report.Passed}}Pass{{else}}Fail{{end}}
+                </span>
+            </div>
+            <div class="report-path">{{.Path}}</div>
+        </div>
+        <span class="report-weight">weight: {{.Weight}}</span>
+    </div>
+    <div class="report-gauge">
+        {{.GaugeSVG}}
+    </div>
+    {{if .Report.Factors}}
+    <div class="factors-list">
+        {{range .Report.Factors}}
+        <div class="factor-row{{if and .Threshold (lt .Score .Threshold)}} factor-failed{{end}}">
+            <span class="factor-name">{{if .URL}}<a href="{{.URL}}" class="factor-link" target="_blank" rel="noopener noreferrer">{{.Name}}</a>{{else}}{{.Name}}{{end}}</span>
+            <span class="factor-score">{{.Score}}%{{if .Threshold}} <span class="factor-threshold">(min: {{.Threshold}}%)</span>{{end}}</span>
+        </div>
+        {{end}}
+    </div>
+    {{end}}
+</div>
 {{end}}

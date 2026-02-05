@@ -25,6 +25,7 @@ var (
 	aggIcon      string
 	aggLabel     string
 	aggEmitJSON  string
+	aggFragment  bool
 )
 
 var aggregateCmd = &cobra.Command{
@@ -55,6 +56,7 @@ func init() {
 	aggregateCmd.Flags().StringVar(&aggIcon, "icon", "", "SVG path data for flat badge icon")
 	aggregateCmd.Flags().StringVar(&aggLabel, "label", "", "custom label for flat badge (defaults to 'Aggregate')")
 	aggregateCmd.Flags().StringVar(&aggEmitJSON, "emit-json", "", "write aggregate report JSON to file")
+	aggregateCmd.Flags().BoolVar(&aggFragment, "fragment", false, "output HTML fragment without DOCTYPE/html wrapper (for embedding)")
 
 	if err := aggregateCmd.MarkFlagRequired("config"); err != nil {
 		panic(err)
@@ -88,6 +90,7 @@ type AggregateDeps struct {
 	Icon      string
 	Label     string
 	EmitJSON  string
+	Fragment  bool
 }
 
 func runAggregate(_ *cobra.Command, _ []string) error {
@@ -105,6 +108,7 @@ func runAggregate(_ *cobra.Command, _ []string) error {
 		Icon:      aggIcon,
 		Label:     aggLabel,
 		EmitJSON:  aggEmitJSON,
+		Fragment:  aggFragment,
 	})
 }
 
@@ -176,7 +180,7 @@ func aggregateImpl(deps *AggregateDeps) error {
 
 	// Generate multi-dashboard
 	dashboardPath := filepath.Join(dashboardDir, "index.html")
-	if err := generateMultiDashboardWithFS(deps.FS, dashboardPath, reports, aggregateReport, deps.Dark, showVerbose); err != nil {
+	if err := generateMultiDashboardWithFS(deps.FS, dashboardPath, reports, aggregateReport, deps.Dark, deps.Fragment, showVerbose); err != nil {
 		return err
 	}
 
@@ -302,11 +306,11 @@ func generateAggregateBadgeWithFS(fs FileSystem, path string, report *confidence
 	return nil
 }
 
-func generateMultiDashboard(path string, reports []reportWithWeight, aggregate *confidence.Report, dark, verbose bool) error {
-	return generateMultiDashboardWithFS(DefaultFileSystem, path, reports, aggregate, dark, verbose)
+func generateMultiDashboard(path string, reports []reportWithWeight, aggregate *confidence.Report, dark, fragment, verbose bool) error {
+	return generateMultiDashboardWithFS(DefaultFileSystem, path, reports, aggregate, dark, fragment, verbose)
 }
 
-func generateMultiDashboardWithFS(fs FileSystem, path string, reports []reportWithWeight, aggregate *confidence.Report, dark, verbose bool) error {
+func generateMultiDashboardWithFS(fs FileSystem, path string, reports []reportWithWeight, aggregate *confidence.Report, dark, fragment, verbose bool) error {
 	f, err := fs.Create(path)
 	if err != nil {
 		return fmt.Errorf("creating dashboard file: %w", err)
@@ -324,6 +328,7 @@ func generateMultiDashboardWithFS(fs FileSystem, path string, reports []reportWi
 
 	opts := dashboard.MultiOptions{
 		DarkMode: dark,
+		Fragment: fragment,
 	}
 	if err := dashboard.GenerateMulti(f, dashReports, aggregate, opts); err != nil {
 		_ = f.Close()

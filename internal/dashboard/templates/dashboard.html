@@ -88,14 +88,16 @@
     </style>
 </head>
 <body{{if .DarkMode}} class="dark"{{end}}>
-{{template "theme-toggle"}}
 
     <div class="container">
         <header class="header">
             <h1 class="title">{{.Report.Title}}</h1>
-            <span class="badge {{if .Report.Passed}}badge-pass{{else}}badge-fail{{end}}">
-                {{if .Report.Passed}}Pass{{else}}Fail{{end}}
-            </span>
+            <div class="header-actions">
+                <span class="badge {{if .Report.Passed}}badge-pass{{else}}badge-fail{{end}}">
+                    {{if .Report.Passed}}Pass{{else}}Fail{{end}}
+                </span>
+                {{template "theme-toggle"}}
+            </div>
         </header>
 
         <div class="gauge-container">
@@ -110,10 +112,14 @@
         <section class="factors-section">
             <h2 class="factors-title">Breakdown</h2>
             {{range .Report.Factors}}
-            <div class="factor">
+            <div class="factor{{if and .Threshold (lt .Score .Threshold)}} factor-failed{{end}}">
                 <div class="factor-header">
                     <span class="factor-name">{{if .URL}}<a href="{{.URL}}" class="factor-link" target="_blank" rel="noopener noreferrer">{{.Name}}</a>{{else}}{{.Name}}{{end}}</span>
-                    <span class="factor-score">{{.Score}}%{{if .Weight}} (weight: {{.Weight}}%){{end}}</span>
+                    <span class="factor-score">
+                        {{.Score}}%
+                        {{if .Threshold}}<span class="factor-threshold"> (min: {{.Threshold}}%)</span>{{end}}
+                        {{if .Weight}}<span class="factor-weight"> · weight: {{.Weight}}%</span>{{end}}
+                    </span>
                 </div>
                 <div class="factor-bar">
                     <div class="factor-fill {{if ge .Score 75}}factor-fill-success{{else if ge .Score 50}}factor-fill-warning{{else}}factor-fill-danger{{end}}" style="width: {{.Score}}%"></div>

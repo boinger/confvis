@@ -518,14 +518,14 @@ func TestDetectFormat(t *testing.T) {
 // Tests for ParseFile and ParseFileWithFormat
 
 func TestParseFile_JSON(t *testing.T) {
-	// Use existing testdata file
+	// Use existing testdata file (sample.json has title "API Service")
 	report, err := ParseFile("../../testdata/sample.json")
 	if err != nil {
 		t.Fatalf("ParseFile() error = %v", err)
 	}
 
-	if report.Title != "Code Quality Report" {
-		t.Errorf("Title = %q, want %q", report.Title, "Code Quality Report")
+	if report.Title != "API Service" {
+		t.Errorf("Title = %q, want %q", report.Title, "API Service")
 	}
 	if report.ScoreValue() != 85 {
 		t.Errorf("Score = %d, want %d", report.ScoreValue(), 85)

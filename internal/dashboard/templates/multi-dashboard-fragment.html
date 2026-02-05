@@ -1,0 +1,43 @@
+<style scoped>
+{{template "base-styles"}}
+
+    .confvis-dashboard {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 24px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
+    }
+
+    .confvis-dashboard-compact {
+        max-width: 700px;
+    }
+
+{{template "multi-dashboard-styles"}}
+</style>
+
+<div class="confvis-dashboard{{if .DarkMode}} dark{{end}}{{if eq (len .Reports) 2}} confvis-dashboard-compact{{end}}">
+    <header class="header">
+        <h1 class="title">Aggregate Confidence Report</h1>
+        <span class="badge {{if .Aggregate.Passed}}badge-pass{{else}}badge-fail{{end}}">
+            {{if .Aggregate.Passed}}Pass{{else}}Fail{{end}}
+        </span>
+    </header>
+
+    <section class="aggregate-section">
+        <div class="aggregate-header">
+            <h2 class="aggregate-title">Overall Score</h2>
+            <span class="report-weight">{{len .Reports}} reports</span>
+        </div>
+        <div class="gauge-container">
+            {{.AggregateSVG}}
+        </div>
+        {{template "component-breakdown" .Reports}}
+    </section>
+
+    <h2 class="section-title">Components</h2>
+    <div class="reports-grid">
+        {{range .Reports}}
+        {{template "report-card" .}}
+        {{end}}
+    </div>
+</div>

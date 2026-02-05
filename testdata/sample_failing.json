@@ -1,32 +1,37 @@
 {
-  "title": "Code Quality Report",
-  "score": 62,
+  "title": "Legacy Service",
+  "score": 38,
   "threshold": 75,
-  "description": "Overall code quality assessment - needs improvement.",
+  "description": "Legacy service with significant technical debt.",
   "factors": [
     {
       "name": "Test Coverage",
-      "score": 45,
+      "score": 22,
       "weight": 30,
-      "description": "Test coverage below acceptable threshold"
-    },
-    {
-      "name": "Code Complexity",
-      "score": 68,
-      "weight": 25,
-      "description": "Some functions exceed complexity limits"
-    },
-    {
-      "name": "Documentation",
-      "score": 72,
-      "weight": 20,
-      "description": "API documentation incomplete"
+      "threshold": 80,
+      "description": "Critical coverage gaps in payment processing",
+      "url": "https://codecov.io/example/legacy"
     },
     {
       "name": "Security Scan",
-      "score": 65,
-      "weight": 25,
-      "description": "Medium severity issues detected"
+      "score": 35,
+      "weight": 35,
+      "threshold": 90,
+      "description": "3 high, 12 medium vulnerabilities detected"
+    },
+    {
+      "name": "Code Complexity",
+      "score": 55,
+      "weight": 20,
+      "threshold": 70,
+      "description": "Multiple functions exceed complexity limits"
+    },
+    {
+      "name": "Documentation",
+      "score": 98,
+      "weight": 15,
+      "threshold": 60,
+      "description": "API documentation complete and thorough"
     }
   ]
 }

@@ -1,32 +1,38 @@
 {
-  "title": "Code Quality Report",
+  "title": "API Service",
   "score": 85,
   "threshold": 75,
-  "description": "Overall code quality assessment for the project.",
+  "description": "Core API service - well maintained.",
   "factors": [
     {
       "name": "Test Coverage",
       "score": 92,
       "weight": 30,
-      "description": "Percentage of code covered by tests"
+      "threshold": 80,
+      "description": "Comprehensive test suite",
+      "url": "https://codecov.io/example/api"
+    },
+    {
+      "name": "Security Scan",
+      "score": 95,
+      "weight": 25,
+      "threshold": 90,
+      "description": "No vulnerabilities detected",
+      "url": "https://snyk.io/example/api"
     },
     {
       "name": "Code Complexity",
       "score": 78,
       "weight": 25,
-      "description": "Cyclomatic complexity within acceptable range"
+      "threshold": 70,
+      "description": "Within acceptable range"
     },
     {
       "name": "Documentation",
       "score": 88,
       "weight": 20,
-      "description": "API documentation completeness"
-    },
-    {
-      "name": "Security Scan",
-      "score": 80,
-      "weight": 25,
-      "description": "No critical vulnerabilities detected"
+      "threshold": 60,
+      "description": "API docs complete"
     }
   ]
 }

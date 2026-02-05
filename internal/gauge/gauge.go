@@ -13,12 +13,13 @@ import (
 
 // Options configures gauge generation.
 type Options struct {
-	Width       int
-	Height      int
-	DarkMode    bool
-	Style       string // Color scheme style: github, minimal, corporate, high-contrast
-	GreenAbove  int    // Score threshold for green color (0 = use report default or 75)
-	YellowAbove int    // Score threshold for yellow color (0 = use report default or 50)
+	Width         int
+	Height        int
+	DarkMode      bool
+	Style         string // Color scheme style: github, minimal, corporate, high-contrast
+	GreenAbove    int    // Score threshold for green color (0 = use report default or 75)
+	YellowAbove   int    // Score threshold for yellow color (0 = use report default or 50)
+	TransparentBG bool   // Omit background rect (for inline HTML embedding)
 }
 
 // DefaultOptions returns sensible defaults for gauge rendering.
@@ -51,10 +52,12 @@ func Generate(w io.Writer, report *confidence.Report, opts Options) error {
 	}
 
 	canvas := svg.New(w)
-	canvas.Start(opts.Width, opts.Height)
+	canvas.Startview(opts.Width, opts.Height, 0, 0, opts.Width, opts.Height)
 
-	// Background
-	canvas.Rect(0, 0, opts.Width, opts.Height, fmt.Sprintf("fill:%s", scheme.Background))
+	// Background (omit for inline HTML embedding)
+	if !opts.TransparentBG {
+		canvas.Rect(0, 0, opts.Width, opts.Height, fmt.Sprintf("fill:%s", scheme.Background))
+	}
 
 	centerX := opts.Width / 2
 	centerY := opts.Height - 20

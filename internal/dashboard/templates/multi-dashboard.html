@@ -13,116 +13,24 @@
             padding: 24px;
         }
 
-        .aggregate-section {
-            background-color: var(--bg-secondary);
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            padding: 24px;
-            margin-bottom: 32px;
+        .container-compact {
+            max-width: 700px;
         }
 
-        .aggregate-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 16px;
-        }
-
-        .aggregate-title {
-            font-size: 18px;
-            font-weight: 600;
-        }
-
-        .gauge-container {
-            margin: 16px 0;
-        }
-
-        .reports-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 16px;
-        }
-
-        .report-card {
-            background-color: var(--bg-secondary);
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            padding: 16px;
-        }
-
-        .report-card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 12px;
-        }
-
-        .report-title {
-            font-size: 16px;
-            font-weight: 600;
-        }
-
-        .report-path {
-            font-size: 12px;
-            color: var(--text-muted);
-            margin-top: 4px;
-            word-break: break-all;
-        }
-
-        .report-weight {
-            font-size: 12px;
-            color: var(--text-muted);
-            background-color: var(--bg-primary);
-            padding: 2px 8px;
-            border-radius: 12px;
-            white-space: nowrap;
-        }
-
-        .report-gauge {
-            display: flex;
-            justify-content: center;
-            margin: 12px 0;
-        }
-
-        .report-gauge svg {
-            max-width: 160px;
-            height: auto;
-        }
-
-        .factors-list {
-            margin-top: 12px;
-            padding-top: 12px;
-            border-top: 1px solid var(--border-color);
-        }
-
-        .factor-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 4px 0;
-            font-size: 14px;
-        }
-
-        .factor-score {
-            color: var(--text-muted);
-        }
-
-        .section-title {
-            font-size: 18px;
-            font-weight: 600;
-            margin-bottom: 16px;
-        }
+{{template "multi-dashboard-styles"}}
     </style>
 </head>
 <body{{if .DarkMode}} class="dark"{{end}}>
-{{template "theme-toggle"}}
 
-    <div class="container">
+    <div class="container{{if eq (len .Reports) 2}} container-compact{{end}}">
         <header class="header">
             <h1 class="title">Aggregate Confidence Report</h1>
-            <span class="badge {{if .Aggregate.Passed}}badge-pass{{else}}badge-fail{{end}}">
-                {{if .Aggregate.Passed}}Pass{{else}}Fail{{end}}
-            </span>
+            <div class="header-actions">
+                <span class="badge {{if .Aggregate.Passed}}badge-pass{{else}}badge-fail{{end}}">
+                    {{if .Aggregate.Passed}}Pass{{else}}Fail{{end}}
+                </span>
+                {{template "theme-toggle"}}
+            </div>
         </header>
 
         <section class="aggregate-section">
@@ -133,33 +41,13 @@
             <div class="gauge-container">
                 {{.AggregateSVG}}
             </div>
+            {{template "component-breakdown" .Reports}}
         </section>
 
         <h2 class="section-title">Components</h2>
         <div class="reports-grid">
             {{range .Reports}}
-            <div class="report-card">
-                <div class="report-card-header">
-                    <div>
-                        <div class="report-title">{{.Report.Title}}</div>
-                        <div class="report-path">{{.Path}}</div>
-                    </div>
-                    <span class="report-weight">weight: {{.Weight}}</span>
-                </div>
-                <div class="report-gauge">
-                    {{.GaugeSVG}}
-                </div>
-                {{if .Report.Factors}}
-                <div class="factors-list">
-                    {{range .Report.Factors}}
-                    <div class="factor-row">
-                        <span class="factor-name">{{if .URL}}<a href="{{.URL}}" class="factor-link" target="_blank" rel="noopener noreferrer">{{.Name}}</a>{{else}}{{.Name}}{{end}}</span>
-                        <span class="factor-score">{{.Score}}%</span>
-                    </div>
-                    {{end}}
-                </div>
-                {{end}}
-            </div>
+            {{template "report-card" .}}
             {{end}}
         </div>
     </div>

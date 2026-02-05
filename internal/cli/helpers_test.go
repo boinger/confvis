@@ -417,9 +417,9 @@ func TestParseConfigsWithWeights_ReportFields(t *testing.T) {
 
 	report := results[0].Report
 
-	// Verify report was fully parsed
-	if report.Title != "Code Quality Report" {
-		t.Errorf("title should be 'Code Quality Report', got %q", report.Title)
+	// Verify report was fully parsed (sample.json now has title "API Service")
+	if report.Title != "API Service" {
+		t.Errorf("title should be 'API Service', got %q", report.Title)
 	}
 
 	if report.Threshold != 75 {
@@ -1115,7 +1115,7 @@ func TestGenerateMultiDashboard_Basic(t *testing.T) {
 		Threshold: 75,
 	}
 
-	err := generateMultiDashboard(dashPath, reports, aggregate, false, false)
+	err := generateMultiDashboard(dashPath, reports, aggregate, false, false, false)
 	if err != nil {
 		t.Fatalf("generateMultiDashboard() error = %v", err)
 	}
@@ -1159,7 +1159,7 @@ func TestGenerateMultiDashboard_DarkMode(t *testing.T) {
 		Threshold: 75,
 	}
 
-	err := generateMultiDashboard(dashPath, reports, aggregate, true, false)
+	err := generateMultiDashboard(dashPath, reports, aggregate, true, false, false)
 	if err != nil {
 		t.Fatalf("generateMultiDashboard() error = %v", err)
 	}
@@ -1185,7 +1185,7 @@ func TestGenerateMultiDashboard_InvalidPath(t *testing.T) {
 		Threshold: 75,
 	}
 
-	err := generateMultiDashboard(dashPath, reports, aggregate, false, false)
+	err := generateMultiDashboard(dashPath, reports, aggregate, false, false, false)
 	if err == nil {
 		t.Error("expected error for invalid path")
 	}
@@ -1282,7 +1282,7 @@ func TestGenerateMultiDashboard_Verbose(t *testing.T) {
 	}
 
 	// Verbose mode should not error
-	err := generateMultiDashboard(dashPath, reports, aggregate, false, true)
+	err := generateMultiDashboard(dashPath, reports, aggregate, false, false, true)
 	if err != nil {
 		t.Fatalf("generateMultiDashboard() error = %v", err)
 	}
@@ -1404,7 +1404,7 @@ func TestGenerateMultiDashboard_MixedScores(t *testing.T) {
 		Threshold: 75,
 	}
 
-	err := generateMultiDashboard(dashPath, reports, aggregate, false, false)
+	err := generateMultiDashboard(dashPath, reports, aggregate, false, false, false)
 	if err != nil {
 		t.Fatalf("generateMultiDashboard() error = %v", err)
 	}
@@ -1420,6 +1420,54 @@ func TestGenerateMultiDashboard_MixedScores(t *testing.T) {
 	}
 	if !strings.Contains(html, "Failing Report") {
 		t.Error("dashboard should contain failing report")
+	}
+}
+
+func TestGenerateMultiDashboard_Fragment(t *testing.T) {
+	tmpDir := t.TempDir()
+	dashPath := filepath.Join(tmpDir, "fragment.html")
+
+	reports := []reportWithWeight{
+		{
+			Report: &confidence.Report{
+				Title:     "Test Report",
+				Score:     intPtrH(85),
+				Threshold: 75,
+			},
+			Weight: 100,
+			Path:   "test.json",
+		},
+	}
+
+	aggregate := &confidence.Report{
+		Title:     "Aggregate",
+		Score:     intPtrH(85),
+		Threshold: 75,
+	}
+
+	// Generate with fragment=true
+	err := generateMultiDashboard(dashPath, reports, aggregate, false, true, false)
+	if err != nil {
+		t.Fatalf("generateMultiDashboard() error = %v", err)
+	}
+
+	content, err := os.ReadFile(dashPath)
+	if err != nil {
+		t.Fatalf("reading dashboard file: %v", err)
+	}
+
+	html := string(content)
+	// Fragment should NOT contain DOCTYPE
+	if strings.Contains(html, "<!DOCTYPE html>") {
+		t.Error("fragment output should not contain DOCTYPE")
+	}
+	// Fragment should start with <style
+	if !strings.HasPrefix(strings.TrimSpace(html), "<style") {
+		t.Error("fragment output should start with <style>")
+	}
+	// Fragment should contain the dashboard content
+	if !strings.Contains(html, "confvis-dashboard") {
+		t.Error("fragment output should contain dashboard class")
 	}
 }
 

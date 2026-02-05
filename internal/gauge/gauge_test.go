@@ -233,6 +233,74 @@ func TestStyleNames(t *testing.T) {
 	}
 }
 
+func TestGenerate_TransparentBG(t *testing.T) {
+	report := &confidence.Report{
+		Title:     "Test",
+		Score:     intPtrG(85),
+		Threshold: 75,
+	}
+
+	// With TransparentBG, output should not contain a background rect
+	opts := DefaultOptions()
+	opts.TransparentBG = true
+
+	var buf bytes.Buffer
+	err := Generate(&buf, report, opts)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+
+	svg := buf.String()
+
+	if strings.Contains(svg, `fill:#ffffff"`) {
+		t.Error("transparent BG output should not contain background fill rect")
+	}
+	if !strings.Contains(svg, "<path") {
+		t.Error("transparent BG output should still contain gauge arcs")
+	}
+}
+
+func TestGenerate_ViewBox(t *testing.T) {
+	report := &confidence.Report{
+		Title:     "Test",
+		Score:     intPtrG(85),
+		Threshold: 75,
+	}
+
+	var buf bytes.Buffer
+	err := Generate(&buf, report, DefaultOptions())
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+
+	svg := buf.String()
+
+	if !strings.Contains(svg, `viewBox="0 0 200 120"`) {
+		t.Error("SVG should contain viewBox attribute for proper scaling")
+	}
+}
+
+func TestGenerate_OpaqueBackground(t *testing.T) {
+	report := &confidence.Report{
+		Title:     "Test",
+		Score:     intPtrG(85),
+		Threshold: 75,
+	}
+
+	// Default (TransparentBG=false) should include background rect
+	var buf bytes.Buffer
+	err := Generate(&buf, report, DefaultOptions())
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+
+	svg := buf.String()
+
+	if !strings.Contains(svg, "<rect") {
+		t.Error("default output should contain background rect")
+	}
+}
+
 func TestGenerateToString_WithOptions(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Test",
