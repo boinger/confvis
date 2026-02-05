@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -18,6 +19,32 @@ import (
 const (
 	defaultGitHubAPIURL = "https://api.github.com"
 	defaultTimeout      = 30 * time.Second
+
+	// HTTP headers.
+	headerAuthorization    = "Authorization"
+	headerAccept           = "Accept"
+	headerContentType      = "Content-Type"
+	headerGitHubAPIVersion = "X-GitHub-Api-Version"
+
+	// Header values.
+	bearerPrefix     = "Bearer "
+	acceptGitHubJSON = "application/vnd.github+json"
+	contentTypeJSON  = "application/json"
+	gitHubAPIVersion = "2022-11-28"
+
+	// Error format strings.
+	errMarshalingRequest = "marshaling request: %w"
+	errCreatingRequest   = "creating request: %w"
+	errMakingRequest     = "making request: %w"
+	errReadingResponse   = "reading response: %w"
+	errDecodingResponse  = "decoding response: %w"
+	errAPIStatus         = "API returned status %d: %s"
+)
+
+// Sentinel errors for validation.
+var (
+	errOwnerRepoRequired = errors.New("owner and repo are required")
+	errPRRequired        = errors.New("PR number is required")
 )
 
 // GitHubClient is an HTTP client for the GitHub Checks API.
@@ -105,7 +132,7 @@ type CheckRunResponse struct {
 // CreateCheck creates a check run for the given confidence report.
 func (c *GitHubClient) CreateCheck(ctx context.Context, report *confidence.Report, opts CreateCheckOptions) (*CheckRunResponse, error) {
 	if opts.Owner == "" || opts.Repo == "" {
-		return nil, fmt.Errorf("owner and repo are required")
+		return nil, errOwnerRepoRequired
 	}
 	if opts.SHA == "" {
 		return nil, fmt.Errorf("SHA is required")
@@ -138,37 +165,37 @@ func (c *GitHubClient) CreateCheck(ctx context.Context, report *confidence.Repor
 func (c *GitHubClient) postCheckRun(ctx context.Context, endpoint string, req CheckRunRequest) (*CheckRunResponse, error) {
 	body, err := json.Marshal(req)
 	if err != nil {
-		return nil, fmt.Errorf("marshaling request: %w", err)
+		return nil, fmt.Errorf(errMarshalingRequest, err)
 	}
 
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
 	if err != nil {
-		return nil, fmt.Errorf("creating request: %w", err)
+		return nil, fmt.Errorf(errCreatingRequest, err)
 	}
 
-	httpReq.Header.Set("Authorization", "Bearer "+c.token)
-	httpReq.Header.Set("Accept", "application/vnd.github+json")
-	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+	httpReq.Header.Set(headerAuthorization, bearerPrefix+c.token)
+	httpReq.Header.Set(headerAccept, acceptGitHubJSON)
+	httpReq.Header.Set(headerContentType, contentTypeJSON)
+	httpReq.Header.Set(headerGitHubAPIVersion, gitHubAPIVersion)
 
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
-		return nil, fmt.Errorf("making request: %w", err)
+		return nil, fmt.Errorf(errMakingRequest, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("reading response: %w", err)
+		return nil, fmt.Errorf(errReadingResponse, err)
 	}
 
 	if resp.StatusCode != http.StatusCreated {
-		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(respBody))
+		return nil, fmt.Errorf(errAPIStatus, resp.StatusCode, string(respBody))
 	}
 
 	var result CheckRunResponse
 	if err := json.Unmarshal(respBody, &result); err != nil {
-		return nil, fmt.Errorf("decoding response: %w", err)
+		return nil, fmt.Errorf(errDecodingResponse, err)
 	}
 
 	return &result, nil
@@ -267,41 +294,41 @@ type issueCommentsResponse []struct {
 // Returns nil if no confvis comment is found.
 func (c *GitHubClient) FindComment(ctx context.Context, opts CommentOptions) (*CommentResponse, error) {
 	if opts.Owner == "" || opts.Repo == "" {
-		return nil, fmt.Errorf("owner and repo are required")
+		return nil, errOwnerRepoRequired
 	}
 	if opts.PR <= 0 {
-		return nil, fmt.Errorf("PR number is required")
+		return nil, errPRRequired
 	}
 
 	endpoint := fmt.Sprintf("%s/repos/%s/%s/issues/%d/comments", c.baseURL, opts.Owner, opts.Repo, opts.PR)
 
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
-		return nil, fmt.Errorf("creating request: %w", err)
+		return nil, fmt.Errorf(errCreatingRequest, err)
 	}
 
-	httpReq.Header.Set("Authorization", "Bearer "+c.token)
-	httpReq.Header.Set("Accept", "application/vnd.github+json")
-	httpReq.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+	httpReq.Header.Set(headerAuthorization, bearerPrefix+c.token)
+	httpReq.Header.Set(headerAccept, acceptGitHubJSON)
+	httpReq.Header.Set(headerGitHubAPIVersion, gitHubAPIVersion)
 
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
-		return nil, fmt.Errorf("making request: %w", err)
+		return nil, fmt.Errorf(errMakingRequest, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("reading response: %w", err)
+		return nil, fmt.Errorf(errReadingResponse, err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(respBody))
+		return nil, fmt.Errorf(errAPIStatus, resp.StatusCode, string(respBody))
 	}
 
 	var comments issueCommentsResponse
 	if err := json.Unmarshal(respBody, &comments); err != nil {
-		return nil, fmt.Errorf("decoding response: %w", err)
+		return nil, fmt.Errorf(errDecodingResponse, err)
 	}
 
 	// Find comment with our marker
@@ -320,10 +347,10 @@ func (c *GitHubClient) FindComment(ctx context.Context, opts CommentOptions) (*C
 // PostComment creates a new comment on a PR.
 func (c *GitHubClient) PostComment(ctx context.Context, opts CommentOptions, body string) (*CommentResponse, error) {
 	if opts.Owner == "" || opts.Repo == "" {
-		return nil, fmt.Errorf("owner and repo are required")
+		return nil, errOwnerRepoRequired
 	}
 	if opts.PR <= 0 {
-		return nil, fmt.Errorf("PR number is required")
+		return nil, errPRRequired
 	}
 
 	endpoint := fmt.Sprintf("%s/repos/%s/%s/issues/%d/comments", c.baseURL, opts.Owner, opts.Repo, opts.PR)
@@ -334,37 +361,37 @@ func (c *GitHubClient) PostComment(ctx context.Context, opts CommentOptions, bod
 
 	jsonBody, err := json.Marshal(reqBody)
 	if err != nil {
-		return nil, fmt.Errorf("marshaling request: %w", err)
+		return nil, fmt.Errorf(errMarshalingRequest, err)
 	}
 
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(jsonBody))
 	if err != nil {
-		return nil, fmt.Errorf("creating request: %w", err)
+		return nil, fmt.Errorf(errCreatingRequest, err)
 	}
 
-	httpReq.Header.Set("Authorization", "Bearer "+c.token)
-	httpReq.Header.Set("Accept", "application/vnd.github+json")
-	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+	httpReq.Header.Set(headerAuthorization, bearerPrefix+c.token)
+	httpReq.Header.Set(headerAccept, acceptGitHubJSON)
+	httpReq.Header.Set(headerContentType, contentTypeJSON)
+	httpReq.Header.Set(headerGitHubAPIVersion, gitHubAPIVersion)
 
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
-		return nil, fmt.Errorf("making request: %w", err)
+		return nil, fmt.Errorf(errMakingRequest, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("reading response: %w", err)
+		return nil, fmt.Errorf(errReadingResponse, err)
 	}
 
 	if resp.StatusCode != http.StatusCreated {
-		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(respBody))
+		return nil, fmt.Errorf(errAPIStatus, resp.StatusCode, string(respBody))
 	}
 
 	var result CommentResponse
 	if err := json.Unmarshal(respBody, &result); err != nil {
-		return nil, fmt.Errorf("decoding response: %w", err)
+		return nil, fmt.Errorf(errDecodingResponse, err)
 	}
 
 	return &result, nil
@@ -373,7 +400,7 @@ func (c *GitHubClient) PostComment(ctx context.Context, opts CommentOptions, bod
 // UpdateComment updates an existing comment.
 func (c *GitHubClient) UpdateComment(ctx context.Context, opts CommentOptions, commentID int64, body string) (*CommentResponse, error) {
 	if opts.Owner == "" || opts.Repo == "" {
-		return nil, fmt.Errorf("owner and repo are required")
+		return nil, errOwnerRepoRequired
 	}
 
 	endpoint := fmt.Sprintf("%s/repos/%s/%s/issues/comments/%d", c.baseURL, opts.Owner, opts.Repo, commentID)
@@ -384,37 +411,37 @@ func (c *GitHubClient) UpdateComment(ctx context.Context, opts CommentOptions, c
 
 	jsonBody, err := json.Marshal(reqBody)
 	if err != nil {
-		return nil, fmt.Errorf("marshaling request: %w", err)
+		return nil, fmt.Errorf(errMarshalingRequest, err)
 	}
 
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPatch, endpoint, bytes.NewReader(jsonBody))
 	if err != nil {
-		return nil, fmt.Errorf("creating request: %w", err)
+		return nil, fmt.Errorf(errCreatingRequest, err)
 	}
 
-	httpReq.Header.Set("Authorization", "Bearer "+c.token)
-	httpReq.Header.Set("Accept", "application/vnd.github+json")
-	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+	httpReq.Header.Set(headerAuthorization, bearerPrefix+c.token)
+	httpReq.Header.Set(headerAccept, acceptGitHubJSON)
+	httpReq.Header.Set(headerContentType, contentTypeJSON)
+	httpReq.Header.Set(headerGitHubAPIVersion, gitHubAPIVersion)
 
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
-		return nil, fmt.Errorf("making request: %w", err)
+		return nil, fmt.Errorf(errMakingRequest, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("reading response: %w", err)
+		return nil, fmt.Errorf(errReadingResponse, err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(respBody))
+		return nil, fmt.Errorf(errAPIStatus, resp.StatusCode, string(respBody))
 	}
 
 	var result CommentResponse
 	if err := json.Unmarshal(respBody, &result); err != nil {
-		return nil, fmt.Errorf("decoding response: %w", err)
+		return nil, fmt.Errorf(errDecodingResponse, err)
 	}
 
 	return &result, nil
@@ -423,29 +450,29 @@ func (c *GitHubClient) UpdateComment(ctx context.Context, opts CommentOptions, c
 // DeleteComment deletes a comment.
 func (c *GitHubClient) DeleteComment(ctx context.Context, opts CommentOptions, commentID int64) error {
 	if opts.Owner == "" || opts.Repo == "" {
-		return fmt.Errorf("owner and repo are required")
+		return errOwnerRepoRequired
 	}
 
 	endpoint := fmt.Sprintf("%s/repos/%s/%s/issues/comments/%d", c.baseURL, opts.Owner, opts.Repo, commentID)
 
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodDelete, endpoint, nil)
 	if err != nil {
-		return fmt.Errorf("creating request: %w", err)
+		return fmt.Errorf(errCreatingRequest, err)
 	}
 
-	httpReq.Header.Set("Authorization", "Bearer "+c.token)
-	httpReq.Header.Set("Accept", "application/vnd.github+json")
-	httpReq.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+	httpReq.Header.Set(headerAuthorization, bearerPrefix+c.token)
+	httpReq.Header.Set(headerAccept, acceptGitHubJSON)
+	httpReq.Header.Set(headerGitHubAPIVersion, gitHubAPIVersion)
 
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
-		return fmt.Errorf("making request: %w", err)
+		return fmt.Errorf(errMakingRequest, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusNoContent {
 		respBody, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(respBody))
+		return fmt.Errorf(errAPIStatus, resp.StatusCode, string(respBody))
 	}
 
 	return nil
@@ -455,41 +482,41 @@ func (c *GitHubClient) DeleteComment(ctx context.Context, opts CommentOptions, c
 // Returns empty slice if no confvis comments are found.
 func (c *GitHubClient) FindAllConfvisComments(ctx context.Context, opts CommentOptions) ([]CommentResponse, error) {
 	if opts.Owner == "" || opts.Repo == "" {
-		return nil, fmt.Errorf("owner and repo are required")
+		return nil, errOwnerRepoRequired
 	}
 	if opts.PR <= 0 {
-		return nil, fmt.Errorf("PR number is required")
+		return nil, errPRRequired
 	}
 
 	endpoint := fmt.Sprintf("%s/repos/%s/%s/issues/%d/comments", c.baseURL, opts.Owner, opts.Repo, opts.PR)
 
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
-		return nil, fmt.Errorf("creating request: %w", err)
+		return nil, fmt.Errorf(errCreatingRequest, err)
 	}
 
-	httpReq.Header.Set("Authorization", "Bearer "+c.token)
-	httpReq.Header.Set("Accept", "application/vnd.github+json")
-	httpReq.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+	httpReq.Header.Set(headerAuthorization, bearerPrefix+c.token)
+	httpReq.Header.Set(headerAccept, acceptGitHubJSON)
+	httpReq.Header.Set(headerGitHubAPIVersion, gitHubAPIVersion)
 
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
-		return nil, fmt.Errorf("making request: %w", err)
+		return nil, fmt.Errorf(errMakingRequest, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("reading response: %w", err)
+		return nil, fmt.Errorf(errReadingResponse, err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(respBody))
+		return nil, fmt.Errorf(errAPIStatus, resp.StatusCode, string(respBody))
 	}
 
 	var comments issueCommentsResponse
 	if err := json.Unmarshal(respBody, &comments); err != nil {
-		return nil, fmt.Errorf("decoding response: %w", err)
+		return nil, fmt.Errorf(errDecodingResponse, err)
 	}
 
 	// Find all comments with our marker

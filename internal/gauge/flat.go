@@ -9,6 +9,13 @@ import (
 	"github.com/boinger/confvis/internal/confidence"
 )
 
+const (
+	// SVG style fragments for flat badges.
+	styleFillFmt      = "fill:%s"
+	styleShadowAnchor = ";fill:#010101;fill-opacity:0.3;text-anchor:middle"
+	styleTextAnchor   = ";text-anchor:middle"
+)
+
 // FlatOptions configures flat badge generation.
 type FlatOptions struct {
 	Label       string // Label text (left side), defaults to report title
@@ -79,13 +86,13 @@ func GenerateFlat(w io.Writer, report *confidence.Report, opts FlatOptions) erro
 	if opts.DarkMode {
 		labelBg = "#333"
 	}
-	canvas.Rect(0, 0, labelWidth, height, fmt.Sprintf("fill:%s", labelBg))
+	canvas.Rect(0, 0, labelWidth, height, fmt.Sprintf(styleFillFmt, labelBg))
 
 	// Score section (middle) - colored by score
-	canvas.Rect(labelWidth, 0, scoreWidth, height, fmt.Sprintf("fill:%s", scoreColor))
+	canvas.Rect(labelWidth, 0, scoreWidth, height, fmt.Sprintf(styleFillFmt, scoreColor))
 
 	// Status section (right) - same color as score
-	canvas.Rect(labelWidth+scoreWidth, 0, statusWidth, height, fmt.Sprintf("fill:%s", scoreColor))
+	canvas.Rect(labelWidth+scoreWidth, 0, statusWidth, height, fmt.Sprintf(styleFillFmt, scoreColor))
 
 	canvas.Gend()
 
@@ -99,8 +106,8 @@ func GenerateFlat(w io.Writer, report *confidence.Report, opts FlatOptions) erro
 		labelX = iconWidth + (labelWidth-iconWidth)/2
 	}
 	textY := 14
-	canvas.Text(labelX+1, textY+1, label, textStyle+";fill:#010101;fill-opacity:0.3;text-anchor:middle")
-	canvas.Text(labelX, textY, label, textStyle+";text-anchor:middle")
+	canvas.Text(labelX+1, textY+1, label, textStyle+styleShadowAnchor)
+	canvas.Text(labelX, textY, label, textStyle+styleTextAnchor)
 
 	// Render icon if provided
 	if opts.Icon != "" {
@@ -114,13 +121,13 @@ func GenerateFlat(w io.Writer, report *confidence.Report, opts FlatOptions) erro
 
 	// Score text
 	scoreX := labelWidth + scoreWidth/2
-	canvas.Text(scoreX+1, textY+1, scoreText, textStyle+";fill:#010101;fill-opacity:0.3;text-anchor:middle")
-	canvas.Text(scoreX, textY, scoreText, textStyle+";text-anchor:middle")
+	canvas.Text(scoreX+1, textY+1, scoreText, textStyle+styleShadowAnchor)
+	canvas.Text(scoreX, textY, scoreText, textStyle+styleTextAnchor)
 
 	// Status text
 	statusX := labelWidth + scoreWidth + statusWidth/2
-	canvas.Text(statusX+1, textY+1, statusText, textStyle+";fill:#010101;fill-opacity:0.3;text-anchor:middle")
-	canvas.Text(statusX, textY, statusText, textStyle+";text-anchor:middle")
+	canvas.Text(statusX+1, textY+1, statusText, textStyle+styleShadowAnchor)
+	canvas.Text(statusX, textY, statusText, textStyle+styleTextAnchor)
 
 	canvas.End()
 	return nil

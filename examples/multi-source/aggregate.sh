@@ -16,7 +16,7 @@ SECURITY_SCORE=100
 # ------------------------------------------------------------------------------
 # Test Coverage (Go)
 # ------------------------------------------------------------------------------
-if command -v go &> /dev/null && [ -f go.mod ]; then
+if command -v go &> /dev/null && [[ -f go.mod ]]; then
     echo "Collecting Go test coverage..."
     if go test -coverprofile=coverage.out ./... 2>/dev/null; then
         COVERAGE=$(go tool cover -func=coverage.out 2>/dev/null | grep total | awk '{print int($3)}')
