@@ -24,7 +24,7 @@ func TestSource_Registration(t *testing.T) {
 	}
 }
 
-func TestCountFromResults(t *testing.T) {
+func Test_countFromResults(t *testing.T) {
 	tests := []struct {
 		name    string
 		results []Result
@@ -100,9 +100,9 @@ func TestCountFromResults(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := CountFromResults(tt.results)
+			got := countFromResults(tt.results)
 			if got != tt.want {
-				t.Errorf("CountFromResults() = %+v, want %+v", got, tt.want)
+				t.Errorf("countFromResults() = %+v, want %+v", got, tt.want)
 			}
 		})
 	}

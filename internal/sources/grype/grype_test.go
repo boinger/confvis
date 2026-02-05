@@ -9,7 +9,7 @@ import (
 	"github.com/boinger/confvis/internal/sources"
 )
 
-func TestCountFromMatches(t *testing.T) {
+func Test_countFromMatches(t *testing.T) {
 	matches := []Match{
 		{Vulnerability: Vulnerability{Severity: "Critical"}},
 		{Vulnerability: Vulnerability{Severity: "Critical"}},
@@ -22,7 +22,7 @@ func TestCountFromMatches(t *testing.T) {
 		{Vulnerability: Vulnerability{Severity: "Unknown"}},
 	}
 
-	counts := CountFromMatches(matches)
+	counts := countFromMatches(matches)
 
 	if counts.Critical != 2 {
 		t.Errorf("Critical = %d, want 2", counts.Critical)

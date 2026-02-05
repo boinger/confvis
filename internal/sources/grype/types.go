@@ -29,8 +29,8 @@ type Artifact struct {
 	Type    string `json:"type"`
 }
 
-// CountFromMatches aggregates vulnerability counts from scan matches.
-func CountFromMatches(matches []Match) scoring.SeverityCounts {
+// countFromMatches aggregates vulnerability counts from scan matches.
+func countFromMatches(matches []Match) scoring.SeverityCounts {
 	var counts scoring.SeverityCounts
 	for _, match := range matches {
 		switch match.Vulnerability.Severity {

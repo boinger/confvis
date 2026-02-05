@@ -55,7 +55,7 @@ func (s *Source) Fetch(ctx context.Context, opts sources.Options) (*confidence.R
 	}
 
 	// Aggregate counts
-	counts := CountFromResults(report.Results)
+	counts := countFromResults(report.Results)
 
 	// Determine title
 	title := opts.Title

@@ -64,8 +64,8 @@ type FindingCounts struct {
 	Info    int
 }
 
-// CountFromResults aggregates finding counts from scan results.
-func CountFromResults(results []Result) FindingCounts {
+// countFromResults aggregates finding counts from scan results.
+func countFromResults(results []Result) FindingCounts {
 	var counts FindingCounts
 	for _, result := range results {
 		switch result.Extra.Severity {

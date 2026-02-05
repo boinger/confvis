@@ -79,7 +79,7 @@ func (s *Source) Fetch(ctx context.Context, opts sources.Options) (*confidence.R
 
 // fetchFromReader parses semgrep output from a reader.
 func (s *Source) fetchFromReader(r io.Reader, opts sources.Options) (*confidence.Report, error) {
-	report, err := ParseFromReader(r)
+	report, err := parseFromReader(r)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +95,7 @@ func (s *Source) fetchFromReader(r io.Reader, opts sources.Options) (*confidence
 // buildReport creates a confidence report from semgrep results.
 func (s *Source) buildReport(report *Report, opts sources.Options, path string) (*confidence.Report, error) {
 	// Aggregate counts
-	counts := CountFromResults(report.Results)
+	counts := countFromResults(report.Results)
 
 	// Determine title
 	title := opts.Title

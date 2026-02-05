@@ -28,8 +28,8 @@ type Vulnerability struct {
 	References       []string `json:"References"`
 }
 
-// CountFromResults aggregates vulnerability counts from scan results.
-func CountFromResults(results []Result) scoring.SeverityCounts {
+// countFromResults aggregates vulnerability counts from scan results.
+func countFromResults(results []Result) scoring.SeverityCounts {
 	var counts scoring.SeverityCounts
 	for _, result := range results {
 		for _, vuln := range result.Vulnerabilities {

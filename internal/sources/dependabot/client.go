@@ -69,8 +69,8 @@ func (c *Client) AlertsURL(owner, repo string) string {
 	return fmt.Sprintf("https://%s/%s/%s/security/dependabot", host, owner, repo)
 }
 
-// CountAlertsBySeverity counts alerts grouped by severity.
-func CountAlertsBySeverity(alerts AlertsResponse) AlertCounts {
+// countAlertsBySeverity counts alerts grouped by severity.
+func countAlertsBySeverity(alerts AlertsResponse) AlertCounts {
 	var counts AlertCounts
 	for _, alert := range alerts {
 		switch strings.ToLower(alert.SecurityAdvisory.Severity) {

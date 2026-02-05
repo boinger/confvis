@@ -71,9 +71,9 @@ func checkSemgrepError(err error, stderr []byte) error {
 	return cmdrun.FormatError(err, stderr, "semgrep", "scan")
 }
 
-// ParseFromReader parses semgrep JSON output from a reader.
+// parseFromReader parses semgrep JSON output from a reader.
 // This is used when piping semgrep output directly to confvis.
-func ParseFromReader(r io.Reader) (*Report, error) {
+func parseFromReader(r io.Reader) (*Report, error) {
 	var report Report
 	if err := json.NewDecoder(r).Decode(&report); err != nil {
 		return nil, fmt.Errorf("parsing semgrep output: %w", err)

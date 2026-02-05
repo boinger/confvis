@@ -50,7 +50,7 @@ func (s *Source) Fetch(ctx context.Context, opts sources.Options) (*confidence.R
 	}
 
 	// Aggregate counts
-	counts := CountFromMatches(report.Matches)
+	counts := countFromMatches(report.Matches)
 
 	// Determine title
 	title := opts.Title

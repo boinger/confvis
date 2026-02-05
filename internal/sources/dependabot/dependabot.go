@@ -101,7 +101,7 @@ func (s *Source) FetchWithClient(ctx context.Context, fetcher Fetcher, opts sour
 	}
 
 	// Count alerts by severity
-	counts := CountAlertsBySeverity(alerts)
+	counts := countAlertsBySeverity(alerts)
 
 	// Determine title
 	title := opts.Title

@@ -11,7 +11,7 @@ import (
 	"github.com/boinger/confvis/internal/sources"
 )
 
-func TestCountFromResults(t *testing.T) {
+func Test_countFromResults(t *testing.T) {
 	results := []Result{
 		{Extra: Extra{Severity: "ERROR"}},
 		{Extra: Extra{Severity: "ERROR"}},
@@ -21,7 +21,7 @@ func TestCountFromResults(t *testing.T) {
 		{Extra: Extra{Severity: "INFO"}},
 	}
 
-	counts := CountFromResults(results)
+	counts := countFromResults(results)
 
 	if counts.Error != 2 {
 		t.Errorf("Error = %d, want 2", counts.Error)
@@ -34,7 +34,7 @@ func TestCountFromResults(t *testing.T) {
 	}
 }
 
-func TestParseFromReader(t *testing.T) {
+func Test_parseFromReader(t *testing.T) {
 	jsonData := `{
 		"results": [
 			{"check_id": "rule1", "path": "test.py", "extra": {"severity": "ERROR", "message": "test"}},
@@ -42,9 +42,9 @@ func TestParseFromReader(t *testing.T) {
 		]
 	}`
 
-	report, err := ParseFromReader(strings.NewReader(jsonData))
+	report, err := parseFromReader(strings.NewReader(jsonData))
 	if err != nil {
-		t.Fatalf("ParseFromReader() error = %v", err)
+		t.Fatalf("parseFromReader() error = %v", err)
 	}
 
 	if len(report.Results) != 2 {

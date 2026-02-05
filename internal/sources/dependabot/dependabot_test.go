@@ -24,7 +24,7 @@ func (m *mockFetcher) AlertsURL(owner, repo string) string {
 	return "https://github.com/" + owner + "/" + repo + "/security/dependabot"
 }
 
-func TestCountAlertsBySeverity(t *testing.T) {
+func Test_countAlertsBySeverity(t *testing.T) {
 	alerts := AlertsResponse{
 		{Number: 1, SecurityAdvisory: SecurityAdvisory{Severity: "critical"}},
 		{Number: 2, SecurityAdvisory: SecurityAdvisory{Severity: "critical"}},
@@ -35,7 +35,7 @@ func TestCountAlertsBySeverity(t *testing.T) {
 		{Number: 7, SecurityAdvisory: SecurityAdvisory{Severity: "low"}},
 	}
 
-	counts := CountAlertsBySeverity(alerts)
+	counts := countAlertsBySeverity(alerts)
 
 	if counts.Critical != 2 {
 		t.Errorf("Critical = %d, want 2", counts.Critical)
