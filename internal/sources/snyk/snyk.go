@@ -35,9 +35,6 @@ var configResolver = &sources.ConfigResolver{
 	DefaultTimeout: 30 * time.Second,
 }
 
-// Penalty and weight constants are defined in the scoring package.
-// snyk uses the default strict penalties shared with grype and trivy.
-
 // Source implements the sources.Source interface for Snyk.
 type Source struct{}
 

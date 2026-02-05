@@ -34,17 +34,6 @@ func sonarqubeHandler(t *testing.T) http.Handler {
 				t.Errorf("encoding response: %v", err)
 			}
 
-		case "/api/qualitygates/project_status":
-			resp := map[string]interface{}{
-				"projectStatus": map[string]interface{}{
-					"status": "OK",
-				},
-			}
-			w.Header().Set("Content-Type", "application/json")
-			if err := json.NewEncoder(w).Encode(resp); err != nil {
-				t.Errorf("encoding response: %v", err)
-			}
-
 		default:
 			http.NotFound(w, r)
 		}
