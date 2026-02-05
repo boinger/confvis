@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -202,10 +203,10 @@ func TestClient_FetchReport_Integration(t *testing.T) {
 		t.Fatalf("FetchReport() error = %v", err)
 	}
 
-	// Verify score truncation (75.5 -> 75)
-	score := int(report.Totals.Coverage)
-	if score != 75 {
-		t.Errorf("score = %d, want 75", score)
+	// Verify score rounding (75.5 -> 76)
+	score := int(math.Round(report.Totals.Coverage))
+	if score != 76 {
+		t.Errorf("score = %d, want 76", score)
 	}
 }
 
@@ -490,9 +491,9 @@ func TestFetchWithClient_Success(t *testing.T) {
 		t.Fatalf("FetchWithClient() error = %v", err)
 	}
 
-	// 87.5 truncates to 87
-	if report.ScoreValue() != 87 {
-		t.Errorf("Score = %d, want 87", report.Score)
+	// 87.5 rounds to 88
+	if report.ScoreValue() != 88 {
+		t.Errorf("Score = %d, want 88", report.Score)
 	}
 	if report.Title != "Coverage Report" {
 		t.Errorf("Title = %q, want %q", report.Title, "Coverage Report")
@@ -500,11 +501,51 @@ func TestFetchWithClient_Success(t *testing.T) {
 	if len(report.Factors) != 1 {
 		t.Fatalf("Factors count = %d, want 1", len(report.Factors))
 	}
-	if report.Factors[0].Score != 87 {
-		t.Errorf("Factor Score = %d, want 87", report.Factors[0].Score)
+	if report.Factors[0].Score != 88 {
+		t.Errorf("Factor Score = %d, want 88", report.Factors[0].Score)
 	}
 	if report.Factors[0].URL != "https://app.codecov.io/github/myorg/myrepo" {
 		t.Errorf("URL = %q, want %q", report.Factors[0].URL, "https://app.codecov.io/github/myorg/myrepo")
+	}
+}
+
+func TestFetchWithClient_FractionalCoverageRounding(t *testing.T) {
+	tests := []struct {
+		name     string
+		coverage float64
+		want     int
+	}{
+		{"rounds up from .5", 87.5, 88},
+		{"rounds up from .6", 87.6, 88},
+		{"rounds down from .4", 87.4, 87},
+		{"rounds down from .1", 87.1, 87},
+		{"exact integer", 90.0, 90},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := &mockFetcher{
+				reportResp: &ReportResponse{
+					Totals: Totals{Coverage: tt.coverage},
+				},
+				reportURL: "https://app.codecov.io/github/myorg/myrepo",
+			}
+
+			s := &Source{}
+			opts := sources.Options{
+				Project:   "myorg/myrepo",
+				Threshold: 80,
+			}
+
+			report, err := s.FetchWithClient(context.Background(), mock, opts, "github")
+			if err != nil {
+				t.Fatalf("FetchWithClient() error = %v", err)
+			}
+
+			if report.ScoreValue() != tt.want {
+				t.Errorf("Score = %d, want %d for coverage %.1f", report.ScoreValue(), tt.want, tt.coverage)
+			}
+		})
 	}
 }
 
@@ -591,9 +632,9 @@ func TestFetchWithClient_PartialCoverage(t *testing.T) {
 		t.Fatalf("FetchWithClient() error = %v", err)
 	}
 
-	// 55.7 truncates to 55
-	if report.ScoreValue() != 55 {
-		t.Errorf("Score = %d, want 55", report.Score)
+	// 55.7 rounds to 56
+	if report.ScoreValue() != 56 {
+		t.Errorf("Score = %d, want 56", report.Score)
 	}
 }
 

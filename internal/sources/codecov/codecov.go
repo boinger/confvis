@@ -2,6 +2,7 @@ package codecov
 
 import (
 	"context"
+	"math"
 	"time"
 
 	"github.com/boinger/confvis/internal/confidence"
@@ -80,7 +81,7 @@ func (s *Source) FetchWithClient(ctx context.Context, fetcher Fetcher, opts sour
 	factors := []confidence.Factor{
 		{
 			Name:   "Code Coverage",
-			Score:  int(report.Totals.Coverage),
+			Score:  int(math.Round(report.Totals.Coverage)),
 			Weight: 100,
 			URL:    fetcher.ReportURL(service, opts.Project),
 		},
