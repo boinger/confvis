@@ -1,7 +1,12 @@
 // Package grype provides a source for fetching vulnerability metrics from Grype.
 package grype
 
-import "github.com/boinger/confvis/internal/sources/scoring"
+import (
+	"fmt"
+	"os"
+
+	"github.com/boinger/confvis/internal/sources/scoring"
+)
 
 // Report represents the JSON output from grype -o json.
 type Report struct {
@@ -42,6 +47,11 @@ func countFromMatches(matches []Match) scoring.SeverityCounts {
 			counts.Medium++
 		case "Low", "Negligible":
 			counts.Low++
+		default:
+			// "Unknown" is expected for unrated vulnerabilities, don't warn
+			if match.Vulnerability.Severity != "" && match.Vulnerability.Severity != "Unknown" {
+				fmt.Fprintf(os.Stderr, "Warning: unknown grype severity %q, finding not counted\n", match.Vulnerability.Severity)
+			}
 		}
 	}
 	return counts

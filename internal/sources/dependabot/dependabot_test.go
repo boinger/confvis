@@ -51,6 +51,31 @@ func Test_countAlertsBySeverity(t *testing.T) {
 	}
 }
 
+func Test_countAlertsBySeverity_UnknownSeverity(t *testing.T) {
+	// Unknown severities should not be counted but will log a warning
+	alerts := AlertsResponse{
+		{Number: 1, SecurityAdvisory: SecurityAdvisory{Severity: "critical"}},
+		{Number: 2, SecurityAdvisory: SecurityAdvisory{Severity: "severe"}},   // Unknown, will warn
+		{Number: 3, SecurityAdvisory: SecurityAdvisory{Severity: "moderate"}}, // Unknown, will warn
+		{Number: 4, SecurityAdvisory: SecurityAdvisory{Severity: ""}},         // Empty, no warning
+	}
+
+	counts := countAlertsBySeverity(alerts)
+
+	if counts.Critical != 1 {
+		t.Errorf("Critical = %d, want 1", counts.Critical)
+	}
+	if counts.High != 0 {
+		t.Errorf("High = %d, want 0", counts.High)
+	}
+	if counts.Medium != 0 {
+		t.Errorf("Medium = %d, want 0", counts.Medium)
+	}
+	if counts.Low != 0 {
+		t.Errorf("Low = %d, want 0", counts.Low)
+	}
+}
+
 func TestSource_FetchWithClient(t *testing.T) {
 	tests := []struct {
 		name      string

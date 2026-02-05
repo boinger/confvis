@@ -36,7 +36,32 @@ func Test_countFromMatches(t *testing.T) {
 	if counts.Low != 2 { // Low + Negligible
 		t.Errorf("Low = %d, want 2", counts.Low)
 	}
-	// "Unknown" severity is silently ignored (not scored)
+	// "Unknown" severity is expected and silently ignored (not scored)
+}
+
+func Test_countFromMatches_UnknownSeverity(t *testing.T) {
+	// Truly unknown severities (not "Unknown") should not be counted but will log a warning
+	matches := []Match{
+		{Vulnerability: Vulnerability{Severity: "Critical"}},
+		{Vulnerability: Vulnerability{Severity: "SEVERE"}},    // Unknown, will warn
+		{Vulnerability: Vulnerability{Severity: "Unknown"}},   // Expected, no warning
+		{Vulnerability: Vulnerability{Severity: ""}},          // Empty, no warning
+	}
+
+	counts := countFromMatches(matches)
+
+	if counts.Critical != 1 {
+		t.Errorf("Critical = %d, want 1", counts.Critical)
+	}
+	if counts.High != 0 {
+		t.Errorf("High = %d, want 0", counts.High)
+	}
+	if counts.Medium != 0 {
+		t.Errorf("Medium = %d, want 0", counts.Medium)
+	}
+	if counts.Low != 0 {
+		t.Errorf("Low = %d, want 0", counts.Low)
+	}
 }
 
 func TestDeriveTitle(t *testing.T) {

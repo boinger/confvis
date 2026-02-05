@@ -88,9 +88,9 @@ func Test_countFromResults(t *testing.T) {
 				{
 					Target: "file",
 					Vulnerabilities: []Vulnerability{
-						{Severity: "UNKNOWN"},
-						{Severity: ""},
-						{Severity: "OTHER"},
+						{Severity: "UNKNOWN"}, // Expected, no warning
+						{Severity: ""},        // Empty, no warning
+						{Severity: "OTHER"},   // Unknown, will warn
 					},
 				},
 			},

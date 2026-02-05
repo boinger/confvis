@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -96,6 +97,11 @@ func countAlertsBySeverity(alerts AlertsResponse) AlertCounts {
 			counts.Medium++
 		case "low":
 			counts.Low++
+		default:
+			sev := strings.ToLower(alert.SecurityAdvisory.Severity)
+			if sev != "" {
+				fmt.Fprintf(os.Stderr, "Warning: unknown dependabot severity %q, alert not counted\n", sev)
+			}
 		}
 	}
 	return counts

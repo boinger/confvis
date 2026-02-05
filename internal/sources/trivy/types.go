@@ -1,7 +1,12 @@
 // Package trivy provides a source for fetching vulnerability metrics from Trivy.
 package trivy
 
-import "github.com/boinger/confvis/internal/sources/scoring"
+import (
+	"fmt"
+	"os"
+
+	"github.com/boinger/confvis/internal/sources/scoring"
+)
 
 // Report represents the JSON output from trivy fs --format json.
 type Report struct {
@@ -42,6 +47,11 @@ func countFromResults(results []Result) scoring.SeverityCounts {
 				counts.Medium++
 			case "LOW":
 				counts.Low++
+			default:
+				// "UNKNOWN" is expected for unrated vulnerabilities, don't warn
+				if vuln.Severity != "" && vuln.Severity != "UNKNOWN" {
+					fmt.Fprintf(os.Stderr, "Warning: unknown trivy severity %q, finding not counted\n", vuln.Severity)
+				}
 			}
 		}
 	}

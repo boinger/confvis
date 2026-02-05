@@ -34,6 +34,28 @@ func Test_countFromResults(t *testing.T) {
 	}
 }
 
+func Test_countFromResults_UnknownSeverity(t *testing.T) {
+	// Unknown severities should not be counted (but will log a warning)
+	results := []Result{
+		{Extra: Extra{Severity: "ERROR"}},
+		{Extra: Extra{Severity: "CRITICAL"}}, // Unknown
+		{Extra: Extra{Severity: "HIGH"}},     // Unknown
+		{Extra: Extra{Severity: ""}},         // Empty, no warning
+	}
+
+	counts := countFromResults(results)
+
+	if counts.Error != 1 {
+		t.Errorf("Error = %d, want 1", counts.Error)
+	}
+	if counts.Warning != 0 {
+		t.Errorf("Warning = %d, want 0", counts.Warning)
+	}
+	if counts.Info != 0 {
+		t.Errorf("Info = %d, want 0", counts.Info)
+	}
+}
+
 func Test_parseFromReader(t *testing.T) {
 	jsonData := `{
 		"results": [

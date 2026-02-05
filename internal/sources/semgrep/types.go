@@ -1,6 +1,11 @@
 // Package semgrep provides a source for fetching security findings from Semgrep.
 package semgrep
 
+import (
+	"fmt"
+	"os"
+)
+
 // Report represents the JSON output from semgrep --json.
 type Report struct {
 	Results []Result `json:"results"`
@@ -75,6 +80,10 @@ func countFromResults(results []Result) FindingCounts {
 			counts.Warning++
 		case "INFO":
 			counts.Info++
+		default:
+			if result.Extra.Severity != "" {
+				fmt.Fprintf(os.Stderr, "Warning: unknown semgrep severity %q, finding not counted\n", result.Extra.Severity)
+			}
 		}
 	}
 	return counts
