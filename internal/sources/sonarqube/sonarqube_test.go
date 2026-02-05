@@ -395,39 +395,6 @@ func TestSource_Fetch_ContextCanceled(t *testing.T) {
 	}
 }
 
-func TestClient_ProjectURL(t *testing.T) {
-	c := NewClient("https://sonar.example.com", "", 5*time.Second)
-
-	tests := []struct {
-		project string
-		branch  string
-		want    string
-	}{
-		{
-			project: "myproject",
-			branch:  "",
-			want:    "https://sonar.example.com/dashboard?id=myproject",
-		},
-		{
-			project: "myproject",
-			branch:  "main",
-			want:    "https://sonar.example.com/dashboard?id=myproject&branch=main",
-		},
-		{
-			project: "my/project",
-			branch:  "feature/test",
-			want:    "https://sonar.example.com/dashboard?id=my%2Fproject&branch=feature%2Ftest",
-		},
-	}
-
-	for _, tt := range tests {
-		got := c.ProjectURL(tt.project, tt.branch)
-		if got != tt.want {
-			t.Errorf("ProjectURL(%q, %q) = %q, want %q", tt.project, tt.branch, got, tt.want)
-		}
-	}
-}
-
 func TestClient_MeasureURL(t *testing.T) {
 	c := NewClient("https://sonar.example.com", "", 5*time.Second)
 
@@ -443,87 +410,6 @@ func TestSource_Registration(t *testing.T) {
 	s := sources.Get("sonarqube")
 	if s == nil {
 		t.Error("sonarqube source not registered")
-	}
-}
-
-func TestClient_FetchQualityGate_Success(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Verify path
-		if r.URL.Path != "/api/qualitygates/project_status" {
-			t.Errorf("path = %q, want /api/qualitygates/project_status", r.URL.Path)
-		}
-
-		// Verify project key
-		if r.URL.Query().Get("projectKey") != "myproject" {
-			t.Errorf("projectKey = %q, want myproject", r.URL.Query().Get("projectKey"))
-		}
-
-		resp := QualityGateResponse{
-			ProjectStatus: ProjectStatus{
-				Status: "OK",
-			},
-		}
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(resp); err != nil {
-			t.Errorf("encoding response: %v", err)
-		}
-	}))
-	defer server.Close()
-
-	client := NewClientWithHTTP(server.URL, "test-token", server.Client())
-
-	qg, err := client.FetchQualityGate(context.Background(), "myproject", "")
-	if err != nil {
-		t.Fatalf("FetchQualityGate() error = %v", err)
-	}
-
-	if qg.ProjectStatus.Status != "OK" {
-		t.Errorf("status = %q, want OK", qg.ProjectStatus.Status)
-	}
-}
-
-func TestClient_FetchQualityGate_WithBranch(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Verify branch parameter
-		if r.URL.Query().Get("branch") != "main" {
-			t.Errorf("branch = %q, want main", r.URL.Query().Get("branch"))
-		}
-
-		resp := QualityGateResponse{
-			ProjectStatus: ProjectStatus{
-				Status: "ERROR",
-			},
-		}
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(resp); err != nil {
-			t.Errorf("encoding response: %v", err)
-		}
-	}))
-	defer server.Close()
-
-	client := NewClientWithHTTP(server.URL, "test-token", server.Client())
-
-	qg, err := client.FetchQualityGate(context.Background(), "myproject", "main")
-	if err != nil {
-		t.Fatalf("FetchQualityGate() error = %v", err)
-	}
-
-	if qg.ProjectStatus.Status != "ERROR" {
-		t.Errorf("status = %q, want ERROR", qg.ProjectStatus.Status)
-	}
-}
-
-func TestClient_FetchQualityGate_APIError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, `{"errors":[{"msg":"Not found"}]}`, http.StatusNotFound)
-	}))
-	defer server.Close()
-
-	client := NewClientWithHTTP(server.URL, "test-token", server.Client())
-
-	_, err := client.FetchQualityGate(context.Background(), "nonexistent", "")
-	if err == nil {
-		t.Error("expected error for API failure")
 	}
 }
 

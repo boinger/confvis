@@ -20,12 +20,6 @@ const (
 	FormatAuto Format = "auto"
 )
 
-// ParseFile reads and parses a confidence report from a file path.
-// The format is auto-detected from the file extension (.yaml, .yml for YAML, otherwise JSON).
-func ParseFile(path string) (*Report, error) {
-	return ParseFileWithFormat(path, FormatAuto)
-}
-
 // ParseFileWithFormat reads and parses a confidence report from a file path
 // using the specified format. If format is FormatAuto, it's detected from the extension.
 func ParseFileWithFormat(path string, format Format) (*Report, error) {
@@ -74,13 +68,6 @@ func IsKnownFormatExtension(path string) bool {
 	default:
 		return false
 	}
-}
-
-// Parse reads and parses a confidence report from an io.Reader as JSON.
-// If score is omitted (0) but factors exist, the score is automatically
-// calculated as a weighted average of factor scores.
-func Parse(r io.Reader) (*Report, error) {
-	return ParseWithFormat(r, FormatJSON)
 }
 
 // ParseWithFormat reads and parses a confidence report from an io.Reader

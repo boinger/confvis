@@ -69,34 +69,6 @@ func (c *Client) FetchMeasures(ctx context.Context, project, branch string) (*Me
 	return &result, nil
 }
 
-// FetchQualityGate retrieves the quality gate status for a project.
-func (c *Client) FetchQualityGate(ctx context.Context, project, branch string) (*QualityGateResponse, error) {
-	params := url.Values{
-		"projectKey": {project},
-	}
-	if branch != "" {
-		params.Set("branch", branch)
-	}
-
-	endpoint := fmt.Sprintf("%s/api/qualitygates/project_status?%s", c.baseURL, params.Encode())
-
-	var result QualityGateResponse
-	if err := c.http.Get(ctx, endpoint, &result); err != nil {
-		return nil, fmt.Errorf("fetching quality gate: %w", err)
-	}
-
-	return &result, nil
-}
-
-// ProjectURL returns the web URL for a project in SonarQube.
-func (c *Client) ProjectURL(project, branch string) string {
-	u := fmt.Sprintf("%s/dashboard?id=%s", c.baseURL, url.QueryEscape(project))
-	if branch != "" {
-		u += "&branch=" + url.QueryEscape(branch)
-	}
-	return u
-}
-
 // MeasureURL returns the web URL for a specific measure.
 func (c *Client) MeasureURL(project, metric, branch string) string {
 	u := fmt.Sprintf("%s/component_measures?id=%s&metric=%s",

@@ -189,8 +189,8 @@ func (c *GitHubClient) doRequest(ctx context.Context, method, endpoint string, b
 	return respBody, nil
 }
 
-// marshalAndPost marshals a request body and sends it via doRequest.
-func (c *GitHubClient) marshalAndPost(ctx context.Context, method, endpoint string, reqBody any, expectedStatus int) ([]byte, error) {
+// marshalAndDo marshals a request body and sends it via doRequest.
+func (c *GitHubClient) marshalAndDo(ctx context.Context, method, endpoint string, reqBody any, expectedStatus int) ([]byte, error) {
 	jsonBody, err := json.Marshal(reqBody)
 	if err != nil {
 		return nil, fmt.Errorf(errMarshalingRequest, err)
@@ -199,7 +199,7 @@ func (c *GitHubClient) marshalAndPost(ctx context.Context, method, endpoint stri
 }
 
 func (c *GitHubClient) postCheckRun(ctx context.Context, endpoint string, req CheckRunRequest) (*CheckRunResponse, error) {
-	respBody, err := c.marshalAndPost(ctx, http.MethodPost, endpoint, req, http.StatusCreated)
+	respBody, err := c.marshalAndDo(ctx, http.MethodPost, endpoint, req, http.StatusCreated)
 	if err != nil {
 		return nil, err
 	}
@@ -354,7 +354,7 @@ func (c *GitHubClient) PostComment(ctx context.Context, opts CommentOptions, bod
 
 	endpoint := fmt.Sprintf(issueCommentsEndpoint, c.baseURL, opts.Owner, opts.Repo, opts.PR)
 
-	respBody, err := c.marshalAndPost(ctx, http.MethodPost, endpoint, struct {
+	respBody, err := c.marshalAndDo(ctx, http.MethodPost, endpoint, struct {
 		Body string `json:"body"`
 	}{Body: body}, http.StatusCreated)
 	if err != nil {
@@ -377,7 +377,7 @@ func (c *GitHubClient) UpdateComment(ctx context.Context, opts CommentOptions, c
 
 	endpoint := fmt.Sprintf("%s/repos/%s/%s/issues/comments/%d", c.baseURL, opts.Owner, opts.Repo, commentID)
 
-	respBody, err := c.marshalAndPost(ctx, http.MethodPatch, endpoint, struct {
+	respBody, err := c.marshalAndDo(ctx, http.MethodPatch, endpoint, struct {
 		Body string `json:"body"`
 	}{Body: body}, http.StatusOK)
 	if err != nil {

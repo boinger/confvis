@@ -362,14 +362,4 @@ func writeAggregateJSON(fs FileSystem, path string, report *confidence.Report, v
 	})
 }
 
-// openConfigFile is defined in generate.go, but we need to ensure it uses
-// the format detection logic. Since it's already defined there, we'll reuse it.
-// If the function uses a different filesystem interface, we need to ensure compatibility.
-
-// detectConfigFormat is defined in generate.go
-// If not, we define a local version here for aggregate-specific use
-func init() {
-	// Ensure openConfigFile and detectConfigFormat are available
-	// They are defined in generate.go
-}
 

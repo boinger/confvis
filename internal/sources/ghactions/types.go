@@ -25,18 +25,3 @@ type WorkflowRun struct {
 	WorkflowPath string     `json:"path"` // e.g., .github/workflows/ci.yml
 }
 
-// ConclusionScore maps a workflow run conclusion to a score.
-func ConclusionScore(conclusion string) int {
-	switch conclusion {
-	case "success":
-		return 100
-	case "neutral", "skipped":
-		return 75
-	case "cancelled":
-		return 50
-	case "failure", "timed_out":
-		return 0
-	default:
-		return 0
-	}
-}

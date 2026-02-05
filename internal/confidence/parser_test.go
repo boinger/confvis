@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestParse_ValidJSON(t *testing.T) {
+func TestParseWithFormat_ValidJSON(t *testing.T) {
 	input := `{
 		"title": "Test Report",
 		"score": 85,
@@ -19,9 +19,9 @@ func TestParse_ValidJSON(t *testing.T) {
 		]
 	}`
 
-	report, err := Parse(strings.NewReader(input))
+	report, err := ParseWithFormat(strings.NewReader(input), FormatJSON)
 	if err != nil {
-		t.Fatalf("Parse() error = %v", err)
+		t.Fatalf("ParseWithFormat() error = %v", err)
 	}
 
 	if report.Title != "Test Report" {
@@ -38,7 +38,7 @@ func TestParse_ValidJSON(t *testing.T) {
 	}
 }
 
-func TestParse_InvalidScore(t *testing.T) {
+func TestParseWithFormat_InvalidScore(t *testing.T) {
 	tests := []struct {
 		name  string
 		input string
@@ -73,9 +73,9 @@ func TestParse_InvalidScore(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := Parse(strings.NewReader(tt.input))
+			_, err := ParseWithFormat(strings.NewReader(tt.input), FormatJSON)
 			if err == nil {
-				t.Fatal("Parse() expected error, got nil")
+				t.Fatal("ParseWithFormat() expected error, got nil")
 			}
 			if !strings.Contains(err.Error(), tt.want) {
 				t.Errorf("error = %q, want to contain %q", err.Error(), tt.want)
@@ -84,7 +84,7 @@ func TestParse_InvalidScore(t *testing.T) {
 	}
 }
 
-func TestParse_MissingFields(t *testing.T) {
+func TestParseWithFormat_MissingFields(t *testing.T) {
 	tests := []struct {
 		name  string
 		input string
@@ -104,9 +104,9 @@ func TestParse_MissingFields(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := Parse(strings.NewReader(tt.input))
+			_, err := ParseWithFormat(strings.NewReader(tt.input), FormatJSON)
 			if err == nil {
-				t.Fatal("Parse() expected error, got nil")
+				t.Fatal("ParseWithFormat() expected error, got nil")
 			}
 			if !strings.Contains(err.Error(), tt.want) {
 				t.Errorf("error = %q, want to contain %q", err.Error(), tt.want)
@@ -115,10 +115,10 @@ func TestParse_MissingFields(t *testing.T) {
 	}
 }
 
-func TestParse_InvalidJSON(t *testing.T) {
-	_, err := Parse(strings.NewReader("not json"))
+func TestParseWithFormat_InvalidJSON(t *testing.T) {
+	_, err := ParseWithFormat(strings.NewReader("not json"), FormatJSON)
 	if err == nil {
-		t.Fatal("Parse() expected error for invalid JSON")
+		t.Fatal("ParseWithFormat() expected error for invalid JSON")
 	}
 	if !strings.Contains(err.Error(), "decoding JSON") {
 		t.Errorf("error = %q, want to contain 'decoding JSON'", err.Error())
@@ -148,7 +148,7 @@ func TestReport_Passed(t *testing.T) {
 	}
 }
 
-func TestParse_ColorThresholds_Valid(t *testing.T) {
+func TestParseWithFormat_ColorThresholds_Valid(t *testing.T) {
 	input := `{
 		"title": "Test",
 		"score": 85,
@@ -159,9 +159,9 @@ func TestParse_ColorThresholds_Valid(t *testing.T) {
 		}
 	}`
 
-	report, err := Parse(strings.NewReader(input))
+	report, err := ParseWithFormat(strings.NewReader(input), FormatJSON)
 	if err != nil {
-		t.Fatalf("Parse() error = %v", err)
+		t.Fatalf("ParseWithFormat() error = %v", err)
 	}
 
 	if report.Thresholds == nil {
@@ -175,7 +175,7 @@ func TestParse_ColorThresholds_Valid(t *testing.T) {
 	}
 }
 
-func TestParse_ColorThresholds_Invalid(t *testing.T) {
+func TestParseWithFormat_ColorThresholds_Invalid(t *testing.T) {
 	tests := []struct {
 		name  string
 		input string
@@ -200,9 +200,9 @@ func TestParse_ColorThresholds_Invalid(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := Parse(strings.NewReader(tt.input))
+			_, err := ParseWithFormat(strings.NewReader(tt.input), FormatJSON)
 			if err == nil {
-				t.Fatal("Parse() expected error, got nil")
+				t.Fatal("ParseWithFormat() expected error, got nil")
 			}
 			if !strings.Contains(err.Error(), tt.want) {
 				t.Errorf("error = %q, want to contain %q", err.Error(), tt.want)
@@ -290,7 +290,7 @@ func TestReport_CalculateScore(t *testing.T) {
 	}
 }
 
-func TestParse_AutoCalculateScore(t *testing.T) {
+func TestParseWithFormat_AutoCalculateScore(t *testing.T) {
 	// When score is omitted but factors exist, score should be auto-calculated
 	input := `{
 		"title": "Auto Test",
@@ -301,9 +301,9 @@ func TestParse_AutoCalculateScore(t *testing.T) {
 		]
 	}`
 
-	report, err := Parse(strings.NewReader(input))
+	report, err := ParseWithFormat(strings.NewReader(input), FormatJSON)
 	if err != nil {
-		t.Fatalf("Parse() error = %v", err)
+		t.Fatalf("ParseWithFormat() error = %v", err)
 	}
 
 	// (80*50 + 60*50) / 100 = 70
@@ -312,7 +312,7 @@ func TestParse_AutoCalculateScore(t *testing.T) {
 	}
 }
 
-func TestParse_ExplicitScoreNotOverridden(t *testing.T) {
+func TestParseWithFormat_ExplicitScoreNotOverridden(t *testing.T) {
 	// When score is explicitly provided, it should not be overridden
 	input := `{
 		"title": "Explicit Test",
@@ -323,9 +323,9 @@ func TestParse_ExplicitScoreNotOverridden(t *testing.T) {
 		]
 	}`
 
-	report, err := Parse(strings.NewReader(input))
+	report, err := ParseWithFormat(strings.NewReader(input), FormatJSON)
 	if err != nil {
-		t.Fatalf("Parse() error = %v", err)
+		t.Fatalf("ParseWithFormat() error = %v", err)
 	}
 
 	// Explicit score should be kept (not overridden to 100 from factors)
@@ -334,7 +334,7 @@ func TestParse_ExplicitScoreNotOverridden(t *testing.T) {
 	}
 }
 
-func TestParse_MetadataFields(t *testing.T) {
+func TestParseWithFormat_MetadataFields(t *testing.T) {
 	input := `{
 		"title": "Test",
 		"score": 85,
@@ -344,9 +344,9 @@ func TestParse_MetadataFields(t *testing.T) {
 		"source": "ci-pipeline"
 	}`
 
-	report, err := Parse(strings.NewReader(input))
+	report, err := ParseWithFormat(strings.NewReader(input), FormatJSON)
 	if err != nil {
-		t.Fatalf("Parse() error = %v", err)
+		t.Fatalf("ParseWithFormat() error = %v", err)
 	}
 
 	if report.Version != "1.0" {
@@ -360,7 +360,7 @@ func TestParse_MetadataFields(t *testing.T) {
 	}
 }
 
-func TestParse_FactorURL(t *testing.T) {
+func TestParseWithFormat_FactorURL(t *testing.T) {
 	input := `{
 		"title": "Test",
 		"score": 85,
@@ -370,9 +370,9 @@ func TestParse_FactorURL(t *testing.T) {
 		]
 	}`
 
-	report, err := Parse(strings.NewReader(input))
+	report, err := ParseWithFormat(strings.NewReader(input), FormatJSON)
 	if err != nil {
-		t.Fatalf("Parse() error = %v", err)
+		t.Fatalf("ParseWithFormat() error = %v", err)
 	}
 
 	if len(report.Factors) != 1 {
@@ -383,7 +383,7 @@ func TestParse_FactorURL(t *testing.T) {
 	}
 }
 
-func TestParse_CustomLabels(t *testing.T) {
+func TestParseWithFormat_CustomLabels(t *testing.T) {
 	input := `{
 		"title": "Test",
 		"score": 85,
@@ -392,9 +392,9 @@ func TestParse_CustomLabels(t *testing.T) {
 		"failLabel": "NEEDS WORK"
 	}`
 
-	report, err := Parse(strings.NewReader(input))
+	report, err := ParseWithFormat(strings.NewReader(input), FormatJSON)
 	if err != nil {
-		t.Fatalf("Parse() error = %v", err)
+		t.Fatalf("ParseWithFormat() error = %v", err)
 	}
 
 	if report.PassLabel != "OK" {
@@ -544,11 +544,11 @@ func TestDetectFormat(t *testing.T) {
 
 // Tests for ParseFile and ParseFileWithFormat
 
-func TestParseFile_JSON(t *testing.T) {
+func TestParseFileWithFormat_JSON(t *testing.T) {
 	// Use existing testdata file (sample.json has title "API Service")
-	report, err := ParseFile("../../testdata/sample.json")
+	report, err := ParseFileWithFormat("../../testdata/sample.json", FormatAuto)
 	if err != nil {
-		t.Fatalf("ParseFile() error = %v", err)
+		t.Fatalf("ParseFileWithFormat() error = %v", err)
 	}
 
 	if report.Title != "API Service" {
@@ -559,11 +559,11 @@ func TestParseFile_JSON(t *testing.T) {
 	}
 }
 
-func TestParseFile_YAML(t *testing.T) {
+func TestParseFileWithFormat_YAML(t *testing.T) {
 	// Use existing testdata file
-	report, err := ParseFile("../../testdata/sample.yaml")
+	report, err := ParseFileWithFormat("../../testdata/sample.yaml", FormatAuto)
 	if err != nil {
-		t.Fatalf("ParseFile() error = %v", err)
+		t.Fatalf("ParseFileWithFormat() error = %v", err)
 	}
 
 	if report.Title != "Code Quality Report" {
@@ -574,10 +574,10 @@ func TestParseFile_YAML(t *testing.T) {
 	}
 }
 
-func TestParseFile_NonExistent(t *testing.T) {
-	_, err := ParseFile("nonexistent.json")
+func TestParseFileWithFormat_NonExistent(t *testing.T) {
+	_, err := ParseFileWithFormat("nonexistent.json", FormatAuto)
 	if err == nil {
-		t.Error("ParseFile() expected error for non-existent file")
+		t.Error("ParseFileWithFormat() expected error for non-existent file")
 	}
 	if !strings.Contains(err.Error(), "opening file") {
 		t.Errorf("error = %q, want to contain 'opening file'", err.Error())
@@ -687,7 +687,7 @@ func TestParseFileWithFormat_ValidationError(t *testing.T) {
 	}
 }
 
-func TestParseFile_FactorValidation(t *testing.T) {
+func TestParseFileWithFormat_FactorValidation(t *testing.T) {
 	// Create temp file with invalid factor score
 	tmpDir := t.TempDir()
 	invalidPath := filepath.Join(tmpDir, "invalid_factor.json")
@@ -701,16 +701,16 @@ func TestParseFile_FactorValidation(t *testing.T) {
 		t.Fatalf("writing temp file: %v", err)
 	}
 
-	_, err := ParseFile(invalidPath)
+	_, err := ParseFileWithFormat(invalidPath, FormatAuto)
 	if err == nil {
-		t.Error("ParseFile() expected validation error for invalid factor score")
+		t.Error("ParseFileWithFormat() expected validation error for invalid factor score")
 	}
 	if !strings.Contains(err.Error(), "factor[0] score must be between") {
 		t.Errorf("error = %q, want to contain factor validation error", err.Error())
 	}
 }
 
-func TestParseFile_FactorWeightValidation(t *testing.T) {
+func TestParseFileWithFormat_FactorWeightValidation(t *testing.T) {
 	// Create temp file with invalid factor weight
 	tmpDir := t.TempDir()
 	invalidPath := filepath.Join(tmpDir, "invalid_weight.json")
@@ -724,16 +724,16 @@ func TestParseFile_FactorWeightValidation(t *testing.T) {
 		t.Fatalf("writing temp file: %v", err)
 	}
 
-	_, err := ParseFile(invalidPath)
+	_, err := ParseFileWithFormat(invalidPath, FormatAuto)
 	if err == nil {
-		t.Error("ParseFile() expected validation error for invalid factor weight")
+		t.Error("ParseFileWithFormat() expected validation error for invalid factor weight")
 	}
 	if !strings.Contains(err.Error(), "factor[0] weight must be between") {
 		t.Errorf("error = %q, want to contain factor weight validation error", err.Error())
 	}
 }
 
-func TestParseFile_NegativeThreshold(t *testing.T) {
+func TestParseFileWithFormat_NegativeThreshold(t *testing.T) {
 	// Create temp file with negative threshold
 	tmpDir := t.TempDir()
 	invalidPath := filepath.Join(tmpDir, "negative_threshold.json")
@@ -742,9 +742,9 @@ func TestParseFile_NegativeThreshold(t *testing.T) {
 		t.Fatalf("writing temp file: %v", err)
 	}
 
-	_, err := ParseFile(invalidPath)
+	_, err := ParseFileWithFormat(invalidPath, FormatAuto)
 	if err == nil {
-		t.Error("ParseFile() expected validation error for negative threshold")
+		t.Error("ParseFileWithFormat() expected validation error for negative threshold")
 	}
 }
 

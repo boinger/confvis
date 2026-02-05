@@ -28,29 +28,6 @@ func (m *mockFetcher) ActionsURL(_ string) string {
 	return m.actionsURL
 }
 
-func TestConclusionScore(t *testing.T) {
-	tests := []struct {
-		conclusion string
-		want       int
-	}{
-		{"success", 100},
-		{"neutral", 75},
-		{"skipped", 75},
-		{"cancelled", 50},
-		{"failure", 0},
-		{"timed_out", 0},
-		{"unknown", 0},
-		{"", 0},
-	}
-
-	for _, tt := range tests {
-		got := ConclusionScore(tt.conclusion)
-		if got != tt.want {
-			t.Errorf("ConclusionScore(%q) = %d, want %d", tt.conclusion, got, tt.want)
-		}
-	}
-}
-
 func TestSource_Name(t *testing.T) {
 	s := &Source{}
 	if got := s.Name(); got != "github-actions" {
