@@ -3,7 +3,6 @@ package trivy
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"github.com/boinger/confvis/internal/confidence"
@@ -32,14 +31,7 @@ func (s *Source) Name() string {
 
 // Fetch runs Trivy on the specified path and converts results to a confidence report.
 func (s *Source) Fetch(ctx context.Context, opts sources.Options) (*confidence.Report, error) {
-	// Resolve command from Extra options or environment
-	command := ""
-	if opts.Extra != nil {
-		command = opts.Extra["trivy-cmd"]
-	}
-	if command == "" {
-		command = os.Getenv(EnvCommand)
-	}
+	command := sources.ResolveCommand(opts, "trivy-cmd", EnvCommand)
 
 	// Path is provided via Project field (matches CLI pattern of -p flag)
 	path := opts.Project
@@ -73,7 +65,7 @@ func (s *Source) Fetch(ctx context.Context, opts sources.Options) (*confidence.R
 
 	// Build factors with severity-based scoring
 	factors := scoring.BuildVulnFactors(
-		scoring.SeverityCounts{Critical: counts.Critical, High: counts.High, Medium: counts.Medium, Low: counts.Low},
+		counts,
 		scoring.DefaultPenalties(),
 		scoring.DefaultWeights(),
 		"",

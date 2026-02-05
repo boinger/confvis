@@ -1,6 +1,9 @@
 package cli
 
-import "github.com/boinger/confvis/internal/checks"
+import (
+	"github.com/boinger/confvis/internal/checks"
+	"github.com/boinger/confvis/internal/sources/repoparse"
+)
 
 // ParseRepoFromEnv extracts owner and repo from GITHUB_REPOSITORY environment.
 // Returns empty strings if already have both owner and repo, or if env is empty.
@@ -16,7 +19,7 @@ func ParseRepoFromEnv(currentOwner, currentRepo string, env *checks.GitHubEnv) (
 	}
 
 	// Parse repository
-	parsedOwner, parsedRepo, err := checks.ParseRepository(env.Repository)
+	parsedOwner, parsedRepo, err := repoparse.Parse(env.Repository)
 	if err != nil {
 		return currentOwner, currentRepo
 	}

@@ -60,9 +60,9 @@ func stripXMLDeclaration(svgStr string) string {
 func Generate(w io.Writer, report *confidence.Report, opts Options) error {
 	// Generate the gauge SVG (transparent for inline embedding)
 	gaugeOpts := gauge.Options{
+		ColorOptions:  gauge.ColorOptions{DarkMode: opts.DarkMode},
 		Width:         200,
 		Height:        120,
-		DarkMode:      opts.DarkMode,
 		TransparentBG: true,
 	}
 	gaugeSVG, err := gauge.GenerateToString(report, gaugeOpts)
@@ -89,9 +89,9 @@ func Generate(w io.Writer, report *confidence.Report, opts Options) error {
 func GenerateMulti(w io.Writer, reports []ReportSummary, aggregate *confidence.Report, opts MultiOptions) error {
 	// Generate gauge SVGs for each report (transparent for inline embedding)
 	gaugeOpts := gauge.Options{
+		ColorOptions:  gauge.ColorOptions{DarkMode: opts.DarkMode},
 		Width:         200,
 		Height:        120,
-		DarkMode:      opts.DarkMode,
 		TransparentBG: true,
 	}
 

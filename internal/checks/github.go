@@ -269,15 +269,6 @@ func LoadGitHubEnv() (*GitHubEnv, error) {
 	}, nil
 }
 
-// ParseRepository splits "owner/repo" into owner and repo.
-func ParseRepository(ownerRepo string) (owner, repo string, err error) {
-	parts := strings.SplitN(ownerRepo, "/", 2)
-	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return "", "", fmt.Errorf("repository must be in 'owner/repo' format, got %q", ownerRepo)
-	}
-	return parts[0], parts[1], nil
-}
-
 // CommentMarker is the hidden HTML comment used to identify confvis comments.
 const CommentMarker = "<!-- confvis-comment -->"
 

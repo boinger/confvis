@@ -11,23 +11,27 @@ import (
 	"github.com/boinger/confvis/internal/confidence"
 )
 
+// ColorOptions holds color and theme settings shared across all gauge types.
+type ColorOptions struct {
+	DarkMode    bool
+	Style       string // Color scheme style: github, minimal, corporate, high-contrast
+	GreenAbove  int    // Score threshold for green color (0 = use report default or 75)
+	YellowAbove int    // Score threshold for yellow color (0 = use report default or 50)
+}
+
 // Options configures gauge generation.
 type Options struct {
+	ColorOptions
 	Width         int
 	Height        int
-	DarkMode      bool
-	Style         string // Color scheme style: github, minimal, corporate, high-contrast
-	GreenAbove    int    // Score threshold for green color (0 = use report default or 75)
-	YellowAbove   int    // Score threshold for yellow color (0 = use report default or 50)
-	TransparentBG bool   // Omit background rect (for inline HTML embedding)
+	TransparentBG bool // Omit background rect (for inline HTML embedding)
 }
 
 // DefaultOptions returns sensible defaults for gauge rendering.
 func DefaultOptions() Options {
 	return Options{
-		Width:    200,
-		Height:   120,
-		DarkMode: false,
+		Width: 200,
+		Height: 120,
 	}
 }
 

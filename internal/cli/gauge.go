@@ -391,12 +391,14 @@ func generateSVGBadge(w io.Writer, report *confidence.Report, deps *GaugeDeps) e
 
 func generateFlatBadge(w io.Writer, report *confidence.Report, deps *GaugeDeps) error {
 	flatOpts := gauge.FlatOptions{
-		Label:       deps.Label,
-		Icon:        deps.Icon,
-		DarkMode:    deps.Dark,
-		Style:       deps.Style,
-		GreenAbove:  deps.GreenAbove,
-		YellowAbove: deps.YellowAbove,
+		ColorOptions: gauge.ColorOptions{
+			DarkMode:    deps.Dark,
+			Style:       deps.Style,
+			GreenAbove:  deps.GreenAbove,
+			YellowAbove: deps.YellowAbove,
+		},
+		Label: deps.Label,
+		Icon:  deps.Icon,
 	}
 	if err := gauge.GenerateFlat(w, report, flatOpts); err != nil {
 		return fmt.Errorf("generating flat badge: %w", err)
@@ -414,13 +416,15 @@ func generateSparklineBadge(w io.Writer, report *confidence.Report, deps *GaugeD
 	scores = append(scores, report.ScoreValue())
 
 	sparkOpts := gauge.SparklineOptions{
-		Width:       deps.Width,
-		Height:      deps.Height,
-		Scores:      scores,
-		DarkMode:    deps.Dark,
-		Style:       deps.Style,
-		GreenAbove:  deps.GreenAbove,
-		YellowAbove: deps.YellowAbove,
+		ColorOptions: gauge.ColorOptions{
+			DarkMode:    deps.Dark,
+			Style:       deps.Style,
+			GreenAbove:  deps.GreenAbove,
+			YellowAbove: deps.YellowAbove,
+		},
+		Width:  deps.Width,
+		Height: deps.Height,
+		Scores: scores,
 	}
 	if sparkOpts.Width == 200 {
 		sparkOpts.Width = 120
@@ -437,12 +441,14 @@ func generateSparklineBadge(w io.Writer, report *confidence.Report, deps *GaugeD
 
 func generateGaugeBadge(w io.Writer, report *confidence.Report, deps *GaugeDeps) error {
 	opts := gauge.Options{
-		Width:       deps.Width,
-		Height:      deps.Height,
-		Style:       deps.Style,
-		DarkMode:    deps.Dark,
-		GreenAbove:  deps.GreenAbove,
-		YellowAbove: deps.YellowAbove,
+		ColorOptions: gauge.ColorOptions{
+			DarkMode:    deps.Dark,
+			Style:       deps.Style,
+			GreenAbove:  deps.GreenAbove,
+			YellowAbove: deps.YellowAbove,
+		},
+		Width:  deps.Width,
+		Height: deps.Height,
 	}
 	if err := gauge.Generate(w, report, opts); err != nil {
 		return fmt.Errorf("generating gauge: %w", err)
@@ -452,23 +458,28 @@ func generateGaugeBadge(w io.Writer, report *confidence.Report, deps *GaugeDeps)
 
 // loadHistoryScores reads historical scores from git ref or file storage.
 func loadHistoryScores(deps *GaugeDeps, useGitRef bool, historyRef, historyFile string) ([]int, error) {
-	var scores []int
+	var hist *history.History
+	var err error
+
 	if useGitRef && historyRef != "" {
-		hist, err := deps.GitRefReader(historyRef)
+		hist, err = deps.GitRefReader(historyRef)
 		if err != nil {
 			return nil, fmt.Errorf("reading history from git ref: %w", err)
 		}
-		for _, e := range hist.Last(deps.HistoryCount - 1) {
-			scores = append(scores, e.Score)
-		}
 	} else if historyFile != "" {
-		hist, err := deps.HistoryReader(historyFile)
+		hist, err = deps.HistoryReader(historyFile)
 		if err != nil {
 			return nil, fmt.Errorf("reading history: %w", err)
 		}
-		for _, e := range hist.Last(deps.HistoryCount - 1) {
-			scores = append(scores, e.Score)
-		}
+	}
+
+	if hist == nil {
+		return nil, nil
+	}
+
+	var scores []int
+	for _, e := range hist.Last(deps.HistoryCount - 1) {
+		scores = append(scores, e.Score)
 	}
 	return scores, nil
 }

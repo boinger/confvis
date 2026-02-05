@@ -250,9 +250,8 @@ func TestGenerateSparkline_CustomColorThresholds(t *testing.T) {
 
 	var buf bytes.Buffer
 	opts := SparklineOptions{
-		Scores:      []int{80, 82, 84, 85},
-		GreenAbove:  90,
-		YellowAbove: 80,
+		ColorOptions: ColorOptions{GreenAbove: 90, YellowAbove: 80},
+		Scores:       []int{80, 82, 84, 85},
 	}
 	err := GenerateSparkline(&buf, report, opts)
 	if err != nil {
@@ -277,8 +276,8 @@ func TestGenerateSparkline_DarkMode(t *testing.T) {
 
 	var buf bytes.Buffer
 	opts := SparklineOptions{
-		DarkMode: true,
-		Scores:   []int{70, 75, 80, 85},
+		ColorOptions: ColorOptions{DarkMode: true},
+		Scores:       []int{70, 75, 80, 85},
 	}
 	err := GenerateSparkline(&buf, report, opts)
 	if err != nil {
@@ -318,9 +317,8 @@ func TestGenerateSparkline_AllStyles(t *testing.T) {
 
 				var buf bytes.Buffer
 				opts := SparklineOptions{
-					Style:    style,
-					DarkMode: darkMode,
-					Scores:   []int{70, 75, 80, 85},
+					ColorOptions: ColorOptions{Style: style, DarkMode: darkMode},
+					Scores:       []int{70, 75, 80, 85},
 				}
 				err := GenerateSparkline(&buf, report, opts)
 				if err != nil {

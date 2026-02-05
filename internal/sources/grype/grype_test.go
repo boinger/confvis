@@ -36,9 +36,7 @@ func TestCountFromMatches(t *testing.T) {
 	if counts.Low != 2 { // Low + Negligible
 		t.Errorf("Low = %d, want 2", counts.Low)
 	}
-	if counts.Unknown != 1 {
-		t.Errorf("Unknown = %d, want 1", counts.Unknown)
-	}
+	// "Unknown" severity is silently ignored (not scored)
 }
 
 func TestDeriveTitle(t *testing.T) {

@@ -1,6 +1,8 @@
 // Package trivy provides a source for fetching vulnerability metrics from Trivy.
 package trivy
 
+import "github.com/boinger/confvis/internal/sources/scoring"
+
 // Report represents the JSON output from trivy fs --format json.
 type Report struct {
 	Results []Result `json:"Results"`
@@ -26,18 +28,9 @@ type Vulnerability struct {
 	References       []string `json:"References"`
 }
 
-// IssueCounts aggregates vulnerabilities by severity.
-type IssueCounts struct {
-	Critical int
-	High     int
-	Medium   int
-	Low      int
-	Unknown  int
-}
-
 // CountFromResults aggregates vulnerability counts from scan results.
-func CountFromResults(results []Result) IssueCounts {
-	var counts IssueCounts
+func CountFromResults(results []Result) scoring.SeverityCounts {
+	var counts scoring.SeverityCounts
 	for _, result := range results {
 		for _, vuln := range result.Vulnerabilities {
 			switch vuln.Severity {
@@ -49,8 +42,6 @@ func CountFromResults(results []Result) IssueCounts {
 				counts.Medium++
 			case "LOW":
 				counts.Low++
-			default:
-				counts.Unknown++
 			}
 		}
 	}

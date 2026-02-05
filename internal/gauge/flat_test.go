@@ -151,8 +151,7 @@ func TestGenerateFlat_CustomColorThresholds(t *testing.T) {
 	// But with custom thresholds (90/80), score 85 is warning (yellow)
 	var buf bytes.Buffer
 	opts := FlatOptions{
-		GreenAbove:  90,
-		YellowAbove: 80,
+		ColorOptions: ColorOptions{GreenAbove: 90, YellowAbove: 80},
 	}
 	err := GenerateFlat(&buf, report, opts)
 	if err != nil {
@@ -266,7 +265,7 @@ func TestGenerateFlat_DarkMode(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	opts := FlatOptions{DarkMode: true}
+	opts := FlatOptions{ColorOptions: ColorOptions{DarkMode: true}}
 	err := GenerateFlat(&buf, report, opts)
 	if err != nil {
 		t.Fatalf("GenerateFlat() error = %v", err)
@@ -288,7 +287,7 @@ func TestGenerateFlat_LightMode(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	opts := FlatOptions{DarkMode: false}
+	opts := FlatOptions{ColorOptions: ColorOptions{DarkMode: false}}
 	err := GenerateFlat(&buf, report, opts)
 	if err != nil {
 		t.Fatalf("GenerateFlat() error = %v", err)
@@ -321,8 +320,7 @@ func TestGenerateFlat_AllStyles(t *testing.T) {
 
 				var buf bytes.Buffer
 				opts := FlatOptions{
-					Style:    style,
-					DarkMode: darkMode,
+					ColorOptions: ColorOptions{Style: style, DarkMode: darkMode},
 				}
 				err := GenerateFlat(&buf, report, opts)
 				if err != nil {

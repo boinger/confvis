@@ -28,12 +28,12 @@ func TestCountFromResults(t *testing.T) {
 	tests := []struct {
 		name    string
 		results []Result
-		want    IssueCounts
+		want    scoring.SeverityCounts
 	}{
 		{
 			name:    "empty results",
 			results: nil,
-			want:    IssueCounts{},
+			want:    scoring.SeverityCounts{},
 		},
 		{
 			name: "no vulnerabilities",
@@ -43,7 +43,7 @@ func TestCountFromResults(t *testing.T) {
 					Vulnerabilities: nil,
 				},
 			},
-			want: IssueCounts{},
+			want: scoring.SeverityCounts{},
 		},
 		{
 			name: "mixed severities",
@@ -61,7 +61,7 @@ func TestCountFromResults(t *testing.T) {
 					},
 				},
 			},
-			want: IssueCounts{Critical: 1, High: 2, Medium: 3, Low: 1},
+			want: scoring.SeverityCounts{Critical: 1, High: 2, Medium: 3, Low: 1},
 		},
 		{
 			name: "multiple results",
@@ -80,10 +80,10 @@ func TestCountFromResults(t *testing.T) {
 					},
 				},
 			},
-			want: IssueCounts{Critical: 1, High: 1, Medium: 1},
+			want: scoring.SeverityCounts{Critical: 1, High: 1, Medium: 1},
 		},
 		{
-			name: "unknown severity",
+			name: "unknown severity ignored",
 			results: []Result{
 				{
 					Target: "file",
@@ -94,7 +94,7 @@ func TestCountFromResults(t *testing.T) {
 					},
 				},
 			},
-			want: IssueCounts{Unknown: 3},
+			want: scoring.SeverityCounts{},
 		},
 	}
 

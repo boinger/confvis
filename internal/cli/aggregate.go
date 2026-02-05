@@ -291,11 +291,15 @@ func generateAggregateBadgeWithFS(fs FileSystem, path string, report *confidence
 	return writeToFileWithFS(fs, path, verbose, "badge", func(w io.Writer) error {
 		if badgeType == "flat" {
 			return gauge.GenerateFlat(w, report, gauge.FlatOptions{
-				Icon: icon, Label: label, DarkMode: dark,
+				ColorOptions: gauge.ColorOptions{DarkMode: dark},
+				Icon:         icon,
+				Label:        label,
 			})
 		}
 		return gauge.Generate(w, report, gauge.Options{
-			Width: 200, Height: 120, DarkMode: dark,
+			ColorOptions: gauge.ColorOptions{DarkMode: dark},
+			Width:        200,
+			Height:       120,
 		})
 	})
 }

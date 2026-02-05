@@ -8,10 +8,10 @@ import (
 
 // SeverityCounts holds vulnerability counts by severity level.
 type SeverityCounts struct {
-	Critical int
-	High     int
-	Medium   int
-	Low      int
+	Critical int `json:"critical"`
+	High     int `json:"high"`
+	Medium   int `json:"medium"`
+	Low      int `json:"low"`
 }
 
 // Default severity penalties (points deducted per issue).

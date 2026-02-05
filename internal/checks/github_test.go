@@ -417,48 +417,6 @@ func TestLoadGitHubEnv(t *testing.T) {
 	})
 }
 
-func TestParseRepository(t *testing.T) {
-	tests := []struct {
-		input     string
-		wantOwner string
-		wantRepo  string
-		wantErr   bool
-	}{
-		{"owner/repo", "owner", "repo", false},
-		{"my-org/my-repo", "my-org", "my-repo", false},
-		{"owner/repo/extra", "owner", "repo/extra", false}, // SplitN(2) keeps extra in repo
-		{"owner", "", "", true},
-		{"/repo", "", "", true},
-		{"owner/", "", "", true},
-		{"", "", "", true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			owner, repo, err := ParseRepository(tt.input)
-
-			if tt.wantErr {
-				if err == nil {
-					t.Errorf("expected error for input %q", tt.input)
-				}
-				return
-			}
-
-			if err != nil {
-				t.Errorf("unexpected error: %v", err)
-				return
-			}
-
-			if owner != tt.wantOwner {
-				t.Errorf("owner = %q, want %q", owner, tt.wantOwner)
-			}
-			if repo != tt.wantRepo {
-				t.Errorf("repo = %q, want %q", repo, tt.wantRepo)
-			}
-		})
-	}
-}
-
 func TestGitHubClient_FindComment(t *testing.T) {
 	tests := []struct {
 		name           string

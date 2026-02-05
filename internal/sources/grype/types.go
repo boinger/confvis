@@ -1,6 +1,8 @@
 // Package grype provides a source for fetching vulnerability metrics from Grype.
 package grype
 
+import "github.com/boinger/confvis/internal/sources/scoring"
+
 // Report represents the JSON output from grype -o json.
 type Report struct {
 	Matches []Match `json:"matches"`
@@ -27,18 +29,9 @@ type Artifact struct {
 	Type    string `json:"type"`
 }
 
-// IssueCounts aggregates vulnerabilities by severity.
-type IssueCounts struct {
-	Critical int
-	High     int
-	Medium   int
-	Low      int
-	Unknown  int
-}
-
 // CountFromMatches aggregates vulnerability counts from scan matches.
-func CountFromMatches(matches []Match) IssueCounts {
-	var counts IssueCounts
+func CountFromMatches(matches []Match) scoring.SeverityCounts {
+	var counts scoring.SeverityCounts
 	for _, match := range matches {
 		switch match.Vulnerability.Severity {
 		case "Critical":
@@ -49,8 +42,6 @@ func CountFromMatches(matches []Match) IssueCounts {
 			counts.Medium++
 		case "Low", "Negligible":
 			counts.Low++
-		default:
-			counts.Unknown++
 		}
 	}
 	return counts

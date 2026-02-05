@@ -68,7 +68,7 @@ func TestSource_Fetch_Success(t *testing.T) {
 					Name: "my-project",
 				},
 				Meta: ProjectMeta{
-					LatestIssueCounts: &IssueCounts{
+					LatestIssueCounts: &scoring.SeverityCounts{
 						Critical: 0,
 						High:     2,
 						Medium:   5,
@@ -245,7 +245,7 @@ func TestSource_Fetch_WeightedScore(t *testing.T) {
 					Name: "my-project",
 				},
 				Meta: ProjectMeta{
-					LatestIssueCounts: &IssueCounts{
+					LatestIssueCounts: &scoring.SeverityCounts{
 						Critical: 0,
 						High:     2,
 						Medium:   5,
@@ -597,7 +597,7 @@ func TestFetchWithClient_Success(t *testing.T) {
 					Name: "My Project",
 				},
 				Meta: ProjectMeta{
-					LatestIssueCounts: &IssueCounts{
+					LatestIssueCounts: &scoring.SeverityCounts{
 						Critical: 0,
 						High:     2,
 						Medium:   5,
@@ -716,7 +716,7 @@ func TestFetchWithClient_AllClean(t *testing.T) {
 					Name: "Clean Project",
 				},
 				Meta: ProjectMeta{
-					LatestIssueCounts: &IssueCounts{
+					LatestIssueCounts: &scoring.SeverityCounts{
 						Critical: 0,
 						High:     0,
 						Medium:   0,
@@ -754,7 +754,7 @@ func TestFetchWithClient_CriticalVulnerabilities(t *testing.T) {
 					Name: "Vulnerable Project",
 				},
 				Meta: ProjectMeta{
-					LatestIssueCounts: &IssueCounts{
+					LatestIssueCounts: &scoring.SeverityCounts{
 						Critical: 5,
 						High:     10,
 						Medium:   20,
@@ -809,7 +809,7 @@ func TestFetchWithClient_TitleFallbackToProjectName(t *testing.T) {
 					Name: "API Project Name",
 				},
 				Meta: ProjectMeta{
-					LatestIssueCounts: &IssueCounts{},
+					LatestIssueCounts: &scoring.SeverityCounts{},
 				},
 			},
 		},
@@ -843,7 +843,7 @@ func TestFetchWithClient_TitleFallbackToProjectID(t *testing.T) {
 					Name: "", // Empty name from API
 				},
 				Meta: ProjectMeta{
-					LatestIssueCounts: &IssueCounts{},
+					LatestIssueCounts: &scoring.SeverityCounts{},
 				},
 			},
 		},

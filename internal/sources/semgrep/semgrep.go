@@ -36,14 +36,7 @@ func (s *Source) Name() string {
 
 // Fetch runs Semgrep on the specified path and converts results to a confidence report.
 func (s *Source) Fetch(ctx context.Context, opts sources.Options) (*confidence.Report, error) {
-	// Resolve command from Extra options or environment
-	command := ""
-	if opts.Extra != nil {
-		command = opts.Extra["semgrep-cmd"]
-	}
-	if command == "" {
-		command = os.Getenv(EnvCommand)
-	}
+	command := sources.ResolveCommand(opts, "semgrep-cmd", EnvCommand)
 
 	// Resolve config (rules) from Extra options
 	config := ""

@@ -18,12 +18,9 @@ const (
 
 // FlatOptions configures flat badge generation.
 type FlatOptions struct {
-	Label       string // Label text (left side), defaults to report title
-	Icon        string // SVG path data for icon (rendered in label section)
-	DarkMode    bool
-	Style       string // Color scheme style
-	GreenAbove  int    // Score threshold for green color
-	YellowAbove int    // Score threshold for yellow color
+	ColorOptions
+	Label string // Label text (left side), defaults to report title
+	Icon  string // SVG path data for icon (rendered in label section)
 }
 
 // GenerateFlat creates a shields.io-style flat badge for the given report.

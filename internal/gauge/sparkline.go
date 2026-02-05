@@ -11,13 +11,10 @@ import (
 
 // SparklineOptions configures sparkline badge generation.
 type SparklineOptions struct {
-	Width       int   // Total badge width
-	Height      int   // Total badge height
-	Scores      []int // Historical scores to display
-	DarkMode    bool  // Use dark mode colors
-	Style       string // Color scheme style
-	GreenAbove  int    // Score threshold for green color
-	YellowAbove int    // Score threshold for yellow color
+	ColorOptions
+	Width  int   // Total badge width
+	Height int   // Total badge height
+	Scores []int // Historical scores to display
 }
 
 // GenerateSparkline creates an SVG badge with a sparkline showing score history.

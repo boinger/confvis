@@ -90,7 +90,7 @@ func (s *Source) FetchWithClient(ctx context.Context, fetcher Fetcher, opts sour
 	}
 
 	// Get issue counts (default to zero if not present)
-	var counts IssueCounts
+	var counts scoring.SeverityCounts
 	if project.Data.Meta.LatestIssueCounts != nil {
 		counts = *project.Data.Meta.LatestIssueCounts
 	}
@@ -106,7 +106,7 @@ func (s *Source) FetchWithClient(ctx context.Context, fetcher Fetcher, opts sour
 
 	// Build factors with severity-based scoring
 	factors := scoring.BuildVulnFactors(
-		scoring.SeverityCounts{Critical: counts.Critical, High: counts.High, Medium: counts.Medium, Low: counts.Low},
+		counts,
 		scoring.DefaultPenalties(),
 		scoring.DefaultWeights(),
 		fetcher.ProjectURL(orgID, projectID),

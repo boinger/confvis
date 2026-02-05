@@ -147,6 +147,65 @@ func TestOptions_DefaultValues(t *testing.T) {
 	}
 }
 
+func TestResolveCommand_FromExtra(t *testing.T) {
+	opts := Options{
+		Extra: map[string]string{"grype-cmd": "/usr/local/bin/grype"},
+	}
+	got := ResolveCommand(opts, "grype-cmd", "GRYPE_CMD")
+	if got != "/usr/local/bin/grype" {
+		t.Errorf("ResolveCommand() = %q, want %q", got, "/usr/local/bin/grype")
+	}
+}
+
+func TestResolveCommand_FromEnvVar(t *testing.T) {
+	t.Setenv("TEST_CMD", "/opt/bin/tool")
+	opts := Options{}
+	got := ResolveCommand(opts, "tool-cmd", "TEST_CMD")
+	if got != "/opt/bin/tool" {
+		t.Errorf("ResolveCommand() = %q, want %q", got, "/opt/bin/tool")
+	}
+}
+
+func TestResolveCommand_ExtraTakesPrecedence(t *testing.T) {
+	t.Setenv("TEST_CMD", "/opt/bin/tool")
+	opts := Options{
+		Extra: map[string]string{"tool-cmd": "/custom/tool"},
+	}
+	got := ResolveCommand(opts, "tool-cmd", "TEST_CMD")
+	if got != "/custom/tool" {
+		t.Errorf("ResolveCommand() = %q, want %q (Extra should take precedence)", got, "/custom/tool")
+	}
+}
+
+func TestResolveCommand_NilExtra(t *testing.T) {
+	t.Setenv("TEST_CMD", "/opt/bin/tool")
+	opts := Options{Extra: nil}
+	got := ResolveCommand(opts, "tool-cmd", "TEST_CMD")
+	if got != "/opt/bin/tool" {
+		t.Errorf("ResolveCommand() = %q, want %q", got, "/opt/bin/tool")
+	}
+}
+
+func TestResolveCommand_EmptyExtraFallsThrough(t *testing.T) {
+	t.Setenv("TEST_CMD", "/opt/bin/tool")
+	opts := Options{
+		Extra: map[string]string{"tool-cmd": ""},
+	}
+	got := ResolveCommand(opts, "tool-cmd", "TEST_CMD")
+	if got != "/opt/bin/tool" {
+		t.Errorf("ResolveCommand() = %q, want %q (empty Extra should fall through)", got, "/opt/bin/tool")
+	}
+}
+
+func TestResolveCommand_NothingSet(t *testing.T) {
+	t.Setenv("UNSET_CMD", "")
+	opts := Options{}
+	got := ResolveCommand(opts, "tool-cmd", "UNSET_CMD")
+	if got != "" {
+		t.Errorf("ResolveCommand() = %q, want empty", got)
+	}
+}
+
 func TestOptions_Extra(t *testing.T) {
 	opts := Options{
 		Extra: map[string]string{

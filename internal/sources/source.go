@@ -4,6 +4,7 @@ package sources
 import (
 	"context"
 	"fmt"
+	"os"
 	"sort"
 
 	"github.com/boinger/confvis/internal/confidence"
@@ -50,6 +51,18 @@ func Register(s Source) {
 // Get returns a source by name, or nil if not found.
 func Get(name string) Source {
 	return Registry[name]
+}
+
+// ResolveCommand resolves a command path from Extra options or an environment variable.
+func ResolveCommand(opts Options, extraKey, envVar string) string {
+	command := ""
+	if opts.Extra != nil {
+		command = opts.Extra[extraKey]
+	}
+	if command == "" {
+		command = os.Getenv(envVar)
+	}
+	return command
 }
 
 // Names returns a sorted list of registered source names.

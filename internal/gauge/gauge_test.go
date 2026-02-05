@@ -407,10 +407,9 @@ func TestGenerate_DarkMode_CustomDimensions(t *testing.T) {
 	}
 
 	opts := Options{
-		Width:    300,
-		Height:   200,
-		DarkMode: true,
-		Style:    "high-contrast",
+		ColorOptions: ColorOptions{DarkMode: true, Style: "high-contrast"},
+		Width:        300,
+		Height:       200,
 	}
 
 	var buf bytes.Buffer
@@ -436,10 +435,9 @@ func TestGenerate_CustomColorThresholds(t *testing.T) {
 	}
 
 	opts := Options{
-		Width:       200,
-		Height:      120,
-		GreenAbove:  90,
-		YellowAbove: 70,
+		ColorOptions: ColorOptions{GreenAbove: 90, YellowAbove: 70},
+		Width:        200,
+		Height:       120,
 	}
 
 	var buf bytes.Buffer
@@ -462,10 +460,9 @@ func TestGenerateToString_WithOptions(t *testing.T) {
 	}
 
 	opts := Options{
-		Width:    300,
-		Height:   200,
-		DarkMode: true,
-		Style:    "minimal",
+		ColorOptions: ColorOptions{DarkMode: true, Style: "minimal"},
+		Width:        300,
+		Height:       200,
 	}
 
 	svg, err := GenerateToString(report, opts)

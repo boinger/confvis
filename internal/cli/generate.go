@@ -190,7 +190,11 @@ func generateBadge(path string, report *confidence.Report, dark, verbose bool) e
 
 func generateBadgeWithFS(fs FileSystem, path string, report *confidence.Report, dark, verbose bool) error {
 	return writeToFileWithFS(fs, path, verbose, "badge", func(w io.Writer) error {
-		return gauge.Generate(w, report, gauge.Options{Width: 200, Height: 120, DarkMode: dark})
+		return gauge.Generate(w, report, gauge.Options{
+			ColorOptions: gauge.ColorOptions{DarkMode: dark},
+			Width:        200,
+			Height:       120,
+		})
 	})
 }
 

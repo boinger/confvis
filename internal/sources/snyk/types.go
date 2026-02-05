@@ -1,6 +1,8 @@
 // Package snyk provides a source for fetching vulnerability metrics from Snyk.
 package snyk
 
+import "github.com/boinger/confvis/internal/sources/scoring"
+
 // ProjectResponse represents the response from /rest/orgs/{org_id}/projects/{project_id}.
 type ProjectResponse struct {
 	Data ProjectData `json:"data"`
@@ -21,14 +23,6 @@ type ProjectAttributes struct {
 
 // ProjectMeta contains metadata about the project including issue counts.
 type ProjectMeta struct {
-	LatestIssueCounts *IssueCounts `json:"latest_issue_counts,omitempty"`
-}
-
-// IssueCounts contains vulnerability counts by severity.
-type IssueCounts struct {
-	Critical int `json:"critical"`
-	High     int `json:"high"`
-	Medium   int `json:"medium"`
-	Low      int `json:"low"`
+	LatestIssueCounts *scoring.SeverityCounts `json:"latest_issue_counts,omitempty"`
 }
 
