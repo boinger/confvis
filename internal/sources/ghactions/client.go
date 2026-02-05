@@ -83,7 +83,7 @@ func (c *Client) FetchRuns(ctx context.Context, ownerRepo string, opts FetchRuns
 
 // ActionsURL returns the web URL for a repository's Actions page.
 func (c *Client) ActionsURL(ownerRepo string) string {
-	owner, repo := repoparse.MustParse(ownerRepo)
+	owner, repo := repoparse.ParseDefault(ownerRepo)
 	if owner == "" || repo == "" {
 		return ""
 	}

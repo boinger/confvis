@@ -19,26 +19,6 @@ type Measure struct {
 	Value  string `json:"value"`
 }
 
-// QualityGateResponse represents the response from /api/qualitygates/project_status.
-type QualityGateResponse struct {
-	ProjectStatus ProjectStatus `json:"projectStatus"`
-}
-
-// ProjectStatus holds the quality gate status.
-type ProjectStatus struct {
-	Status     string      `json:"status"`
-	Conditions []Condition `json:"conditions"`
-}
-
-// Condition represents a quality gate condition.
-type Condition struct {
-	Status         string `json:"status"`
-	MetricKey      string `json:"metricKey"`
-	Comparator     string `json:"comparator"`
-	ErrorThreshold string `json:"errorThreshold"`
-	ActualValue    string `json:"actualValue"`
-}
-
 // Metrics we fetch from SonarQube.
 const (
 	MetricCoverage              = "coverage"

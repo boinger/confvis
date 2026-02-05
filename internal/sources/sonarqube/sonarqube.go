@@ -119,7 +119,7 @@ func (s *Source) measuresToFactors(measures *MeasuresResponse, client *Client, p
 		}
 		score, err := convertMetricValue(val, m.Kind)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: skipping SonarQube metric %q (%s): %v\n", m.Key, m.Name, err)
+			_, _ = fmt.Fprintf(os.Stderr, "Warning: skipping SonarQube metric %q (%s): %v\n", m.Key, m.Name, err)
 			continue
 		}
 		factors = append(factors, confidence.Factor{

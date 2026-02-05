@@ -47,6 +47,3 @@ func CountFromMatches(matches []Match) scoring.SeverityCounts {
 	return counts
 }
 
-// Penalty and weight constants are defined in the scoring package.
-// grype uses the default strict penalties shared with trivy and snyk.
-

@@ -67,7 +67,7 @@ func (c *Client) FetchReport(ctx context.Context, service, ownerRepo string) (*R
 
 // ReportURL returns the web URL for a repository's coverage report.
 func (c *Client) ReportURL(service, ownerRepo string) string {
-	owner, repo := repoparse.MustParse(ownerRepo)
+	owner, repo := repoparse.ParseDefault(ownerRepo)
 	if owner == "" || repo == "" {
 		return ""
 	}

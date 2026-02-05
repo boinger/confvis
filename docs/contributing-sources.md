@@ -297,8 +297,8 @@ if err != nil {
     return nil, err
 }
 
-// MustParse returns empty strings on error (useful for URL builders)
-owner, repo := repoparse.MustParse(opts.Project)
+// ParseDefault returns empty strings on error (useful for URL builders)
+owner, repo := repoparse.ParseDefault(opts.Project)
 if owner == "" || repo == "" {
     return ""
 }

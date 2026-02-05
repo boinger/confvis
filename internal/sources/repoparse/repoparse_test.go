@@ -74,7 +74,7 @@ func TestParse(t *testing.T) {
 	}
 }
 
-func TestMustParse(t *testing.T) {
+func TestParseDefault(t *testing.T) {
 	tests := []struct {
 		name      string
 		project   string
@@ -103,12 +103,12 @@ func TestMustParse(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			owner, repo := MustParse(tt.project)
+			owner, repo := ParseDefault(tt.project)
 			if owner != tt.wantOwner {
-				t.Errorf("MustParse() owner = %v, want %v", owner, tt.wantOwner)
+				t.Errorf("ParseDefault() owner = %v, want %v", owner, tt.wantOwner)
 			}
 			if repo != tt.wantRepo {
-				t.Errorf("MustParse() repo = %v, want %v", repo, tt.wantRepo)
+				t.Errorf("ParseDefault() repo = %v, want %v", repo, tt.wantRepo)
 			}
 		})
 	}

@@ -19,9 +19,9 @@ func Parse(project string) (owner, repo string, err error) {
 	return parts[0], parts[1], nil
 }
 
-// MustParse is like Parse but returns empty strings on error.
+// ParseDefault is like Parse but returns empty strings on error.
 // Useful for URL builders where an empty result is acceptable.
-func MustParse(project string) (owner, repo string) {
+func ParseDefault(project string) (owner, repo string) {
 	owner, repo, _ = Parse(project)
 	return owner, repo
 }

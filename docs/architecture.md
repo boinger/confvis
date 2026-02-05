@@ -156,7 +156,7 @@ Common HTTP client used by API-based sources:
 
 Repository identifier parsing utilities:
 - `Parse()` - Split "owner/repo" into separate parts with validation
-- `MustParse()` - Like Parse but returns empty strings on error (for URL builders)
+- `ParseDefault()` - Like Parse but returns empty strings on error (for URL builders)
 - Used by GitHub-based sources (ghactions, dependabot) and codecov
 
 ### `internal/sources/scoring`

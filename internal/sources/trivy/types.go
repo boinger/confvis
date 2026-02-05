@@ -48,6 +48,3 @@ func CountFromResults(results []Result) scoring.SeverityCounts {
 	return counts
 }
 
-// Penalty and weight constants are defined in the scoring package.
-// trivy uses the default strict penalties shared with grype and snyk.
-

@@ -126,17 +126,6 @@ func TestSource_Fetch_Success(t *testing.T) {
 				t.Errorf("encoding response: %v", err)
 			}
 
-		case "/api/qualitygates/project_status":
-			resp := QualityGateResponse{
-				ProjectStatus: ProjectStatus{
-					Status: "OK",
-				},
-			}
-			w.Header().Set("Content-Type", "application/json")
-			if err := json.NewEncoder(w).Encode(resp); err != nil {
-				t.Errorf("encoding response: %v", err)
-			}
-
 		default:
 			t.Errorf("unexpected request: %s", r.URL.Path)
 			http.NotFound(w, r)

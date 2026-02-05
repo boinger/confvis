@@ -33,6 +33,9 @@ const (
 	contentTypeJSON  = "application/json"
 	gitHubAPIVersion = "2022-11-28"
 
+	// Pagination.
+	commentsPerPage = 100
+
 	// Endpoint format strings.
 	issueCommentsEndpoint = "%s/repos/%s/%s/issues/%d/comments"
 
@@ -295,43 +298,14 @@ type issueCommentsResponse []struct {
 // FindComment finds an existing confvis comment on a PR.
 // Returns nil if no confvis comment is found.
 func (c *GitHubClient) FindComment(ctx context.Context, opts CommentOptions) (*CommentResponse, error) {
-	if opts.Owner == "" || opts.Repo == "" {
-		return nil, errOwnerRepoRequired
+	comments, err := c.FindAllConfvisComments(ctx, opts)
+	if err != nil {
+		return nil, err
 	}
-	if opts.PR <= 0 {
-		return nil, errPRRequired
+	if len(comments) == 0 {
+		return nil, nil //nolint:nilnil // nil response with no error means "not found"
 	}
-
-	baseEndpoint := fmt.Sprintf(issueCommentsEndpoint, c.baseURL, opts.Owner, opts.Repo, opts.PR)
-
-	for page := 1; ; page++ {
-		endpoint := fmt.Sprintf("%s?per_page=100&page=%d", baseEndpoint, page)
-
-		respBody, err := c.doRequest(ctx, http.MethodGet, endpoint, nil, http.StatusOK)
-		if err != nil {
-			return nil, err
-		}
-
-		var comments issueCommentsResponse
-		if err := json.Unmarshal(respBody, &comments); err != nil {
-			return nil, fmt.Errorf(errDecodingResponse, err)
-		}
-
-		for _, comment := range comments {
-			if strings.Contains(comment.Body, CommentMarker) {
-				return &CommentResponse{
-					ID:   comment.ID,
-					Body: comment.Body,
-				}, nil
-			}
-		}
-
-		if len(comments) < 100 {
-			break
-		}
-	}
-
-	return nil, nil //nolint:nilnil // nil response with no error means "not found"
+	return &comments[0], nil
 }
 
 // PostComment creates a new comment on a PR.
@@ -409,7 +383,7 @@ func (c *GitHubClient) FindAllConfvisComments(ctx context.Context, opts CommentO
 
 	var result []CommentResponse
 	for page := 1; ; page++ {
-		endpoint := fmt.Sprintf("%s?per_page=100&page=%d", baseEndpoint, page)
+		endpoint := fmt.Sprintf("%s?per_page=%d&page=%d", baseEndpoint, commentsPerPage, page)
 
 		respBody, err := c.doRequest(ctx, http.MethodGet, endpoint, nil, http.StatusOK)
 		if err != nil {
@@ -430,7 +404,7 @@ func (c *GitHubClient) FindAllConfvisComments(ctx context.Context, opts CommentO
 			}
 		}
 
-		if len(comments) < 100 {
+		if len(comments) < commentsPerPage {
 			break
 		}
 	}
@@ -457,7 +431,7 @@ func LoadGitHubEnvWithPR() (*GitHubEnv, int, error) {
 		if errors.Is(parseErr, errNoPRInEvent) {
 			return env, 0, nil
 		}
-		fmt.Fprintf(os.Stderr, "Warning: failed to parse PR from event file %s: %v\n", eventPath, parseErr)
+		_, _ = fmt.Fprintf(os.Stderr, "Warning: failed to parse PR from event file %s: %v\n", eventPath, parseErr)
 		return env, 0, nil
 	}
 

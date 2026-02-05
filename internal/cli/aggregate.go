@@ -365,5 +365,3 @@ func writeAggregateJSON(fs FileSystem, path string, report *confidence.Report, v
 		return encodeJSONIndented(w, output)
 	})
 }
-
-
