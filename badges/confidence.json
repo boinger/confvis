@@ -1,22 +1,6 @@
 {
-  "title": "confvis Confidence",
-  "score": 95,
-  "threshold": 80,
-  "factors": [
-    {
-      "name": "confvis",
-      "score": 92,
-      "weight": 30
-    },
-    {
-      "name": "boinger/confvis",
-      "score": 96,
-      "weight": 20
-    },
-    {
-      "name": "confvis",
-      "score": 100,
-      "weight": 20
-    }
-  ]
+  "title": "Aggregate",
+  "score": 96,
+  "threshold": 75,
+  "passed": true
 }
