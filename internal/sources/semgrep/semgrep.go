@@ -111,20 +111,20 @@ func (s *Source) buildReport(report *Report, opts sources.Options, path string) 
 	factors := []confidence.Factor{
 		{
 			Name:        "Error Findings",
-			Score:       scoring.SeverityScore(counts.Error, PenaltyError),
-			Weight:      WeightError,
+			Score:       scoring.SeverityScore(counts.Error, penaltyError),
+			Weight:      weightError,
 			Description: fmt.Sprintf("%d errors", counts.Error),
 		},
 		{
 			Name:        "Warning Findings",
-			Score:       scoring.SeverityScore(counts.Warning, PenaltyWarning),
-			Weight:      WeightWarning,
+			Score:       scoring.SeverityScore(counts.Warning, penaltyWarning),
+			Weight:      weightWarning,
 			Description: fmt.Sprintf("%d warnings", counts.Warning),
 		},
 		{
 			Name:        "Info Findings",
-			Score:       scoring.SeverityScore(counts.Info, PenaltyInfo),
-			Weight:      WeightInfo,
+			Score:       scoring.SeverityScore(counts.Info, penaltyInfo),
+			Weight:      weightInfo,
 			Description: fmt.Sprintf("%d info", counts.Info),
 		},
 	}

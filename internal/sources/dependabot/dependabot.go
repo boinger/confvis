@@ -38,18 +38,18 @@ var configResolver = &sources.ConfigResolver{
 
 // Severity penalties (points deducted per issue).
 const (
-	PenaltyCritical = 25
-	PenaltyHigh     = 15
-	PenaltyMedium   = 5
-	PenaltyLow      = 2
+	penaltyCritical = 25
+	penaltyHigh     = 15
+	penaltyMedium   = 5
+	penaltyLow      = 2
 )
 
 // Factor weights.
 const (
-	WeightCritical = 40
-	WeightHigh     = 30
-	WeightMedium   = 20
-	WeightLow      = 10
+	weightCritical = 40
+	weightHigh     = 30
+	weightMedium   = 20
+	weightLow      = 10
 )
 
 // Source implements the sources.Source interface for Dependabot.
@@ -112,8 +112,8 @@ func (s *Source) FetchWithClient(ctx context.Context, fetcher Fetcher, opts sour
 	// Build factors with severity-based scoring
 	factors := scoring.BuildVulnFactors(
 		scoring.SeverityCounts{Critical: counts.Critical, High: counts.High, Medium: counts.Medium, Low: counts.Low},
-		[4]int{PenaltyCritical, PenaltyHigh, PenaltyMedium, PenaltyLow},
-		[4]int{WeightCritical, WeightHigh, WeightMedium, WeightLow},
+		[4]int{penaltyCritical, penaltyHigh, penaltyMedium, penaltyLow},
+		[4]int{weightCritical, weightHigh, weightMedium, weightLow},
 		fetcher.AlertsURL(owner, repo),
 	)
 

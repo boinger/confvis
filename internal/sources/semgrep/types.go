@@ -82,15 +82,15 @@ func CountFromResults(results []Result) FindingCounts {
 
 // Severity penalties (points deducted per issue).
 const (
-	PenaltyError   = 20
-	PenaltyWarning = 10
-	PenaltyInfo    = 2
+	penaltyError   = 20
+	penaltyWarning = 10
+	penaltyInfo    = 2
 )
 
 // Factor weights.
 const (
-	WeightError   = 40
-	WeightWarning = 35
-	WeightInfo    = 25
+	weightError   = 40
+	weightWarning = 35
+	weightInfo    = 25
 )
 
