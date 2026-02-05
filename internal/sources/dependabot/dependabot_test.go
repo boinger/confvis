@@ -134,6 +134,76 @@ func TestClient_FetchAlerts(t *testing.T) {
 	}
 }
 
+func TestClient_FetchAlerts_Pagination(t *testing.T) {
+	// Build 100 alerts for page 1, 50 for page 2
+	page1Alerts := make(AlertsResponse, 100)
+	for i := range page1Alerts {
+		page1Alerts[i] = Alert{Number: i + 1, SecurityAdvisory: SecurityAdvisory{Severity: "medium"}}
+	}
+	page2Alerts := make(AlertsResponse, 50)
+	for i := range page2Alerts {
+		page2Alerts[i] = Alert{Number: 101 + i, SecurityAdvisory: SecurityAdvisory{Severity: "low"}}
+	}
+
+	var requestCount int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		page := r.URL.Query().Get("page")
+		w.Header().Set("Content-Type", "application/json")
+		switch page {
+		case "1", "":
+			_ = json.NewEncoder(w).Encode(page1Alerts)
+		case "2":
+			_ = json.NewEncoder(w).Encode(page2Alerts)
+		default:
+			_ = json.NewEncoder(w).Encode(AlertsResponse{})
+		}
+	}))
+	defer server.Close()
+
+	client := NewClientWithHTTP(server.URL, "test-token", server.Client())
+	result, err := client.FetchAlerts(context.Background(), "owner", "repo")
+	if err != nil {
+		t.Fatalf("FetchAlerts() error = %v", err)
+	}
+
+	if len(result) != 150 {
+		t.Errorf("len(result) = %d, want 150", len(result))
+	}
+	if requestCount != 2 {
+		t.Errorf("requestCount = %d, want 2", requestCount)
+	}
+}
+
+func TestClient_FetchAlerts_SinglePage(t *testing.T) {
+	// Fewer than 100 alerts should not paginate
+	alerts := make(AlertsResponse, 42)
+	for i := range alerts {
+		alerts[i] = Alert{Number: i + 1, SecurityAdvisory: SecurityAdvisory{Severity: "high"}}
+	}
+
+	var requestCount int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(alerts)
+	}))
+	defer server.Close()
+
+	client := NewClientWithHTTP(server.URL, "test-token", server.Client())
+	result, err := client.FetchAlerts(context.Background(), "owner", "repo")
+	if err != nil {
+		t.Fatalf("FetchAlerts() error = %v", err)
+	}
+
+	if len(result) != 42 {
+		t.Errorf("len(result) = %d, want 42", len(result))
+	}
+	if requestCount != 1 {
+		t.Errorf("requestCount = %d, want 1 (should not paginate)", requestCount)
+	}
+}
+
 func TestClient_AlertsURL(t *testing.T) {
 	tests := []struct {
 		name    string

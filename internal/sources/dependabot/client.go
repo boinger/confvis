@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -37,21 +38,34 @@ func NewClientWithHTTP(baseURL, token string, httpClient *http.Client) *Client {
 }
 
 // FetchAlerts retrieves all open Dependabot alerts for a repository.
+// It paginates through results since the GitHub API caps per_page at 100.
 func (c *Client) FetchAlerts(ctx context.Context, owner, repo string) (AlertsResponse, error) {
-	params := url.Values{
-		"state":    {"open"},
-		"per_page": {"100"},
+	const perPage = 100
+	var allAlerts AlertsResponse
+
+	for page := 1; ; page++ {
+		params := url.Values{
+			"state":    {"open"},
+			"per_page": {strconv.Itoa(perPage)},
+			"page":     {strconv.Itoa(page)},
+		}
+
+		endpoint := fmt.Sprintf("%s/repos/%s/%s/dependabot/alerts?%s",
+			c.baseURL, url.PathEscape(owner), url.PathEscape(repo), params.Encode())
+
+		var pageAlerts AlertsResponse
+		if err := c.http.Get(ctx, endpoint, &pageAlerts); err != nil {
+			return nil, err
+		}
+
+		allAlerts = append(allAlerts, pageAlerts...)
+
+		if len(pageAlerts) < perPage {
+			break
+		}
 	}
 
-	endpoint := fmt.Sprintf("%s/repos/%s/%s/dependabot/alerts?%s",
-		c.baseURL, url.PathEscape(owner), url.PathEscape(repo), params.Encode())
-
-	var result AlertsResponse
-	if err := c.http.Get(ctx, endpoint, &result); err != nil {
-		return nil, err
-	}
-
-	return result, nil
+	return allAlerts, nil
 }
 
 // AlertsURL returns the web URL for Dependabot alerts in a repository.
