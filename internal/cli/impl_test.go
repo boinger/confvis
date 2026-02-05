@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/boinger/confvis/internal/baseline"
 	"github.com/boinger/confvis/internal/checks"
 	"github.com/boinger/confvis/internal/confidence"
 	"github.com/boinger/confvis/internal/history"
@@ -2002,9 +2003,7 @@ func TestGaugeImpl_MarkdownWithNegativeBaseline(t *testing.T) {
 	}
 }
 
-// Note: gaugeImpl uses a defer pattern for close errors that doesn't work with
-// non-named returns. Close errors in gauge are silently dropped. This test
-// documents the current behavior rather than testing error propagation.
+// Close errors in gauge output are now properly propagated via named return.
 func TestGaugeImpl_FileCloseError_CurrentBehavior(t *testing.T) {
 	fs := NewMockFileSystem()
 	fs.SetFileContent("config.json", `{"title": "Test", "score": 85, "threshold": 75}`)
@@ -2014,10 +2013,12 @@ func TestGaugeImpl_FileCloseError_CurrentBehavior(t *testing.T) {
 	deps.Config = "config.json"
 	deps.Output = "/output.svg"
 
-	// Currently, close errors are silently dropped due to defer pattern bug
 	err := gaugeImpl(deps)
-	if err != nil {
-		t.Fatalf("gaugeImpl() should succeed despite close error (current behavior), got: %v", err)
+	if err == nil {
+		t.Fatal("gaugeImpl() should return close error")
+	}
+	if !strings.Contains(err.Error(), "close") {
+		t.Errorf("error should mention close, got: %v", err)
 	}
 }
 
@@ -2998,9 +2999,7 @@ func TestAggregateImpl_EmitJSON_CloseError(t *testing.T) {
 	}
 }
 
-// Note: fetchImpl uses a defer pattern for close errors that doesn't work with
-// non-named returns. Close errors in fetch are silently dropped. This test
-// documents the current behavior rather than testing error propagation.
+// Close errors in fetch output are now properly propagated via named return.
 func TestFetchImpl_FileCloseError_CurrentBehavior(t *testing.T) {
 	fs := NewMockFileSystem()
 	fs.SetError("close:/output/report.json", errors.New("close failed"))
@@ -3027,10 +3026,12 @@ func TestFetchImpl_FileCloseError_CurrentBehavior(t *testing.T) {
 		Extra:        map[string]string{},
 	}
 
-	// Currently, close errors are silently dropped due to defer pattern bug
 	err := fetchImpl(context.Background(), deps)
-	if err != nil {
-		t.Fatalf("fetchImpl() should succeed despite close error (current behavior), got: %v", err)
+	if err == nil {
+		t.Fatal("fetchImpl() should return close error")
+	}
+	if !strings.Contains(err.Error(), "close") {
+		t.Errorf("error should mention close, got: %v", err)
 	}
 }
 
@@ -4080,5 +4081,958 @@ func TestCommentGitHubImpl_AutoDetectError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "loading GitHub environment") {
 		t.Errorf("error = %q, want to contain 'loading GitHub environment'", err.Error())
+	}
+}
+
+// ============================================================================
+// resolveHistoryStorage Tests
+// ============================================================================
+
+func TestResolveHistoryStorage(t *testing.T) {
+	tests := []struct {
+		name         string
+		deps         *GaugeDeps
+		wantGitRef   bool
+		wantRef      string
+		wantFile     string
+	}{
+		{
+			name: "explicit history-ref",
+			deps: &GaugeDeps{HistoryRef: "refs/custom/history"},
+			wantGitRef: true,
+			wantRef:    "refs/custom/history",
+			wantFile:   "",
+		},
+		{
+			name: "history-auto in git repo",
+			deps: &GaugeDeps{
+				HistoryAuto: true,
+				IsGitRepo:   func() bool { return true },
+			},
+			wantGitRef: true,
+			wantRef:    history.DefaultHistoryRef,
+			wantFile:   "",
+		},
+		{
+			name: "history-auto not in git repo (default file)",
+			deps: &GaugeDeps{
+				HistoryAuto: true,
+				IsGitRepo:   func() bool { return false },
+			},
+			wantGitRef: false,
+			wantRef:    "",
+			wantFile:   ".confvis-history.jsonl",
+		},
+		{
+			name: "history-auto not in git repo with explicit history file",
+			deps: &GaugeDeps{
+				HistoryAuto: true,
+				IsGitRepo:   func() bool { return false },
+				HistoryFile: "/custom/history.jsonl",
+			},
+			wantGitRef: false,
+			wantRef:    "",
+			wantFile:   "/custom/history.jsonl",
+		},
+		{
+			name: "history-auto nil IsGitRepo",
+			deps: &GaugeDeps{
+				HistoryAuto: true,
+				IsGitRepo:   nil,
+			},
+			wantGitRef: false,
+			wantRef:    "",
+			wantFile:   ".confvis-history.jsonl",
+		},
+		{
+			name:       "explicit history-file",
+			deps:       &GaugeDeps{HistoryFile: "/my/history.jsonl"},
+			wantGitRef: false,
+			wantRef:    "",
+			wantFile:   "/my/history.jsonl",
+		},
+		{
+			name:       "no history storage",
+			deps:       &GaugeDeps{},
+			wantGitRef: false,
+			wantRef:    "",
+			wantFile:   "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotGitRef, gotRef, gotFile := resolveHistoryStorage(tt.deps)
+			if gotGitRef != tt.wantGitRef {
+				t.Errorf("useGitRef = %v, want %v", gotGitRef, tt.wantGitRef)
+			}
+			if gotRef != tt.wantRef {
+				t.Errorf("historyRef = %q, want %q", gotRef, tt.wantRef)
+			}
+			if gotFile != tt.wantFile {
+				t.Errorf("historyFile = %q, want %q", gotFile, tt.wantFile)
+			}
+		})
+	}
+}
+
+// ============================================================================
+// resolveBaseline Tests
+// ============================================================================
+
+func TestResolveBaseline(t *testing.T) {
+	tests := []struct {
+		name      string
+		deps      *GaugeDeps
+		wantNil   bool
+		wantScore int
+		wantErr   bool
+	}{
+		{
+			name: "baseline from file",
+			deps: &GaugeDeps{
+				BaselineFile: "baseline.json",
+				BaselineFileReader: func(path string) (*baseline.Baseline, error) {
+					score := 80
+					return &baseline.Baseline{Report: confidence.Report{Score: &score, Title: "B"}}, nil
+				},
+			},
+			wantScore: 80,
+		},
+		{
+			name: "baseline from file error",
+			deps: &GaugeDeps{
+				BaselineFile: "baseline.json",
+				BaselineFileReader: func(path string) (*baseline.Baseline, error) {
+					return nil, errors.New("file not found")
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "baseline from git ref (default ref)",
+			deps: &GaugeDeps{
+				IsGitRepo: func() bool { return true },
+				BaselineGitRefReader: func(ref string) (*baseline.Baseline, error) {
+					score := 75
+					return &baseline.Baseline{Report: confidence.Report{Score: &score, Title: "G"}}, nil
+				},
+			},
+			wantScore: 75,
+		},
+		{
+			name: "baseline from git ref (explicit ref)",
+			deps: &GaugeDeps{
+				IsGitRepo:  func() bool { return true },
+				BaselineRef: "refs/custom/baseline",
+				BaselineGitRefReader: func(ref string) (*baseline.Baseline, error) {
+					if ref != "refs/custom/baseline" {
+						return nil, fmt.Errorf("unexpected ref: %s", ref)
+					}
+					score := 90
+					return &baseline.Baseline{Report: confidence.Report{Score: &score, Title: "C"}}, nil
+				},
+			},
+			wantScore: 90,
+		},
+		{
+			name: "baseline git ref error",
+			deps: &GaugeDeps{
+				IsGitRepo: func() bool { return true },
+				BaselineGitRefReader: func(ref string) (*baseline.Baseline, error) {
+					return nil, errors.New("ref not found")
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "not in git repo and no file",
+			deps: &GaugeDeps{
+				IsGitRepo: func() bool { return false },
+			},
+			wantNil: true,
+		},
+		{
+			name: "nil IsGitRepo and no file",
+			deps: &GaugeDeps{
+				IsGitRepo: nil,
+			},
+			wantNil: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			b, err := resolveBaseline(tt.deps)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("resolveBaseline() error = %v", err)
+			}
+			if tt.wantNil {
+				if b != nil {
+					t.Error("expected nil baseline")
+				}
+				return
+			}
+			if b == nil {
+				t.Fatal("expected non-nil baseline")
+			}
+			if b.ScoreValue() != tt.wantScore {
+				t.Errorf("score = %d, want %d", b.ScoreValue(), tt.wantScore)
+			}
+		})
+	}
+}
+
+// ============================================================================
+// loadBaselineForComparison Tests
+// ============================================================================
+
+func TestLoadBaselineForComparison_CompareBaseline(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Test", "score": 85, "threshold": 75}`)
+
+	score := 70
+	deps := defaultGaugeDeps(fs)
+	deps.Config = "config.json"
+	deps.Output = "/output.svg"
+	deps.CompareBaseline = true
+	deps.BaselineFile = "baseline.json"
+	deps.BaselineFileReader = func(path string) (*baseline.Baseline, error) {
+		return &baseline.Baseline{Report: confidence.Report{Score: &score, Title: "BL"}}, nil
+	}
+
+	err := gaugeImpl(deps)
+	if err != nil {
+		t.Fatalf("gaugeImpl() error = %v", err)
+	}
+}
+
+func TestLoadBaselineForComparison_CompareBaseline_Error(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Test", "score": 85, "threshold": 75}`)
+
+	deps := defaultGaugeDeps(fs)
+	deps.Config = "config.json"
+	deps.Output = "/output.svg"
+	deps.CompareBaseline = true
+	deps.BaselineFile = "baseline.json"
+	deps.BaselineFileReader = func(path string) (*baseline.Baseline, error) {
+		return nil, errors.New("corrupted baseline")
+	}
+
+	err := gaugeImpl(deps)
+	if err == nil {
+		t.Fatal("expected error for baseline load failure")
+	}
+	if !strings.Contains(err.Error(), "loading baseline") {
+		t.Errorf("error should mention loading baseline, got: %v", err)
+	}
+}
+
+func TestLoadBaselineForComparison_CompareBaseline_NilResult(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Test", "score": 85, "threshold": 75}`)
+
+	deps := defaultGaugeDeps(fs)
+	deps.Config = "config.json"
+	deps.Output = "/output.svg"
+	deps.CompareBaseline = true
+	deps.IsGitRepo = func() bool { return false }
+	// No baseline file, not in git repo → nil baseline, no error
+
+	err := gaugeImpl(deps)
+	if err != nil {
+		t.Fatalf("gaugeImpl() error = %v", err)
+	}
+}
+
+func TestLoadBaselineForComparison_CompareBaseline_JSONOutput(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Test", "score": 85, "threshold": 75}`)
+
+	var stdout bytes.Buffer
+	score := 70
+	deps := defaultGaugeDeps(fs)
+	deps.Stdout = &stdout
+	deps.Config = "config.json"
+	deps.Output = "-"
+	deps.Format = "json"
+	deps.CompareBaseline = true
+	deps.BaselineFile = "baseline.json"
+	deps.BaselineFileReader = func(path string) (*baseline.Baseline, error) {
+		return &baseline.Baseline{Report: confidence.Report{Score: &score, Title: "BL"}}, nil
+	}
+
+	err := gaugeImpl(deps)
+	if err != nil {
+		t.Fatalf("gaugeImpl() error = %v", err)
+	}
+
+	output := stdout.String()
+	if !strings.Contains(output, `"delta": 15`) {
+		t.Errorf("JSON should contain delta 15 (85-70), got: %s", output)
+	}
+	if !strings.Contains(output, `"baseline": 70`) {
+		t.Errorf("JSON should contain baseline 70, got: %s", output)
+	}
+}
+
+// ============================================================================
+// parseFactorThresholds / parseFactorThresholdSpec / checkFactorThresholds
+// ============================================================================
+
+func TestParseFactorThresholds(t *testing.T) {
+	tests := []struct {
+		name      string
+		cli       []string
+		config    map[string]int
+		wantLen   int
+		wantErr   bool
+	}{
+		{
+			name:    "empty",
+			cli:     nil,
+			config:  nil,
+			wantLen: 0,
+		},
+		{
+			name:    "config only",
+			cli:     nil,
+			config:  map[string]int{"Coverage": 80, "Security": 90},
+			wantLen: 2,
+		},
+		{
+			name:    "CLI only",
+			cli:     []string{"Coverage:80", "Security:90"},
+			config:  nil,
+			wantLen: 2,
+		},
+		{
+			name:    "CLI overrides config",
+			cli:     []string{"Coverage:95"},
+			config:  map[string]int{"Coverage": 80},
+			wantLen: 1,
+		},
+		{
+			name:    "invalid CLI spec",
+			cli:     []string{"nocolon"},
+			config:  nil,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := parseFactorThresholds(tt.cli, tt.config)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("parseFactorThresholds() error = %v", err)
+			}
+			if len(result) != tt.wantLen {
+				t.Errorf("len = %d, want %d", len(result), tt.wantLen)
+			}
+		})
+	}
+
+	// Test that CLI overrides config value
+	result, err := parseFactorThresholds([]string{"Coverage:95"}, map[string]int{"Coverage": 80})
+	if err != nil {
+		t.Fatalf("error = %v", err)
+	}
+	if result["Coverage"] != 95 {
+		t.Errorf("Coverage = %d, want 95 (CLI override)", result["Coverage"])
+	}
+}
+
+func TestParseFactorThresholdSpec(t *testing.T) {
+	tests := []struct {
+		spec      string
+		wantName  string
+		wantThres int
+		wantErr   bool
+	}{
+		{"Coverage:80", "Coverage", 80, false},
+		{"Test Coverage:90", "Test Coverage", 90, false},
+		{"Score:0", "Score", 0, false},
+		{"Score:100", "Score", 100, false},
+		{"nocolon", "", 0, true},
+		{":80", "", 0, true},
+		{"Name:abc", "", 0, true},
+		{"Name:-1", "", 0, true},
+		{"Name:101", "", 0, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.spec, func(t *testing.T) {
+			name, threshold, err := parseFactorThresholdSpec(tt.spec)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("error = %v", err)
+			}
+			if name != tt.wantName {
+				t.Errorf("name = %q, want %q", name, tt.wantName)
+			}
+			if threshold != tt.wantThres {
+				t.Errorf("threshold = %d, want %d", threshold, tt.wantThres)
+			}
+		})
+	}
+}
+
+func TestCheckFactorThresholds(t *testing.T) {
+	tests := []struct {
+		name       string
+		factors    []confidence.Factor
+		overrides  map[string]int
+		wantPassed bool
+		wantCount  int
+	}{
+		{
+			name:       "no factors",
+			factors:    nil,
+			overrides:  nil,
+			wantPassed: true,
+			wantCount:  0,
+		},
+		{
+			name: "all pass with overrides",
+			factors: []confidence.Factor{
+				{Name: "Coverage", Score: 85, Weight: 20},
+				{Name: "Security", Score: 90, Weight: 20},
+			},
+			overrides:  map[string]int{"Coverage": 80, "Security": 85},
+			wantPassed: true,
+			wantCount:  0,
+		},
+		{
+			name: "one fails with override",
+			factors: []confidence.Factor{
+				{Name: "Coverage", Score: 75, Weight: 20},
+				{Name: "Security", Score: 90, Weight: 20},
+			},
+			overrides:  map[string]int{"Coverage": 80},
+			wantPassed: false,
+			wantCount:  1,
+		},
+		{
+			name: "factor threshold used when no override",
+			factors: []confidence.Factor{
+				{Name: "Coverage", Score: 70, Weight: 20, Threshold: 80},
+			},
+			overrides:  nil,
+			wantPassed: false,
+			wantCount:  1,
+		},
+		{
+			name: "override takes precedence over factor threshold",
+			factors: []confidence.Factor{
+				{Name: "Coverage", Score: 75, Weight: 20, Threshold: 80},
+			},
+			overrides:  map[string]int{"Coverage": 70},
+			wantPassed: true,
+			wantCount:  0,
+		},
+		{
+			name: "no threshold set - always passes",
+			factors: []confidence.Factor{
+				{Name: "Coverage", Score: 10, Weight: 20},
+			},
+			overrides:  nil,
+			wantPassed: true,
+			wantCount:  0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			report := &confidence.Report{
+				Title:   "Test",
+				Score:   intPtrI(80),
+				Factors: tt.factors,
+			}
+			passed, failures := checkFactorThresholds(report, tt.overrides)
+			if passed != tt.wantPassed {
+				t.Errorf("passed = %v, want %v", passed, tt.wantPassed)
+			}
+			if len(failures) != tt.wantCount {
+				t.Errorf("failures count = %d, want %d: %v", len(failures), tt.wantCount, failures)
+			}
+		})
+	}
+}
+
+// ============================================================================
+// checkGaugeThresholds Tests
+// ============================================================================
+
+func TestCheckGaugeThresholds_FailUnderQuiet(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Test", "score": 50, "threshold": 75}`)
+
+	var stderr bytes.Buffer
+	exitCode := -1
+	deps := defaultGaugeDeps(fs)
+	deps.Config = "config.json"
+	deps.Output = "/output.svg"
+	deps.Stderr = &stderr
+	deps.Quiet = true
+	deps.FailUnder = 60
+	deps.ExitFunc = func(code int) { exitCode = code }
+
+	err := gaugeImpl(deps)
+	if err != nil {
+		t.Fatalf("gaugeImpl() error = %v", err)
+	}
+
+	if exitCode != 1 {
+		t.Errorf("expected exit code 1, got %d", exitCode)
+	}
+	if stderr.Len() > 0 {
+		t.Error("quiet mode should suppress stderr")
+	}
+}
+
+func TestCheckGaugeThresholds_FailOnRegressionQuiet(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("current.json", `{"title": "Current", "score": 70, "threshold": 75}`)
+	fs.SetFileContent("baseline.json", `{"title": "Baseline", "score": 85, "threshold": 75}`)
+
+	var stderr bytes.Buffer
+	exitCode := -1
+	deps := defaultGaugeDeps(fs)
+	deps.Config = "current.json"
+	deps.Output = "/output.svg"
+	deps.Stderr = &stderr
+	deps.Quiet = true
+	deps.FailOnRegression = true
+	deps.Compare = "baseline.json"
+	deps.ExitFunc = func(code int) { exitCode = code }
+
+	err := gaugeImpl(deps)
+	if err != nil {
+		t.Fatalf("gaugeImpl() error = %v", err)
+	}
+
+	if exitCode != 1 {
+		t.Errorf("expected exit code 1, got %d", exitCode)
+	}
+	if stderr.Len() > 0 {
+		t.Error("quiet mode should suppress regression message")
+	}
+}
+
+func TestCheckGaugeThresholds_FactorThresholdFailure(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{
+		"title": "Test",
+		"score": 85,
+		"threshold": 75,
+		"factors": [
+			{"name": "Coverage", "score": 70, "weight": 50},
+			{"name": "Security", "score": 95, "weight": 50}
+		]
+	}`)
+
+	var stderr bytes.Buffer
+	exitCode := -1
+	deps := defaultGaugeDeps(fs)
+	deps.Config = "config.json"
+	deps.Output = "/output.svg"
+	deps.Stderr = &stderr
+	deps.FactorThresholds = map[string]int{"Coverage": 80}
+	deps.ExitFunc = func(code int) { exitCode = code }
+
+	err := gaugeImpl(deps)
+	if err != nil {
+		t.Fatalf("gaugeImpl() error = %v", err)
+	}
+
+	if exitCode != 1 {
+		t.Errorf("expected exit code 1 for factor threshold failure, got %d", exitCode)
+	}
+	if !strings.Contains(stderr.String(), "Factor threshold failed") {
+		t.Errorf("stderr should mention factor threshold failure, got: %s", stderr.String())
+	}
+}
+
+func TestCheckGaugeThresholds_FactorThresholdQuiet(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{
+		"title": "Test",
+		"score": 85,
+		"threshold": 75,
+		"factors": [
+			{"name": "Coverage", "score": 70, "weight": 50}
+		]
+	}`)
+
+	var stderr bytes.Buffer
+	exitCode := -1
+	deps := defaultGaugeDeps(fs)
+	deps.Config = "config.json"
+	deps.Output = "/output.svg"
+	deps.Stderr = &stderr
+	deps.Quiet = true
+	deps.FactorThresholds = map[string]int{"Coverage": 80}
+	deps.ExitFunc = func(code int) { exitCode = code }
+
+	err := gaugeImpl(deps)
+	if err != nil {
+		t.Fatalf("gaugeImpl() error = %v", err)
+	}
+
+	if exitCode != 1 {
+		t.Errorf("expected exit code 1, got %d", exitCode)
+	}
+	if stderr.Len() > 0 {
+		t.Error("quiet mode should suppress factor threshold message")
+	}
+}
+
+// ============================================================================
+// Sparkline with Git Ref Tests
+// ============================================================================
+
+func TestGaugeImpl_SparklineWithGitRef(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Test", "score": 85, "threshold": 75}`)
+
+	gitRefAppended := false
+	deps := defaultGaugeDeps(fs)
+	deps.Config = "config.json"
+	deps.Output = "/output.svg"
+	deps.BadgeType = "sparkline"
+	deps.HistoryRef = "refs/confvis/history"
+	deps.HistoryCount = 5
+	deps.GitRefReader = func(ref string) (*history.History, error) {
+		return &history.History{Entries: []history.Entry{
+			{Score: 75},
+			{Score: 80},
+		}}, nil
+	}
+	deps.GitRefAppender = func(ref string, entry history.Entry) error {
+		gitRefAppended = true
+		if entry.Score != 85 {
+			t.Errorf("appended score = %d, want 85", entry.Score)
+		}
+		return nil
+	}
+
+	err := gaugeImpl(deps)
+	if err != nil {
+		t.Fatalf("gaugeImpl() error = %v", err)
+	}
+
+	if !gitRefAppended {
+		t.Error("git ref appender should be called")
+	}
+
+	output := fs.GetFileContent("/output.svg")
+	if !strings.Contains(output, "<svg") {
+		t.Error("output should contain SVG")
+	}
+}
+
+func TestGaugeImpl_SparklineGitRefReadError(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Test", "score": 85, "threshold": 75}`)
+
+	deps := defaultGaugeDeps(fs)
+	deps.Config = "config.json"
+	deps.Output = "/output.svg"
+	deps.BadgeType = "sparkline"
+	deps.HistoryRef = "refs/confvis/history"
+	deps.GitRefReader = func(ref string) (*history.History, error) {
+		return nil, errors.New("git ref not found")
+	}
+
+	err := gaugeImpl(deps)
+	if err == nil {
+		t.Fatal("expected error for git ref read failure")
+	}
+	if !strings.Contains(err.Error(), "reading history from git ref") {
+		t.Errorf("error should mention git ref, got: %v", err)
+	}
+}
+
+func TestGaugeImpl_SparklineGitRefAppendError(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Test", "score": 85, "threshold": 75}`)
+
+	deps := defaultGaugeDeps(fs)
+	deps.Config = "config.json"
+	deps.Output = "/output.svg"
+	deps.BadgeType = "sparkline"
+	deps.HistoryRef = "refs/confvis/history"
+	deps.GitRefReader = func(ref string) (*history.History, error) {
+		return &history.History{Entries: []history.Entry{{Score: 80}}}, nil
+	}
+	deps.GitRefAppender = func(ref string, entry history.Entry) error {
+		return errors.New("permission denied")
+	}
+
+	err := gaugeImpl(deps)
+	if err == nil {
+		t.Fatal("expected error for git ref append failure")
+	}
+	if !strings.Contains(err.Error(), "appending to history git ref") {
+		t.Errorf("error should mention git ref append, got: %v", err)
+	}
+}
+
+func TestGaugeImpl_HistoryAutoInGitRepo(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Test", "score": 85, "threshold": 75}`)
+
+	gitRefRead := false
+	deps := defaultGaugeDeps(fs)
+	deps.Config = "config.json"
+	deps.Output = "/output.svg"
+	deps.BadgeType = "sparkline"
+	deps.HistoryAuto = true
+	deps.IsGitRepo = func() bool { return true }
+	deps.GitRefReader = func(ref string) (*history.History, error) {
+		gitRefRead = true
+		return &history.History{Entries: []history.Entry{{Score: 80}}}, nil
+	}
+	deps.GitRefAppender = func(ref string, entry history.Entry) error {
+		return nil
+	}
+
+	err := gaugeImpl(deps)
+	if err != nil {
+		t.Fatalf("gaugeImpl() error = %v", err)
+	}
+
+	if !gitRefRead {
+		t.Error("should use git ref reader in auto mode when in git repo")
+	}
+}
+
+func TestGaugeImpl_HistoryAutoNotInGitRepo(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Test", "score": 85, "threshold": 75}`)
+
+	fileRead := false
+	deps := defaultGaugeDeps(fs)
+	deps.Config = "config.json"
+	deps.Output = "/output.svg"
+	deps.BadgeType = "sparkline"
+	deps.HistoryAuto = true
+	deps.IsGitRepo = func() bool { return false }
+	deps.HistoryReader = func(path string) (*history.History, error) {
+		fileRead = true
+		return &history.History{Entries: []history.Entry{{Score: 80}}}, nil
+	}
+	deps.HistoryAppender = func(path string, entry history.Entry) error {
+		return nil
+	}
+
+	err := gaugeImpl(deps)
+	if err != nil {
+		t.Fatalf("gaugeImpl() error = %v", err)
+	}
+
+	if !fileRead {
+		t.Error("should use file reader in auto mode when not in git repo")
+	}
+}
+
+// ============================================================================
+// Aggregate Fragment Mode Tests
+// ============================================================================
+
+func TestAggregateImpl_FragmentMode(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("report1.json", `{"title": "Report 1", "score": 90, "threshold": 75}`)
+	fs.SetFileContent("report2.json", `{"title": "Report 2", "score": 70, "threshold": 75}`)
+
+	deps := &AggregateDeps{
+		FS:       fs,
+		Stderr:   &bytes.Buffer{},
+		Verbose:  false,
+		Quiet:    false,
+		ExitFunc: func(code int) {},
+		Configs:  []string{"report1.json", "report2.json"},
+		Output:   "/output",
+		Dark:     false,
+		Fragment: true,
+	}
+
+	err := aggregateImpl(deps)
+	if err != nil {
+		t.Fatalf("aggregateImpl() error = %v", err)
+	}
+
+	dashboard := fs.GetFileContent("/output/dashboard/index.html")
+	if strings.Contains(dashboard, "<!DOCTYPE html>") {
+		t.Error("fragment mode should not contain DOCTYPE")
+	}
+	if !strings.Contains(dashboard, "<div") {
+		t.Error("fragment mode should contain div elements")
+	}
+}
+
+// ============================================================================
+// baselineSaveImpl / baselineShowImpl Tests
+// ============================================================================
+
+func TestBaselineSaveImpl_ToFile(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Test", "score": 85, "threshold": 75}`)
+
+	var stdout bytes.Buffer
+	savedPath := ""
+	deps := &BaselineDeps{
+		FS:     fs,
+		Stdin:  strings.NewReader(""),
+		Stdout: &stdout,
+		Config: "config.json",
+		File:   "baseline.json",
+		FileWriter: func(path string, b *baseline.Baseline) error {
+			savedPath = path
+			return nil
+		},
+	}
+
+	err := baselineSaveImpl(deps)
+	if err != nil {
+		t.Fatalf("baselineSaveImpl() error = %v", err)
+	}
+	if savedPath != "baseline.json" {
+		t.Errorf("saved to %q, want %q", savedPath, "baseline.json")
+	}
+}
+
+func TestBaselineSaveImpl_ToGitRef(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Test", "score": 85, "threshold": 75}`)
+
+	var stdout bytes.Buffer
+	savedRef := ""
+	deps := &BaselineDeps{
+		FS:        fs,
+		Stdin:     strings.NewReader(""),
+		Stdout:    &stdout,
+		Config:    "config.json",
+		Ref:       "refs/confvis/baseline",
+		IsGitRepo: func() bool { return true },
+		GitRefWriter: func(ref string, b *baseline.Baseline) error {
+			savedRef = ref
+			return nil
+		},
+	}
+
+	err := baselineSaveImpl(deps)
+	if err != nil {
+		t.Fatalf("baselineSaveImpl() error = %v", err)
+	}
+	if savedRef != "refs/confvis/baseline" {
+		t.Errorf("saved ref = %q, want %q", savedRef, "refs/confvis/baseline")
+	}
+}
+
+func TestBaselineSaveImpl_NotInGitRepo(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Test", "score": 85, "threshold": 75}`)
+
+	deps := &BaselineDeps{
+		FS:        fs,
+		Stdin:     strings.NewReader(""),
+		Stdout:    &bytes.Buffer{},
+		Config:    "config.json",
+		IsGitRepo: func() bool { return false },
+	}
+
+	err := baselineSaveImpl(deps)
+	if err == nil {
+		t.Fatal("expected error when not in git repo and no file")
+	}
+	if !strings.Contains(err.Error(), "not in a git repository") {
+		t.Errorf("error = %q, should mention not in git repo", err.Error())
+	}
+}
+
+func TestBaselineShowImpl_TextFromFile(t *testing.T) {
+	var stdout bytes.Buffer
+	score := 85
+	deps := &BaselineDeps{
+		Stdout: &stdout,
+		Format: "text",
+		File:   "baseline.json",
+		FileReader: func(path string) (*baseline.Baseline, error) {
+			return &baseline.Baseline{
+				Report:  confidence.Report{Score: &score, Title: "Test"},
+				SavedAt: "2024-01-01T00:00:00Z",
+				Commit:  "abc1234567890",
+				Branch:  "main",
+			}, nil
+		},
+	}
+
+	err := baselineShowImpl(deps)
+	if err != nil {
+		t.Fatalf("baselineShowImpl() error = %v", err)
+	}
+
+	if !strings.Contains(stdout.String(), "85%") {
+		t.Errorf("output should contain 85%%, got: %s", stdout.String())
+	}
+}
+
+func TestBaselineShowImpl_JSONFromGitRef(t *testing.T) {
+	var stdout bytes.Buffer
+	score := 90
+	deps := &BaselineDeps{
+		Stdout:    &stdout,
+		Format:    "json",
+		Ref:       "refs/confvis/baseline",
+		IsGitRepo: func() bool { return true },
+		GitRefReader: func(ref string) (*baseline.Baseline, error) {
+			return &baseline.Baseline{
+				Report: confidence.Report{Score: &score, Title: "Test"},
+			}, nil
+		},
+	}
+
+	err := baselineShowImpl(deps)
+	if err != nil {
+		t.Fatalf("baselineShowImpl() error = %v", err)
+	}
+
+	if !strings.Contains(stdout.String(), `"score": 90`) {
+		t.Errorf("JSON output should contain score, got: %s", stdout.String())
+	}
+}
+
+func TestBaselineShowImpl_NoBaselineFound(t *testing.T) {
+	deps := &BaselineDeps{
+		Stdout:    &bytes.Buffer{},
+		Format:    "text",
+		IsGitRepo: func() bool { return false },
+	}
+
+	err := baselineShowImpl(deps)
+	if err == nil {
+		t.Fatal("expected error when no baseline is found")
+	}
+	if !strings.Contains(err.Error(), "not in a git repository") {
+		t.Errorf("error = %q, should mention not in git repo", err.Error())
 	}
 }

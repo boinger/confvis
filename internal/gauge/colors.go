@@ -1,6 +1,14 @@
 // Package gauge provides SVG gauge generation for confidence scores.
 package gauge
 
+// Shared color constants used across multiple color schemes.
+const (
+	colorWhite    = "#ffffff"
+	colorBlack    = "#000000"
+	colorDarkGray = "#333333"
+	colorLightGray  = "#e0e0e0"
+)
+
 // ColorScheme defines colors for gauge rendering.
 type ColorScheme struct {
 	Background  string
@@ -16,7 +24,7 @@ type ColorScheme struct {
 // GitHubLight returns the light mode color scheme inspired by GitHub.
 func GitHubLight() ColorScheme {
 	return ColorScheme{
-		Background:  "#ffffff",
+		Background:  colorWhite,
 		TrackColor:  "#e1e4e8",
 		TextPrimary: "#24292f",
 		TextMuted:   "#57606a",
@@ -57,13 +65,13 @@ func (cs ColorScheme) ScoreColor(score, greenAbove, yellowAbove int) string {
 func Minimal() ColorScheme {
 	return ColorScheme{
 		Background:  "#fafafa",
-		TrackColor:  "#e0e0e0",
-		TextPrimary: "#333333",
+		TrackColor:  colorLightGray,
+		TextPrimary: colorDarkGray,
 		TextMuted:   "#666666",
 		Success:     "#4caf50",
 		Warning:     "#ff9800",
 		Danger:      "#f44336",
-		Border:      "#e0e0e0",
+		Border:      colorLightGray,
 	}
 }
 
@@ -71,13 +79,13 @@ func Minimal() ColorScheme {
 func MinimalDark() ColorScheme {
 	return ColorScheme{
 		Background:  "#1a1a1a",
-		TrackColor:  "#333333",
-		TextPrimary: "#e0e0e0",
+		TrackColor:  colorDarkGray,
+		TextPrimary: colorLightGray,
 		TextMuted:   "#999999",
 		Success:     "#66bb6a",
 		Warning:     "#ffb74d",
 		Danger:      "#ef5350",
-		Border:      "#333333",
+		Border:      colorDarkGray,
 	}
 }
 
@@ -112,28 +120,28 @@ func CorporateDark() ColorScheme {
 // HighContrast returns an accessibility-focused high contrast color scheme.
 func HighContrast() ColorScheme {
 	return ColorScheme{
-		Background:  "#ffffff",
+		Background:  colorWhite,
 		TrackColor:  "#767676",
-		TextPrimary: "#000000",
-		TextMuted:   "#333333",
+		TextPrimary: colorBlack,
+		TextMuted:   colorDarkGray,
 		Success:     "#008000",
 		Warning:     "#806600",
 		Danger:      "#cc0000",
-		Border:      "#000000",
+		Border:      colorBlack,
 	}
 }
 
 // HighContrastDark returns a high contrast color scheme for dark mode.
 func HighContrastDark() ColorScheme {
 	return ColorScheme{
-		Background:  "#000000",
+		Background:  colorBlack,
 		TrackColor:  "#767676",
-		TextPrimary: "#ffffff",
+		TextPrimary: colorWhite,
 		TextMuted:   "#cccccc",
 		Success:     "#00ff00",
 		Warning:     "#ffff00",
 		Danger:      "#ff0000",
-		Border:      "#ffffff",
+		Border:      colorWhite,
 	}
 }
 

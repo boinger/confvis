@@ -187,23 +187,10 @@ func runGauge(_ *cobra.Command, _ []string) error {
 }
 
 func gaugeImpl(deps *GaugeDeps) error {
-	// Validate format
-	switch deps.Format {
-	case "svg", "json", "text", "markdown", "github-comment":
-		// valid
-	default:
-		return fmt.Errorf("invalid format %q: must be svg, json, text, markdown, or github-comment", deps.Format)
+	if err := validateGaugeInputs(deps); err != nil {
+		return err
 	}
 
-	// Validate badge type
-	switch deps.BadgeType {
-	case "gauge", "flat", "sparkline":
-		// valid
-	default:
-		return fmt.Errorf("invalid badge-type %q: must be gauge, flat, or sparkline", deps.BadgeType)
-	}
-
-	// Validate and convert input format
 	inputFormat, err := ParseInputFormat(deps.InputFormat)
 	if err != nil {
 		return err
@@ -215,13 +202,11 @@ func gaugeImpl(deps *GaugeDeps) error {
 		return err
 	}
 
-	// Parse baseline report if comparing
 	baselineReport, delta, err := loadBaselineForComparison(deps, report.ScoreValue())
 	if err != nil {
 		return err
 	}
 
-	// Suppress verbose output when writing to stdout
 	outputToStdout := deps.Output == "-"
 	showVerbose := deps.Verbose && !deps.Quiet && !outputToStdout
 
@@ -230,27 +215,10 @@ func gaugeImpl(deps *GaugeDeps) error {
 			deps.Format, report.Title, report.ScoreValue(), report.Threshold)
 	}
 
-	var w io.Writer
-	if outputToStdout {
-		w = deps.Stdout
-	} else {
-		f, err := deps.FS.Create(deps.Output)
-		if err != nil {
-			return fmt.Errorf("creating output file: %w", err)
-		}
-		defer func() {
-			if cerr := f.Close(); cerr != nil && err == nil {
-				err = fmt.Errorf("closing output file: %w", cerr)
-			}
-		}()
-		w = f
-	}
-
-	if err := writeFormatOutput(w, deps.Format, report, baselineReport, delta, deps); err != nil {
+	if err := writeGaugeOutput(deps, report, baselineReport, delta, outputToStdout); err != nil {
 		return err
 	}
 
-	// Emit JSON metadata if requested
 	if deps.EmitJSON != "" {
 		if err := emitJSONMetadata(deps, report, baselineReport, delta); err != nil {
 			return err
@@ -261,6 +229,53 @@ func gaugeImpl(deps *GaugeDeps) error {
 		fmt.Printf("Wrote %s to %s\n", deps.Format, deps.Output)
 	}
 
+	checkGaugeThresholds(deps, report, baselineReport, delta)
+
+	return nil
+}
+
+// validateGaugeInputs checks that format and badge type are valid.
+func validateGaugeInputs(deps *GaugeDeps) error {
+	switch deps.Format {
+	case "svg", "json", "text", "markdown", "github-comment":
+		// valid
+	default:
+		return fmt.Errorf("invalid format %q: must be svg, json, text, markdown, or github-comment", deps.Format)
+	}
+
+	switch deps.BadgeType {
+	case "gauge", "flat", "sparkline":
+		// valid
+	default:
+		return fmt.Errorf("invalid badge-type %q: must be gauge, flat, or sparkline", deps.BadgeType)
+	}
+
+	return nil
+}
+
+// writeGaugeOutput writes the formatted output to the appropriate destination.
+func writeGaugeOutput(deps *GaugeDeps, report, baselineReport *confidence.Report, delta int, outputToStdout bool) (err error) {
+	var w io.Writer
+	if outputToStdout {
+		w = deps.Stdout
+	} else {
+		f, createErr := deps.FS.Create(deps.Output)
+		if createErr != nil {
+			return fmt.Errorf("creating output file: %w", createErr)
+		}
+		defer func() {
+			if cerr := f.Close(); cerr != nil && err == nil {
+				err = fmt.Errorf("closing output file: %w", cerr)
+			}
+		}()
+		w = f
+	}
+
+	return writeFormatOutput(w, deps.Format, report, baselineReport, delta, deps)
+}
+
+// checkGaugeThresholds checks fail-under, regression, and per-factor thresholds.
+func checkGaugeThresholds(deps *GaugeDeps, report *confidence.Report, baselineReport *confidence.Report, delta int) {
 	if deps.FailUnder > 0 && report.ScoreValue() < deps.FailUnder {
 		if !deps.Quiet {
 			_, _ = fmt.Fprintf(deps.Stderr, "Score %d is below threshold %d\n", report.ScoreValue(), deps.FailUnder)
@@ -275,7 +290,6 @@ func gaugeImpl(deps *GaugeDeps) error {
 		deps.ExitFunc(1)
 	}
 
-	// Check per-factor thresholds
 	if passed, failures := checkFactorThresholds(report, deps.FactorThresholds); !passed {
 		if !deps.Quiet {
 			for _, failure := range failures {
@@ -284,8 +298,6 @@ func gaugeImpl(deps *GaugeDeps) error {
 		}
 		deps.ExitFunc(1)
 	}
-
-	return nil
 }
 
 // writeFormatOutput dispatches to the appropriate format writer.
@@ -375,92 +387,110 @@ func writeText(w io.Writer, score int, baselineReport *confidence.Report, delta 
 func generateSVGBadge(w io.Writer, report *confidence.Report, deps *GaugeDeps) error {
 	switch deps.BadgeType {
 	case "flat":
-		flatOpts := gauge.FlatOptions{
-			Label:       deps.Label,
-			Icon:        deps.Icon,
-			DarkMode:    deps.Dark,
-			Style:       deps.Style,
-			GreenAbove:  deps.GreenAbove,
-			YellowAbove: deps.YellowAbove,
-		}
-		if err := gauge.GenerateFlat(w, report, flatOpts); err != nil {
-			return fmt.Errorf("generating flat badge: %w", err)
-		}
-
+		return generateFlatBadge(w, report, deps)
 	case "sparkline":
-		// Determine history storage mode
-		useGitRef, historyRef, historyFile := resolveHistoryStorage(deps)
-
-		// Read history and generate sparkline
-		var scores []int
-		if useGitRef && historyRef != "" {
-			hist, err := deps.GitRefReader(historyRef)
-			if err != nil {
-				return fmt.Errorf("reading history from git ref: %w", err)
-			}
-			entries := hist.Last(deps.HistoryCount - 1)
-			for _, e := range entries {
-				scores = append(scores, e.Score)
-			}
-		} else if historyFile != "" {
-			hist, err := deps.HistoryReader(historyFile)
-			if err != nil {
-				return fmt.Errorf("reading history: %w", err)
-			}
-			entries := hist.Last(deps.HistoryCount - 1)
-			for _, e := range entries {
-				scores = append(scores, e.Score)
-			}
-		}
-		// Append current score
-		scores = append(scores, report.ScoreValue())
-
-		sparkOpts := gauge.SparklineOptions{
-			Width:       deps.Width,
-			Height:      deps.Height,
-			Scores:      scores,
-			DarkMode:    deps.Dark,
-			Style:       deps.Style,
-			GreenAbove:  deps.GreenAbove,
-			YellowAbove: deps.YellowAbove,
-		}
-		// Use smaller default size for sparkline
-		if sparkOpts.Width == 200 {
-			sparkOpts.Width = 120
-		}
-		if sparkOpts.Height == 120 {
-			sparkOpts.Height = 28
-		}
-		if err := gauge.GenerateSparkline(w, report, sparkOpts); err != nil {
-			return fmt.Errorf("generating sparkline: %w", err)
-		}
-
-		// Append to history storage
-		entry := history.NewEntry(report.ScoreValue())
-		if useGitRef && historyRef != "" {
-			if err := deps.GitRefAppender(historyRef, entry); err != nil {
-				return fmt.Errorf("appending to history git ref: %w", err)
-			}
-		} else if historyFile != "" {
-			if err := deps.HistoryAppender(historyFile, entry); err != nil {
-				return fmt.Errorf("appending to history: %w", err)
-			}
-		}
-
+		return generateSparklineBadge(w, report, deps)
 	default: // "gauge"
-		opts := gauge.Options{
-			Width:       deps.Width,
-			Height:      deps.Height,
-			Style:       deps.Style,
-			DarkMode:    deps.Dark,
-			GreenAbove:  deps.GreenAbove,
-			YellowAbove: deps.YellowAbove,
-		}
-		if err := gauge.Generate(w, report, opts); err != nil {
-			return fmt.Errorf("generating gauge: %w", err)
-		}
+		return generateGaugeBadge(w, report, deps)
+	}
+}
+
+func generateFlatBadge(w io.Writer, report *confidence.Report, deps *GaugeDeps) error {
+	flatOpts := gauge.FlatOptions{
+		Label:       deps.Label,
+		Icon:        deps.Icon,
+		DarkMode:    deps.Dark,
+		Style:       deps.Style,
+		GreenAbove:  deps.GreenAbove,
+		YellowAbove: deps.YellowAbove,
+	}
+	if err := gauge.GenerateFlat(w, report, flatOpts); err != nil {
+		return fmt.Errorf("generating flat badge: %w", err)
+	}
+	return nil
+}
+
+func generateSparklineBadge(w io.Writer, report *confidence.Report, deps *GaugeDeps) error {
+	useGitRef, historyRef, historyFile := resolveHistoryStorage(deps)
+
+	scores, err := loadHistoryScores(deps, useGitRef, historyRef, historyFile)
+	if err != nil {
+		return err
+	}
+	scores = append(scores, report.ScoreValue())
+
+	sparkOpts := gauge.SparklineOptions{
+		Width:       deps.Width,
+		Height:      deps.Height,
+		Scores:      scores,
+		DarkMode:    deps.Dark,
+		Style:       deps.Style,
+		GreenAbove:  deps.GreenAbove,
+		YellowAbove: deps.YellowAbove,
+	}
+	if sparkOpts.Width == 200 {
+		sparkOpts.Width = 120
+	}
+	if sparkOpts.Height == 120 {
+		sparkOpts.Height = 28
+	}
+	if err := gauge.GenerateSparkline(w, report, sparkOpts); err != nil {
+		return fmt.Errorf("generating sparkline: %w", err)
 	}
 
+	return appendToHistory(deps, useGitRef, historyRef, historyFile, report.ScoreValue())
+}
+
+func generateGaugeBadge(w io.Writer, report *confidence.Report, deps *GaugeDeps) error {
+	opts := gauge.Options{
+		Width:       deps.Width,
+		Height:      deps.Height,
+		Style:       deps.Style,
+		DarkMode:    deps.Dark,
+		GreenAbove:  deps.GreenAbove,
+		YellowAbove: deps.YellowAbove,
+	}
+	if err := gauge.Generate(w, report, opts); err != nil {
+		return fmt.Errorf("generating gauge: %w", err)
+	}
+	return nil
+}
+
+// loadHistoryScores reads historical scores from git ref or file storage.
+func loadHistoryScores(deps *GaugeDeps, useGitRef bool, historyRef, historyFile string) ([]int, error) {
+	var scores []int
+	if useGitRef && historyRef != "" {
+		hist, err := deps.GitRefReader(historyRef)
+		if err != nil {
+			return nil, fmt.Errorf("reading history from git ref: %w", err)
+		}
+		for _, e := range hist.Last(deps.HistoryCount - 1) {
+			scores = append(scores, e.Score)
+		}
+	} else if historyFile != "" {
+		hist, err := deps.HistoryReader(historyFile)
+		if err != nil {
+			return nil, fmt.Errorf("reading history: %w", err)
+		}
+		for _, e := range hist.Last(deps.HistoryCount - 1) {
+			scores = append(scores, e.Score)
+		}
+	}
+	return scores, nil
+}
+
+// appendToHistory writes a score entry to the appropriate history storage.
+func appendToHistory(deps *GaugeDeps, useGitRef bool, historyRef, historyFile string, score int) error {
+	entry := history.NewEntry(score)
+	if useGitRef && historyRef != "" {
+		if err := deps.GitRefAppender(historyRef, entry); err != nil {
+			return fmt.Errorf("appending to history git ref: %w", err)
+		}
+	} else if historyFile != "" {
+		if err := deps.HistoryAppender(historyFile, entry); err != nil {
+			return fmt.Errorf("appending to history: %w", err)
+		}
+	}
 	return nil
 }
 

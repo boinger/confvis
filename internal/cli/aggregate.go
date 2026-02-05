@@ -113,7 +113,6 @@ func runAggregate(_ *cobra.Command, _ []string) error {
 }
 
 func aggregateImpl(deps *AggregateDeps) error {
-	// Parse all configs and expand globs
 	reports, err := parseConfigsWithWeightsFS(deps.FS, deps.Configs)
 	if err != nil {
 		return err
@@ -123,7 +122,29 @@ func aggregateImpl(deps *AggregateDeps) error {
 		return fmt.Errorf("no reports found")
 	}
 
-	// Calculate aggregate score
+	aggregateReport := computeAggregateReport(reports)
+	showVerbose := deps.Verbose && !deps.Quiet
+
+	if showVerbose {
+		printAggregateVerbose(reports, aggregateReport.ScoreValue())
+	}
+
+	if err := writeAggregateOutputs(deps, reports, aggregateReport, showVerbose); err != nil {
+		return err
+	}
+
+	if deps.FailUnder > 0 && aggregateReport.ScoreValue() < deps.FailUnder {
+		if !deps.Quiet {
+			_, _ = fmt.Fprintf(deps.Stderr, "Aggregate score %d is below threshold %d\n", aggregateReport.ScoreValue(), deps.FailUnder)
+		}
+		deps.ExitFunc(1)
+	}
+
+	return nil
+}
+
+// computeAggregateReport calculates the weighted average score and determines the threshold.
+func computeAggregateReport(reports []reportWithWeight) *confidence.Report {
 	var totalWeight int
 	var weightedSum int
 	for _, r := range reports {
@@ -136,73 +157,65 @@ func aggregateImpl(deps *AggregateDeps) error {
 		aggregateScore = (weightedSum + totalWeight/2) / totalWeight
 	}
 
-	showVerbose := deps.Verbose && !deps.Quiet
+	report := &confidence.Report{
+		Title:     "Aggregate",
+		Score:     &aggregateScore,
+		Threshold: 75,
+	}
 
-	if showVerbose {
-		fmt.Printf("Aggregating %d reports (aggregate score: %d)\n", len(reports), aggregateScore)
-		for _, r := range reports {
-			fmt.Printf("  - %s: %d (weight: %d)\n", r.Report.Title, r.Report.ScoreValue(), r.Weight)
+	for _, r := range reports {
+		if r.Report.Threshold > 0 && (report.Threshold == 75 || r.Report.Threshold < report.Threshold) {
+			report.Threshold = r.Report.Threshold
 		}
 	}
 
-	// Create output directories
+	return report
+}
+
+func printAggregateVerbose(reports []reportWithWeight, aggregateScore int) {
+	fmt.Printf("Aggregating %d reports (aggregate score: %d)\n", len(reports), aggregateScore)
+	for _, r := range reports {
+		fmt.Printf("  - %s: %d (weight: %d)\n", r.Report.Title, r.Report.ScoreValue(), r.Weight)
+	}
+}
+
+// writeAggregateOutputs generates all output files: JSON, badges, and dashboard.
+func writeAggregateOutputs(deps *AggregateDeps, reports []reportWithWeight, aggregateReport *confidence.Report, verbose bool) error {
 	dashboardDir := filepath.Join(deps.Output, "dashboard")
 	if err := deps.FS.MkdirAll(dashboardDir, 0o755); err != nil {
 		return fmt.Errorf("creating output directory: %w", err)
 	}
 
-	// Build aggregate report for badge generation
-	aggregateReport := &confidence.Report{
-		Title:     "Aggregate",
-		Score:     &aggregateScore,
-		Threshold: 75, // Default threshold
-	}
-
-	// Use lowest threshold from any report
-	for _, r := range reports {
-		if r.Report.Threshold > 0 && (aggregateReport.Threshold == 75 || r.Report.Threshold < aggregateReport.Threshold) {
-			aggregateReport.Threshold = r.Report.Threshold
-		}
-	}
-
-	// Write aggregate JSON if requested
 	if deps.EmitJSON != "" {
-		if err := writeAggregateJSON(deps.FS, deps.EmitJSON, aggregateReport, showVerbose); err != nil {
+		if err := writeAggregateJSON(deps.FS, deps.EmitJSON, aggregateReport, verbose); err != nil {
 			return err
 		}
 	}
 
-	// Generate aggregate badge
 	badgePath := filepath.Join(deps.Output, "badge.svg")
-	if err := generateAggregateBadgeWithFS(deps.FS, badgePath, aggregateReport, deps.Dark, deps.BadgeType, deps.Icon, deps.Label, showVerbose); err != nil {
+	if err := generateAggregateBadgeWithFS(deps.FS, badgePath, aggregateReport, deps.Dark, deps.BadgeType, deps.Icon, deps.Label, verbose); err != nil {
 		return err
 	}
 
-	// Generate multi-dashboard
 	dashboardPath := filepath.Join(dashboardDir, "index.html")
-	if err := generateMultiDashboardWithFS(deps.FS, dashboardPath, reports, aggregateReport, deps.Dark, deps.Fragment, showVerbose); err != nil {
+	if err := generateMultiDashboardWithFS(deps.FS, dashboardPath, reports, aggregateReport, deps.Dark, deps.Fragment, verbose); err != nil {
 		return err
 	}
 
-	// Generate individual badges (without icon/label override - use report title)
+	return generateIndividualBadges(deps.FS, deps.Output, reports, deps.Dark, deps.BadgeType, verbose)
+}
+
+func generateIndividualBadges(fs FileSystem, outputDir string, reports []reportWithWeight, dark bool, badgeType string, verbose bool) error {
 	for i, r := range reports {
 		safeName := sanitizeFilename(r.Report.Title)
 		if safeName == "" {
 			safeName = fmt.Sprintf("report_%d", i)
 		}
-		individualBadgePath := filepath.Join(deps.Output, fmt.Sprintf("%s.svg", safeName))
-		if err := generateAggregateBadgeWithFS(deps.FS, individualBadgePath, r.Report, deps.Dark, deps.BadgeType, "", "", showVerbose); err != nil {
+		path := filepath.Join(outputDir, fmt.Sprintf("%s.svg", safeName))
+		if err := generateAggregateBadgeWithFS(fs, path, r.Report, dark, badgeType, "", "", verbose); err != nil {
 			return err
 		}
 	}
-
-	if deps.FailUnder > 0 && aggregateScore < deps.FailUnder {
-		if !deps.Quiet {
-			_, _ = fmt.Fprintf(deps.Stderr, "Aggregate score %d is below threshold %d\n", aggregateScore, deps.FailUnder)
-		}
-		deps.ExitFunc(1)
-	}
-
 	return nil
 }
 

@@ -649,6 +649,48 @@ func TestSource_Fetch_TokenFromEnv(t *testing.T) {
 	}
 }
 
+func TestConvertMetricValue(t *testing.T) {
+	tests := []struct {
+		name    string
+		val     string
+		kind    metricKind
+		want    int
+		wantErr bool
+	}{
+		{"percentage 85.5", "85.5", metricKindPercentage, 85, false},
+		{"percentage 0", "0", metricKindPercentage, 0, false},
+		{"percentage 100", "100", metricKindPercentage, 100, false},
+		{"percentage invalid", "abc", metricKindPercentage, 0, true},
+		{"rating A", "1.0", metricKindRating, RatingToScore(1.0), false},
+		{"rating E", "5.0", metricKindRating, RatingToScore(5.0), false},
+		{"rating invalid", "xyz", metricKindRating, 0, true},
+		{"count 0", "0", metricKindCount, CountToScore(0), false},
+		{"count 5", "5", metricKindCount, CountToScore(5), false},
+		{"count invalid", "abc", metricKindCount, 0, true},
+		{"duplication 3.5", "3.5", metricKindDuplication, DuplicationToScore(3.5), false},
+		{"duplication invalid", "abc", metricKindDuplication, 0, true},
+		{"unknown kind", "10", metricKind(99), 0, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := convertMetricValue(tt.val, tt.kind)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("convertMetricValue() error = %v", err)
+			}
+			if got != tt.want {
+				t.Errorf("convertMetricValue(%q, %d) = %d, want %d", tt.val, tt.kind, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestSource_Fetch_URLFromEnv(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		resp := MeasuresResponse{

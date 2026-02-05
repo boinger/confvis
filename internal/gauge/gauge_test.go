@@ -301,6 +301,159 @@ func TestGenerate_OpaqueBackground(t *testing.T) {
 	}
 }
 
+func TestGenerate_ScoreZero(t *testing.T) {
+	report := &confidence.Report{
+		Title:     "Zero Score",
+		Score:     intPtrG(0),
+		Threshold: 75,
+	}
+
+	var buf bytes.Buffer
+	err := Generate(&buf, report, DefaultOptions())
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+
+	svg := buf.String()
+	if !strings.Contains(svg, "<svg") {
+		t.Error("output should contain SVG element")
+	}
+	if !strings.Contains(svg, "FAIL") {
+		t.Error("score 0 should show FAIL")
+	}
+}
+
+func TestGenerate_ScoreZero_TransparentBG(t *testing.T) {
+	report := &confidence.Report{
+		Title:     "Zero Score Transparent",
+		Score:     intPtrG(0),
+		Threshold: 75,
+	}
+
+	opts := DefaultOptions()
+	opts.TransparentBG = true
+
+	var buf bytes.Buffer
+	err := Generate(&buf, report, opts)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+
+	svg := buf.String()
+	if !strings.Contains(svg, "<svg") {
+		t.Error("output should contain SVG element")
+	}
+	if !strings.Contains(svg, "<path") {
+		t.Error("output should still contain gauge arcs")
+	}
+}
+
+func TestGenerate_Score100(t *testing.T) {
+	report := &confidence.Report{
+		Title:     "Perfect Score",
+		Score:     intPtrG(100),
+		Threshold: 75,
+	}
+
+	var buf bytes.Buffer
+	err := Generate(&buf, report, DefaultOptions())
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+
+	svg := buf.String()
+	if !strings.Contains(svg, ">100<") {
+		t.Error("output should contain score value 100")
+	}
+	if !strings.Contains(svg, "PASS") {
+		t.Error("score 100 should show PASS")
+	}
+	if !strings.Contains(svg, `viewBox="0 0 200 120"`) {
+		t.Error("SVG should have viewBox")
+	}
+}
+
+func TestGenerate_DarkMode_TransparentBG(t *testing.T) {
+	report := &confidence.Report{
+		Title:     "Dark Transparent",
+		Score:     intPtrG(85),
+		Threshold: 75,
+	}
+
+	opts := DefaultOptions()
+	opts.DarkMode = true
+	opts.TransparentBG = true
+
+	var buf bytes.Buffer
+	err := Generate(&buf, report, opts)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+
+	svg := buf.String()
+	if !strings.Contains(svg, "<svg") {
+		t.Error("output should contain SVG element")
+	}
+	if !strings.Contains(svg, "<path") {
+		t.Error("output should contain gauge arcs")
+	}
+}
+
+func TestGenerate_DarkMode_CustomDimensions(t *testing.T) {
+	report := &confidence.Report{
+		Title:     "Dark Custom",
+		Score:     intPtrG(50),
+		Threshold: 75,
+	}
+
+	opts := Options{
+		Width:    300,
+		Height:   200,
+		DarkMode: true,
+		Style:    "high-contrast",
+	}
+
+	var buf bytes.Buffer
+	err := Generate(&buf, report, opts)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+
+	svg := buf.String()
+	if !strings.Contains(svg, `width="300"`) {
+		t.Error("output should have width 300")
+	}
+	if !strings.Contains(svg, "FAIL") {
+		t.Error("score 50 with threshold 75 should show FAIL")
+	}
+}
+
+func TestGenerate_CustomColorThresholds(t *testing.T) {
+	report := &confidence.Report{
+		Title:     "Custom Thresholds",
+		Score:     intPtrG(60),
+		Threshold: 50,
+	}
+
+	opts := Options{
+		Width:       200,
+		Height:      120,
+		GreenAbove:  90,
+		YellowAbove: 70,
+	}
+
+	var buf bytes.Buffer
+	err := Generate(&buf, report, opts)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+
+	svg := buf.String()
+	if !strings.Contains(svg, "PASS") {
+		t.Error("score 60 with threshold 50 should show PASS")
+	}
+}
+
 func TestGenerateToString_WithOptions(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Test",

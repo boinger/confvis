@@ -111,32 +111,46 @@ func Validate(r *Report) error {
 	}
 
 	for i, f := range r.Factors {
-		if f.Name == "" {
-			return fmt.Errorf("validation: factor[%d] name is required", i)
-		}
-		if f.Score < 0 || f.Score > 100 {
-			return fmt.Errorf("validation: factor[%d] score must be between 0 and 100, got %d", i, f.Score)
-		}
-		if f.Weight < 0 || f.Weight > 100 {
-			return fmt.Errorf("validation: factor[%d] weight must be between 0 and 100, got %d", i, f.Weight)
-		}
-		if f.Threshold < 0 || f.Threshold > 100 {
-			return fmt.Errorf("validation: factor %q threshold must be between 0 and 100, got %d", f.Name, f.Threshold)
+		if err := validateFactor(i, f); err != nil {
+			return err
 		}
 	}
 
 	if r.Thresholds != nil {
-		if r.Thresholds.GreenAbove < 0 || r.Thresholds.GreenAbove > 100 {
-			return fmt.Errorf("validation: thresholds.greenAbove must be between 0 and 100, got %d", r.Thresholds.GreenAbove)
-		}
-		if r.Thresholds.YellowAbove < 0 || r.Thresholds.YellowAbove > 100 {
-			return fmt.Errorf("validation: thresholds.yellowAbove must be between 0 and 100, got %d", r.Thresholds.YellowAbove)
-		}
-		if r.Thresholds.GreenAbove < r.Thresholds.YellowAbove {
-			return fmt.Errorf("validation: thresholds.greenAbove (%d) must be >= thresholds.yellowAbove (%d)",
-				r.Thresholds.GreenAbove, r.Thresholds.YellowAbove)
+		if err := validateColorThresholds(r.Thresholds); err != nil {
+			return err
 		}
 	}
 
+	return nil
+}
+
+func validateFactor(i int, f Factor) error {
+	if f.Name == "" {
+		return fmt.Errorf("validation: factor[%d] name is required", i)
+	}
+	if f.Score < 0 || f.Score > 100 {
+		return fmt.Errorf("validation: factor[%d] score must be between 0 and 100, got %d", i, f.Score)
+	}
+	if f.Weight < 0 || f.Weight > 100 {
+		return fmt.Errorf("validation: factor[%d] weight must be between 0 and 100, got %d", i, f.Weight)
+	}
+	if f.Threshold < 0 || f.Threshold > 100 {
+		return fmt.Errorf("validation: factor %q threshold must be between 0 and 100, got %d", f.Name, f.Threshold)
+	}
+	return nil
+}
+
+func validateColorThresholds(t *ColorThresholds) error {
+	if t.GreenAbove < 0 || t.GreenAbove > 100 {
+		return fmt.Errorf("validation: thresholds.greenAbove must be between 0 and 100, got %d", t.GreenAbove)
+	}
+	if t.YellowAbove < 0 || t.YellowAbove > 100 {
+		return fmt.Errorf("validation: thresholds.yellowAbove must be between 0 and 100, got %d", t.YellowAbove)
+	}
+	if t.GreenAbove < t.YellowAbove {
+		return fmt.Errorf("validation: thresholds.greenAbove (%d) must be >= thresholds.yellowAbove (%d)",
+			t.GreenAbove, t.YellowAbove)
+	}
 	return nil
 }

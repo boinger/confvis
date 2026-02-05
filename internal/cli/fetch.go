@@ -13,6 +13,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/boinger/confvis/internal/confidence"
 	"github.com/boinger/confvis/internal/sources"
 	// Import sources to register them
 	_ "github.com/boinger/confvis/internal/sources/codecov"
@@ -227,7 +228,6 @@ func fetchImpl(ctx context.Context, deps *FetchDeps) error {
 		return fmt.Errorf("unknown source %q, available sources: %s", deps.SourceName, strings.Join(available, ", "))
 	}
 
-	// Build options, allowing environment variable fallbacks
 	opts := sources.Options{
 		URL:       deps.URL,
 		Project:   deps.Project,
@@ -239,7 +239,6 @@ func fetchImpl(ctx context.Context, deps *FetchDeps) error {
 		Extra:     deps.Extra,
 	}
 
-	// Suppress verbose output when writing to stdout
 	outputToStdout := deps.Output == "-"
 	showVerbose := deps.Verbose && !deps.Quiet && !outputToStdout
 
@@ -252,7 +251,19 @@ func fetchImpl(ctx context.Context, deps *FetchDeps) error {
 		return fmt.Errorf("fetching from %s: %w", deps.SourceName, err)
 	}
 
-	// Write output
+	if err := writeFetchOutput(deps, report, outputToStdout); err != nil {
+		return err
+	}
+
+	if showVerbose {
+		printFetchVerbose(deps, report, outputToStdout)
+	}
+
+	return nil
+}
+
+// writeFetchOutput writes the report as JSON to the configured output destination.
+func writeFetchOutput(deps *FetchDeps, report *confidence.Report, outputToStdout bool) (err error) {
 	var out io.WriteCloser
 	if outputToStdout {
 		out = nopWriteCloser{deps.Stdout}
@@ -274,18 +285,18 @@ func fetchImpl(ctx context.Context, deps *FetchDeps) error {
 		return fmt.Errorf("encoding JSON: %w", err)
 	}
 
-	if showVerbose {
-		status := "PASS"
-		if !report.Passed() {
-			status = "FAIL"
-		}
-		_, _ = fmt.Fprintf(deps.Stderr, "Score: %d/%d (%s)\n", report.ScoreValue(), report.Threshold, status)
-		if !outputToStdout {
-			_, _ = fmt.Fprintf(deps.Stderr, "Wrote report to %s\n", deps.Output)
-		}
-	}
-
 	return nil
+}
+
+func printFetchVerbose(deps *FetchDeps, report *confidence.Report, outputToStdout bool) {
+	status := "PASS"
+	if !report.Passed() {
+		status = "FAIL"
+	}
+	_, _ = fmt.Fprintf(deps.Stderr, "Score: %d/%d (%s)\n", report.ScoreValue(), report.Threshold, status)
+	if !outputToStdout {
+		_, _ = fmt.Fprintf(deps.Stderr, "Wrote report to %s\n", deps.Output)
+	}
 }
 
 // nopWriteCloser wraps an io.Writer and provides a no-op Close method.

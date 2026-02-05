@@ -32,6 +32,9 @@ const (
 	contentTypeJSON  = "application/json"
 	gitHubAPIVersion = "2022-11-28"
 
+	// Endpoint format strings.
+	issueCommentsEndpoint = "%s/repos/%s/%s/issues/%d/comments"
+
 	// Error format strings.
 	errMarshalingRequest = "marshaling request: %w"
 	errCreatingRequest   = "creating request: %w"
@@ -300,7 +303,7 @@ func (c *GitHubClient) FindComment(ctx context.Context, opts CommentOptions) (*C
 		return nil, errPRRequired
 	}
 
-	endpoint := fmt.Sprintf("%s/repos/%s/%s/issues/%d/comments", c.baseURL, opts.Owner, opts.Repo, opts.PR)
+	endpoint := fmt.Sprintf(issueCommentsEndpoint, c.baseURL, opts.Owner, opts.Repo, opts.PR)
 
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
@@ -353,7 +356,7 @@ func (c *GitHubClient) PostComment(ctx context.Context, opts CommentOptions, bod
 		return nil, errPRRequired
 	}
 
-	endpoint := fmt.Sprintf("%s/repos/%s/%s/issues/%d/comments", c.baseURL, opts.Owner, opts.Repo, opts.PR)
+	endpoint := fmt.Sprintf(issueCommentsEndpoint, c.baseURL, opts.Owner, opts.Repo, opts.PR)
 
 	reqBody := struct {
 		Body string `json:"body"`
@@ -488,7 +491,7 @@ func (c *GitHubClient) FindAllConfvisComments(ctx context.Context, opts CommentO
 		return nil, errPRRequired
 	}
 
-	endpoint := fmt.Sprintf("%s/repos/%s/%s/issues/%d/comments", c.baseURL, opts.Owner, opts.Repo, opts.PR)
+	endpoint := fmt.Sprintf(issueCommentsEndpoint, c.baseURL, opts.Owner, opts.Repo, opts.PR)
 
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {

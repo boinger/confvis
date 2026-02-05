@@ -35,7 +35,7 @@ if command -v golangci-lint &> /dev/null; then
 
     # Deduct 5 points per issue, minimum 0
     LINT_SCORE=$((100 - LINT_ISSUES * 5))
-    [ $LINT_SCORE -lt 0 ] && LINT_SCORE=0
+    [[ $LINT_SCORE -lt 0 ]] && LINT_SCORE=0
     echo "  Lint issues: ${LINT_ISSUES}, Score: ${LINT_SCORE}%"
 fi
 
@@ -49,7 +49,7 @@ if command -v gosec &> /dev/null; then
 
     # Deduct 10 points per security issue
     SECURITY_SCORE=$((100 - SECURITY_ISSUES * 10))
-    [ $SECURITY_SCORE -lt 0 ] && SECURITY_SCORE=0
+    [[ $SECURITY_SCORE -lt 0 ]] && SECURITY_SCORE=0
     echo "  Security issues: ${SECURITY_ISSUES}, Score: ${SECURITY_SCORE}%"
 else
     echo "Skipping security scan (gosec not installed)"

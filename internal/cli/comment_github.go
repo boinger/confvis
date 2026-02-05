@@ -15,6 +15,8 @@ import (
 	"github.com/boinger/confvis/internal/confidence"
 )
 
+const errCreatingComment = "creating comment: %w"
+
 var (
 	commentGitHubConfig     string
 	commentGitHubOwner      string
@@ -196,45 +198,9 @@ func commentGitHubImpl(deps *CommentGitHubDeps) error {
 	defer cancel()
 
 	// Execute based on mode
-	var resp *checks.CommentResponse
-	switch deps.Mode {
-	case "create":
-		resp, err = deps.PostComment(ctx, client, opts, commentBody)
-		if err != nil {
-			return fmt.Errorf("creating comment: %w", err)
-		}
-	case "update":
-		existing, findErr := deps.FindComment(ctx, client, opts)
-		if findErr != nil {
-			return fmt.Errorf("finding existing comment: %w", findErr)
-		}
-		if existing != nil {
-			resp, err = deps.UpdateComment(ctx, client, opts, existing.ID, commentBody)
-			if err != nil {
-				return fmt.Errorf("updating comment: %w", err)
-			}
-		} else {
-			resp, err = deps.PostComment(ctx, client, opts, commentBody)
-			if err != nil {
-				return fmt.Errorf("creating comment: %w", err)
-			}
-		}
-	case "replace":
-		// Delete all existing confvis comments
-		existing, findErr := deps.FindAllComments(ctx, client, opts)
-		if findErr != nil {
-			return fmt.Errorf("finding existing comments: %w", findErr)
-		}
-		for _, comment := range existing {
-			if delErr := deps.DeleteComment(ctx, client, opts, comment.ID); delErr != nil {
-				return fmt.Errorf("deleting comment %d: %w", comment.ID, delErr)
-			}
-		}
-		// Create new comment
-		resp, err = deps.PostComment(ctx, client, opts, commentBody)
-		if err != nil {
-			return fmt.Errorf("creating comment: %w", err)
-		}
+	resp, err := executeCommentMode(ctx, deps, client, opts, commentBody)
+	if err != nil {
+		return err
 	}
 
 	if !deps.Quiet && resp != nil {
@@ -385,4 +351,52 @@ func getCommentGitHubMode() string {
 
 func getCommentGitHubAPIURL() string {
 	return viper.GetString("comment.github.api_url")
+}
+
+// executeCommentMode dispatches to the appropriate comment mode handler.
+func executeCommentMode(ctx context.Context, deps *CommentGitHubDeps, client *checks.GitHubClient, opts checks.CommentOptions, body string) (*checks.CommentResponse, error) {
+	switch deps.Mode {
+	case "create":
+		return commentModeCreate(ctx, deps, client, opts, body)
+	case "update":
+		return commentModeUpdate(ctx, deps, client, opts, body)
+	default: // "replace" — mode is validated before reaching here
+		return commentModeReplace(ctx, deps, client, opts, body)
+	}
+}
+
+func commentModeCreate(ctx context.Context, deps *CommentGitHubDeps, client *checks.GitHubClient, opts checks.CommentOptions, body string) (*checks.CommentResponse, error) {
+	resp, err := deps.PostComment(ctx, client, opts, body)
+	if err != nil {
+		return nil, fmt.Errorf(errCreatingComment, err)
+	}
+	return resp, nil
+}
+
+func commentModeUpdate(ctx context.Context, deps *CommentGitHubDeps, client *checks.GitHubClient, opts checks.CommentOptions, body string) (*checks.CommentResponse, error) {
+	existing, err := deps.FindComment(ctx, client, opts)
+	if err != nil {
+		return nil, fmt.Errorf("finding existing comment: %w", err)
+	}
+	if existing != nil {
+		resp, err := deps.UpdateComment(ctx, client, opts, existing.ID, body)
+		if err != nil {
+			return nil, fmt.Errorf("updating comment: %w", err)
+		}
+		return resp, nil
+	}
+	return commentModeCreate(ctx, deps, client, opts, body)
+}
+
+func commentModeReplace(ctx context.Context, deps *CommentGitHubDeps, client *checks.GitHubClient, opts checks.CommentOptions, body string) (*checks.CommentResponse, error) {
+	existing, err := deps.FindAllComments(ctx, client, opts)
+	if err != nil {
+		return nil, fmt.Errorf("finding existing comments: %w", err)
+	}
+	for _, comment := range existing {
+		if delErr := deps.DeleteComment(ctx, client, opts, comment.ID); delErr != nil {
+			return nil, fmt.Errorf("deleting comment %d: %w", comment.ID, delErr)
+		}
+	}
+	return commentModeCreate(ctx, deps, client, opts, body)
 }

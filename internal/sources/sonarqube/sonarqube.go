@@ -2,6 +2,7 @@ package sonarqube
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -69,125 +70,83 @@ func (s *Source) Fetch(ctx context.Context, opts sources.Options) (*confidence.R
 	return scoring.BuildReport(title, sourceName, opts.Threshold, factors), nil
 }
 
+// metricKind indicates how to convert a SonarQube metric value to a score.
+type metricKind int
+
+const (
+	metricKindPercentage  metricKind = iota // Direct float → int percentage
+	metricKindRating                        // A-E rating float → score via RatingToScore
+	metricKindCount                         // Integer count → score via CountToScore
+	metricKindDuplication                   // Float percentage → inverted score via DuplicationToScore
+)
+
+// metricMapping defines how a SonarQube metric maps to a confidence factor.
+type metricMapping struct {
+	Key    string
+	Name   string
+	Weight int
+	Kind   metricKind
+}
+
+// metricMappings defines the ordered list of SonarQube metrics to extract.
+var metricMappings = []metricMapping{
+	// High priority (weight 20)
+	{MetricCoverage, "Test Coverage", 20, metricKindPercentage},
+	{MetricReliabilityRating, "Reliability", 20, metricKindRating},
+	{MetricSecurityRating, "Security", 20, metricKindRating},
+	{MetricSqaleRating, "Maintainability", 20, metricKindRating},
+	// Medium priority (weight 10)
+	{MetricVulnerabilities, "Vulnerabilities", 10, metricKindCount},
+	{MetricBugs, "Bugs", 10, metricKindCount},
+	// Low priority (weight 5)
+	{MetricCodeSmells, "Code Smells", 5, metricKindCount},
+	{MetricDuplicatedLinesDensity, "Duplication", 5, metricKindDuplication},
+}
+
 // measuresToFactors converts SonarQube measures to confidence factors.
 func (s *Source) measuresToFactors(measures *MeasuresResponse, client *Client, project, branch string) []confidence.Factor {
-	// Create a map for quick lookup
 	measureMap := make(map[string]string)
 	for _, m := range measures.Component.Measures {
 		measureMap[m.Metric] = m.Value
 	}
 
 	var factors []confidence.Factor
-
-	// High priority metrics (weight 20 each)
-
-	// Test Coverage (direct percentage)
-	if val, ok := measureMap[MetricCoverage]; ok {
-		coverage, err := strconv.ParseFloat(val, 64)
-		if err == nil {
-			factors = append(factors, confidence.Factor{
-				Name:   "Test Coverage",
-				Score:  int(coverage),
-				Weight: 20,
-				URL:    client.MeasureURL(project, MetricCoverage, branch),
-			})
+	for _, m := range metricMappings {
+		val, ok := measureMap[m.Key]
+		if !ok {
+			continue
 		}
-	}
-
-	// Reliability Rating (A-E converted to score)
-	if val, ok := measureMap[MetricReliabilityRating]; ok {
-		rating, err := strconv.ParseFloat(val, 64)
-		if err == nil {
-			factors = append(factors, confidence.Factor{
-				Name:   "Reliability",
-				Score:  RatingToScore(rating),
-				Weight: 20,
-				URL:    client.MeasureURL(project, MetricReliabilityRating, branch),
-			})
+		score, err := convertMetricValue(val, m.Kind)
+		if err != nil {
+			continue
 		}
-	}
-
-	// Security Rating (A-E converted to score)
-	if val, ok := measureMap[MetricSecurityRating]; ok {
-		rating, err := strconv.ParseFloat(val, 64)
-		if err == nil {
-			factors = append(factors, confidence.Factor{
-				Name:   "Security",
-				Score:  RatingToScore(rating),
-				Weight: 20,
-				URL:    client.MeasureURL(project, MetricSecurityRating, branch),
-			})
-		}
-	}
-
-	// Maintainability Rating (A-E converted to score)
-	if val, ok := measureMap[MetricSqaleRating]; ok {
-		rating, err := strconv.ParseFloat(val, 64)
-		if err == nil {
-			factors = append(factors, confidence.Factor{
-				Name:   "Maintainability",
-				Score:  RatingToScore(rating),
-				Weight: 20,
-				URL:    client.MeasureURL(project, MetricSqaleRating, branch),
-			})
-		}
-	}
-
-	// Medium priority metrics (weight 10 each)
-
-	// Vulnerabilities (count converted to score)
-	if val, ok := measureMap[MetricVulnerabilities]; ok {
-		count, err := strconv.Atoi(val)
-		if err == nil {
-			factors = append(factors, confidence.Factor{
-				Name:   "Vulnerabilities",
-				Score:  CountToScore(count),
-				Weight: 10,
-				URL:    client.MeasureURL(project, MetricVulnerabilities, branch),
-			})
-		}
-	}
-
-	// Bugs (count converted to score)
-	if val, ok := measureMap[MetricBugs]; ok {
-		count, err := strconv.Atoi(val)
-		if err == nil {
-			factors = append(factors, confidence.Factor{
-				Name:   "Bugs",
-				Score:  CountToScore(count),
-				Weight: 10,
-				URL:    client.MeasureURL(project, MetricBugs, branch),
-			})
-		}
-	}
-
-	// Low priority metrics (weight 5 each)
-
-	// Code Smells (count converted to score)
-	if val, ok := measureMap[MetricCodeSmells]; ok {
-		count, err := strconv.Atoi(val)
-		if err == nil {
-			factors = append(factors, confidence.Factor{
-				Name:   "Code Smells",
-				Score:  CountToScore(count),
-				Weight: 5,
-				URL:    client.MeasureURL(project, MetricCodeSmells, branch),
-			})
-		}
-	}
-
-	// Duplicated Lines Density (percentage inverted to score)
-	if val, ok := measureMap[MetricDuplicatedLinesDensity]; ok {
-		pct, err := strconv.ParseFloat(val, 64)
-		if err == nil {
-			factors = append(factors, confidence.Factor{
-				Name:   "Duplication",
-				Score:  DuplicationToScore(pct),
-				Weight: 5,
-				URL:    client.MeasureURL(project, MetricDuplicatedLinesDensity, branch),
-			})
-		}
+		factors = append(factors, confidence.Factor{
+			Name:   m.Name,
+			Score:  score,
+			Weight: m.Weight,
+			URL:    client.MeasureURL(project, m.Key, branch),
+		})
 	}
 
 	return factors
+}
+
+// convertMetricValue converts a raw SonarQube metric string to a score.
+func convertMetricValue(val string, kind metricKind) (int, error) {
+	switch kind {
+	case metricKindPercentage:
+		f, err := strconv.ParseFloat(val, 64)
+		return int(f), err
+	case metricKindRating:
+		f, err := strconv.ParseFloat(val, 64)
+		return RatingToScore(f), err
+	case metricKindCount:
+		n, err := strconv.Atoi(val)
+		return CountToScore(n), err
+	case metricKindDuplication:
+		f, err := strconv.ParseFloat(val, 64)
+		return DuplicationToScore(f), err
+	default:
+		return 0, fmt.Errorf("unknown metric kind: %d", kind)
+	}
 }
