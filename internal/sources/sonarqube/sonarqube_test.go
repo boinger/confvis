@@ -15,7 +15,7 @@ import (
 	"github.com/boinger/confvis/internal/sources"
 )
 
-func TestRatingToScore(t *testing.T) {
+func Test_ratingToScore(t *testing.T) {
 	tests := []struct {
 		rating float64
 		want   int
@@ -32,14 +32,14 @@ func TestRatingToScore(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		got := RatingToScore(tt.rating)
+		got := ratingToScore(tt.rating)
 		if got != tt.want {
-			t.Errorf("RatingToScore(%v) = %d, want %d", tt.rating, got, tt.want)
+			t.Errorf("ratingToScore(%v) = %d, want %d", tt.rating, got, tt.want)
 		}
 	}
 }
 
-func TestCountToScore(t *testing.T) {
+func Test_countToScore(t *testing.T) {
 	tests := []struct {
 		count int
 		want  int
@@ -59,14 +59,14 @@ func TestCountToScore(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		got := CountToScore(tt.count)
+		got := countToScore(tt.count)
 		if got != tt.want {
-			t.Errorf("CountToScore(%d) = %d, want %d", tt.count, got, tt.want)
+			t.Errorf("countToScore(%d) = %d, want %d", tt.count, got, tt.want)
 		}
 	}
 }
 
-func TestDuplicationToScore(t *testing.T) {
+func Test_duplicationToScore(t *testing.T) {
 	tests := []struct {
 		pct  float64
 		want int
@@ -81,9 +81,9 @@ func TestDuplicationToScore(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		got := DuplicationToScore(tt.pct)
+		got := duplicationToScore(tt.pct)
 		if got != tt.want {
-			t.Errorf("DuplicationToScore(%v) = %d, want %d", tt.pct, got, tt.want)
+			t.Errorf("duplicationToScore(%v) = %d, want %d", tt.pct, got, tt.want)
 		}
 	}
 }
@@ -540,13 +540,13 @@ func TestConvertMetricValue(t *testing.T) {
 		{"percentage 0", "0", metricKindPercentage, 0, false},
 		{"percentage 100", "100", metricKindPercentage, 100, false},
 		{"percentage invalid", "abc", metricKindPercentage, 0, true},
-		{"rating A", "1.0", metricKindRating, RatingToScore(1.0), false},
-		{"rating E", "5.0", metricKindRating, RatingToScore(5.0), false},
+		{"rating A", "1.0", metricKindRating, ratingToScore(1.0), false},
+		{"rating E", "5.0", metricKindRating, ratingToScore(5.0), false},
 		{"rating invalid", "xyz", metricKindRating, 0, true},
-		{"count 0", "0", metricKindCount, CountToScore(0), false},
-		{"count 5", "5", metricKindCount, CountToScore(5), false},
+		{"count 0", "0", metricKindCount, countToScore(0), false},
+		{"count 5", "5", metricKindCount, countToScore(5), false},
 		{"count invalid", "abc", metricKindCount, 0, true},
-		{"duplication 3.5", "3.5", metricKindDuplication, DuplicationToScore(3.5), false},
+		{"duplication 3.5", "3.5", metricKindDuplication, duplicationToScore(3.5), false},
 		{"duplication invalid", "abc", metricKindDuplication, 0, true},
 		{"unknown kind", "10", metricKind(99), 0, true},
 	}

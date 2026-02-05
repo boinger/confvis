@@ -21,19 +21,19 @@ type Measure struct {
 
 // Metrics we fetch from SonarQube.
 const (
-	MetricCoverage              = "coverage"
-	MetricReliabilityRating     = "reliability_rating"
-	MetricSecurityRating        = "security_rating"
-	MetricSqaleRating           = "sqale_rating" // Maintainability
-	MetricVulnerabilities       = "vulnerabilities"
-	MetricBugs                  = "bugs"
-	MetricCodeSmells            = "code_smells"
-	MetricDuplicatedLinesDensity = "duplicated_lines_density"
+	metricCoverage              = "coverage"
+	metricReliabilityRating     = "reliability_rating"
+	metricSecurityRating        = "security_rating"
+	metricSqaleRating           = "sqale_rating" // Maintainability
+	metricVulnerabilities       = "vulnerabilities"
+	metricBugs                  = "bugs"
+	metricCodeSmells            = "code_smells"
+	metricDuplicatedLinesDensity = "duplicated_lines_density"
 )
 
-// RatingToScore converts a SonarQube rating (1.0-5.0 for A-E) to a score (0-100).
+// ratingToScore converts a SonarQube rating (1.0-5.0 for A-E) to a score (0-100).
 // A=100, B=75, C=50, D=25, E=0
-func RatingToScore(rating float64) int {
+func ratingToScore(rating float64) int {
 	// SonarQube ratings: 1.0=A, 2.0=B, 3.0=C, 4.0=D, 5.0=E
 	switch {
 	case rating <= 1.0:
@@ -49,9 +49,9 @@ func RatingToScore(rating float64) int {
 	}
 }
 
-// CountToScore converts an issue count (vulnerabilities, bugs, code_smells) to a score.
+// countToScore converts an issue count (vulnerabilities, bugs, code_smells) to a score.
 // 0 issues = 100, then diminishing returns as count increases.
-func CountToScore(count int) int {
+func countToScore(count int) int {
 	switch {
 	case count == 0:
 		return 100
@@ -68,9 +68,9 @@ func CountToScore(count int) int {
 	}
 }
 
-// DuplicationToScore converts duplicated lines density (0-100%) to a score.
+// duplicationToScore converts duplicated lines density (0-100%) to a score.
 // 0% duplication = 100, 100% duplication = 0 (linear inverse).
-func DuplicationToScore(pct float64) int {
+func duplicationToScore(pct float64) int {
 	score := 100 - int(pct)
 	if score < 0 {
 		return 0

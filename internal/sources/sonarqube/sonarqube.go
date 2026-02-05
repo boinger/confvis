@@ -76,9 +76,9 @@ type metricKind int
 
 const (
 	metricKindPercentage  metricKind = iota // Direct float → int percentage
-	metricKindRating                        // A-E rating float → score via RatingToScore
-	metricKindCount                         // Integer count → score via CountToScore
-	metricKindDuplication                   // Float percentage → inverted score via DuplicationToScore
+	metricKindRating                        // A-E rating float → score via ratingToScore
+	metricKindCount                         // Integer count → score via countToScore
+	metricKindDuplication                   // Float percentage → inverted score via duplicationToScore
 )
 
 // metricMapping defines how a SonarQube metric maps to a confidence factor.
@@ -92,16 +92,16 @@ type metricMapping struct {
 // metricMappings defines the ordered list of SonarQube metrics to extract.
 var metricMappings = []metricMapping{
 	// High priority (weight 20)
-	{MetricCoverage, "Test Coverage", 20, metricKindPercentage},
-	{MetricReliabilityRating, "Reliability", 20, metricKindRating},
-	{MetricSecurityRating, "Security", 20, metricKindRating},
-	{MetricSqaleRating, "Maintainability", 20, metricKindRating},
+	{metricCoverage, "Test Coverage", 20, metricKindPercentage},
+	{metricReliabilityRating, "Reliability", 20, metricKindRating},
+	{metricSecurityRating, "Security", 20, metricKindRating},
+	{metricSqaleRating, "Maintainability", 20, metricKindRating},
 	// Medium priority (weight 10)
-	{MetricVulnerabilities, "Vulnerabilities", 10, metricKindCount},
-	{MetricBugs, "Bugs", 10, metricKindCount},
+	{metricVulnerabilities, "Vulnerabilities", 10, metricKindCount},
+	{metricBugs, "Bugs", 10, metricKindCount},
 	// Low priority (weight 5)
-	{MetricCodeSmells, "Code Smells", 5, metricKindCount},
-	{MetricDuplicatedLinesDensity, "Duplication", 5, metricKindDuplication},
+	{metricCodeSmells, "Code Smells", 5, metricKindCount},
+	{metricDuplicatedLinesDensity, "Duplication", 5, metricKindDuplication},
 }
 
 // metricKeys derives the list of metric keys from metricMappings.
@@ -156,19 +156,19 @@ func convertMetricValue(val string, kind metricKind) (int, error) {
 		if err != nil {
 			return 0, err
 		}
-		return RatingToScore(f), nil
+		return ratingToScore(f), nil
 	case metricKindCount:
 		n, err := strconv.Atoi(val)
 		if err != nil {
 			return 0, err
 		}
-		return CountToScore(n), nil
+		return countToScore(n), nil
 	case metricKindDuplication:
 		f, err := strconv.ParseFloat(val, 64)
 		if err != nil {
 			return 0, err
 		}
-		return DuplicationToScore(f), nil
+		return duplicationToScore(f), nil
 	default:
 		return 0, fmt.Errorf("unknown metric kind: %d", kind)
 	}
