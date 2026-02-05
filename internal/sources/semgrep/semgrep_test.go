@@ -460,6 +460,33 @@ echo 'not valid json'
 	}
 }
 
+func TestSource_Fetch_EmptyOutput(t *testing.T) {
+	tmpDir := t.TempDir()
+	mockScript := filepath.Join(tmpDir, "mock-semgrep")
+
+	// Script that exits 0 but produces no output
+	scriptContent := `#!/bin/bash
+exit 0
+`
+	if err := os.WriteFile(mockScript, []byte(scriptContent), 0755); err != nil {
+		t.Fatalf("writing mock script: %v", err)
+	}
+
+	s := &Source{}
+	opts := sources.Options{
+		Project: tmpDir,
+		Extra:   map[string]string{"semgrep-cmd": mockScript},
+	}
+
+	_, err := s.Fetch(context.Background(), opts)
+	if err == nil {
+		t.Error("expected error for empty output")
+	}
+	if !strings.Contains(err.Error(), "produced no output") {
+		t.Errorf("error = %q, want to contain 'produced no output'", err.Error())
+	}
+}
+
 func TestSource_Fetch_WithConfig(t *testing.T) {
 	tmpDir := t.TempDir()
 	mockScript := filepath.Join(tmpDir, "mock-semgrep")

@@ -1,6 +1,7 @@
 package grype
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -34,6 +35,10 @@ func (c *Client) Scan(ctx context.Context, target string) (*Report, error) {
 	result, err := cmdrun.Run(ctx, c.command, args, "grype")
 	if err != nil {
 		return nil, cmdrun.FormatError(err, result.Stderr, "grype", "scan")
+	}
+
+	if len(bytes.TrimSpace(result.Stdout)) == 0 {
+		return nil, fmt.Errorf("grype produced no output")
 	}
 
 	// Parse JSON output

@@ -1,6 +1,7 @@
 package semgrep
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -44,6 +45,10 @@ func (c *Client) Scan(ctx context.Context, path string, config string) (*Report,
 		if fatalErr := checkSemgrepError(err, result.Stderr); fatalErr != nil {
 			return nil, fatalErr
 		}
+	}
+
+	if len(bytes.TrimSpace(result.Stdout)) == 0 {
+		return nil, fmt.Errorf("semgrep produced no output")
 	}
 
 	// Parse JSON output

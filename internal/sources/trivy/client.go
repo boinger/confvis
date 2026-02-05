@@ -1,6 +1,7 @@
 package trivy
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -33,6 +34,10 @@ func (c *Client) Scan(ctx context.Context, path string) (*Report, error) {
 	result, err := cmdrun.Run(ctx, c.command, args, "trivy")
 	if err != nil {
 		return nil, cmdrun.FormatError(err, result.Stderr, "trivy", "scan")
+	}
+
+	if len(bytes.TrimSpace(result.Stdout)) == 0 {
+		return nil, fmt.Errorf("trivy produced no output")
 	}
 
 	// Parse JSON output
