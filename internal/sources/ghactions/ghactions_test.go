@@ -644,6 +644,119 @@ func TestSource_Fetch_EmptyWorkflowAndEvent(t *testing.T) {
 	}
 }
 
+func TestClient_FetchRuns_Pagination(t *testing.T) {
+	// Request 150 runs: should fetch page 1 (100 runs) + page 2 (50 runs)
+	var requestCount int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		page := r.URL.Query().Get("page")
+
+		// Verify per_page is capped at 100
+		perPage := r.URL.Query().Get("per_page")
+		if perPage != "100" {
+			t.Errorf("per_page = %q, want %q", perPage, "100")
+		}
+
+		var runs []WorkflowRun
+		switch page {
+		case "1", "":
+			for i := 0; i < 100; i++ {
+				runs = append(runs, WorkflowRun{ID: int64(i + 1), Conclusion: "success"})
+			}
+		case "2":
+			for i := 0; i < 50; i++ {
+				runs = append(runs, WorkflowRun{ID: int64(101 + i), Conclusion: "failure"})
+			}
+		}
+
+		resp := WorkflowRunsResponse{TotalCount: 150, WorkflowRuns: runs}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Errorf("encoding response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	client := NewClientWithHTTP(server.URL, "test-token", server.Client())
+	result, err := client.FetchRuns(context.Background(), "myorg/myrepo", FetchRunsOptions{Count: 150})
+	if err != nil {
+		t.Fatalf("FetchRuns() error = %v", err)
+	}
+
+	if len(result.WorkflowRuns) != 150 {
+		t.Errorf("len(WorkflowRuns) = %d, want 150", len(result.WorkflowRuns))
+	}
+	if requestCount != 2 {
+		t.Errorf("requestCount = %d, want 2", requestCount)
+	}
+}
+
+func TestClient_FetchRuns_NoPaginationNeeded(t *testing.T) {
+	// Request 50 runs (< 100): should make only 1 request
+	var requestCount int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+
+		perPage := r.URL.Query().Get("per_page")
+		if perPage != "50" {
+			t.Errorf("per_page = %q, want %q", perPage, "50")
+		}
+
+		runs := make([]WorkflowRun, 50)
+		for i := range runs {
+			runs[i] = WorkflowRun{ID: int64(i + 1), Conclusion: "success"}
+		}
+
+		resp := WorkflowRunsResponse{TotalCount: 50, WorkflowRuns: runs}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Errorf("encoding response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	client := NewClientWithHTTP(server.URL, "test-token", server.Client())
+	result, err := client.FetchRuns(context.Background(), "myorg/myrepo", FetchRunsOptions{Count: 50})
+	if err != nil {
+		t.Fatalf("FetchRuns() error = %v", err)
+	}
+
+	if len(result.WorkflowRuns) != 50 {
+		t.Errorf("len(WorkflowRuns) = %d, want 50", len(result.WorkflowRuns))
+	}
+	if requestCount != 1 {
+		t.Errorf("requestCount = %d, want 1 (should not paginate)", requestCount)
+	}
+}
+
+func TestClient_FetchRuns_TrimToCount(t *testing.T) {
+	// Request 120 runs: page 1 returns 100, page 2 returns 100 (200 total)
+	// Result should be trimmed to 120
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		runs := make([]WorkflowRun, 100)
+		for i := range runs {
+			runs[i] = WorkflowRun{ID: int64(i + 1), Conclusion: "success"}
+		}
+
+		resp := WorkflowRunsResponse{TotalCount: 200, WorkflowRuns: runs}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Errorf("encoding response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	client := NewClientWithHTTP(server.URL, "test-token", server.Client())
+	result, err := client.FetchRuns(context.Background(), "myorg/myrepo", FetchRunsOptions{Count: 120})
+	if err != nil {
+		t.Fatalf("FetchRuns() error = %v", err)
+	}
+
+	if len(result.WorkflowRuns) != 120 {
+		t.Errorf("len(WorkflowRuns) = %d, want 120", len(result.WorkflowRuns))
+	}
+}
+
 func TestFetchWithClient_Success(t *testing.T) {
 	mock := &mockFetcher{
 		runsResp: &WorkflowRunsResponse{

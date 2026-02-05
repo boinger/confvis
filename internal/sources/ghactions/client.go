@@ -49,36 +49,62 @@ type FetchRunsOptions struct {
 
 // FetchRuns retrieves workflow runs for a repository.
 // ownerRepo is in the format "owner/repo".
+// It paginates through results since the GitHub API caps per_page at 100.
 func (c *Client) FetchRuns(ctx context.Context, ownerRepo string, opts FetchRunsOptions) (*WorkflowRunsResponse, error) {
 	owner, repo, err := repoparse.Parse(ownerRepo)
 	if err != nil {
 		return nil, err
 	}
 
-	params := url.Values{
-		"status":   {"completed"}, // Only completed runs
-		"per_page": {strconv.Itoa(opts.Count)},
-	}
-	if opts.Event != "" {
-		params.Set("event", opts.Event)
+	perPage := opts.Count
+	if perPage > 100 {
+		perPage = 100
 	}
 
-	// Build endpoint - different path if filtering by workflow
-	var endpoint string
-	if opts.Workflow != "" {
-		endpoint = fmt.Sprintf("%s/repos/%s/%s/actions/workflows/%s/runs?%s",
-			c.baseURL, owner, repo, url.PathEscape(opts.Workflow), params.Encode())
-	} else {
-		endpoint = fmt.Sprintf("%s/repos/%s/%s/actions/runs?%s",
-			c.baseURL, owner, repo, params.Encode())
+	var allRuns []WorkflowRun
+	var totalCount int
+
+	for page := 1; len(allRuns) < opts.Count; page++ {
+		params := url.Values{
+			"status":   {"completed"},
+			"per_page": {strconv.Itoa(perPage)},
+			"page":     {strconv.Itoa(page)},
+		}
+		if opts.Event != "" {
+			params.Set("event", opts.Event)
+		}
+
+		var endpoint string
+		if opts.Workflow != "" {
+			endpoint = fmt.Sprintf("%s/repos/%s/%s/actions/workflows/%s/runs?%s",
+				c.baseURL, owner, repo, url.PathEscape(opts.Workflow), params.Encode())
+		} else {
+			endpoint = fmt.Sprintf("%s/repos/%s/%s/actions/runs?%s",
+				c.baseURL, owner, repo, params.Encode())
+		}
+
+		var result WorkflowRunsResponse
+		if err := c.http.Get(ctx, endpoint, &result); err != nil {
+			return nil, err
+		}
+
+		totalCount = result.TotalCount
+		allRuns = append(allRuns, result.WorkflowRuns...)
+
+		if len(result.WorkflowRuns) < perPage {
+			break
+		}
 	}
 
-	var result WorkflowRunsResponse
-	if err := c.http.Get(ctx, endpoint, &result); err != nil {
-		return nil, err
+	// Trim to requested count
+	if len(allRuns) > opts.Count {
+		allRuns = allRuns[:opts.Count]
 	}
 
-	return &result, nil
+	return &WorkflowRunsResponse{
+		TotalCount:   totalCount,
+		WorkflowRuns: allRuns,
+	}, nil
 }
 
 // ActionsURL returns the web URL for a repository's Actions page.
