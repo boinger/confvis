@@ -211,7 +211,7 @@ echo '{"matches":[]}'
 	}
 
 	// Clean scan should have score of 100
-	if report.Score != 100 {
+	if report.ScoreValue() != 100 {
 		t.Errorf("Score = %d, want 100 for clean scan", report.Score)
 	}
 }
@@ -243,7 +243,7 @@ echo '{"matches":[]}'
 		t.Fatalf("Fetch() error = %v", err)
 	}
 
-	if report.Score != 100 {
+	if report.ScoreValue() != 100 {
 		t.Errorf("Score = %d, want 100", report.Score)
 	}
 }

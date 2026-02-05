@@ -15,6 +15,9 @@ import (
 	"github.com/boinger/confvis/internal/sources"
 )
 
+// intPtrI is a test helper that returns a pointer to an int (I suffix to avoid redeclaration).
+func intPtrI(i int) *int { return &i }
+
 // ============================================================================
 // generateImpl Tests
 // ============================================================================
@@ -443,7 +446,7 @@ func TestFetchImpl_SuccessfulFetchToFile(t *testing.T) {
 		name: "test",
 		report: &confidence.Report{
 			Title:     "Test Report",
-			Score:     85,
+			Score:     intPtrI(85),
 			Threshold: 75,
 			Source:    "test",
 		},
@@ -490,7 +493,7 @@ func TestFetchImpl_SuccessfulFetchToStdout(t *testing.T) {
 		name: "test",
 		report: &confidence.Report{
 			Title:     "Stdout Test",
-			Score:     90,
+			Score:     intPtrI(90),
 			Threshold: 75,
 		},
 	}
@@ -586,7 +589,7 @@ func TestFetchImpl_FileCreationError(t *testing.T) {
 		name: "test",
 		report: &confidence.Report{
 			Title:     "Test",
-			Score:     85,
+			Score:     intPtrI(85),
 			Threshold: 75,
 		},
 	}
@@ -622,7 +625,7 @@ func TestFetchImpl_VerboseOutput(t *testing.T) {
 		name: "test",
 		report: &confidence.Report{
 			Title:     "Verbose Test",
-			Score:     85,
+			Score:     intPtrI(85),
 			Threshold: 75,
 		},
 	}
@@ -665,7 +668,7 @@ func TestFetchImpl_VerboseSuppressedForStdout(t *testing.T) {
 		name: "test",
 		report: &confidence.Report{
 			Title:     "Test",
-			Score:     85,
+			Score:     intPtrI(85),
 			Threshold: 75,
 		},
 	}
@@ -702,7 +705,7 @@ func TestFetchImpl_QuietSuppressesVerbose(t *testing.T) {
 		name: "test",
 		report: &confidence.Report{
 			Title:     "Test",
-			Score:     85,
+			Score:     intPtrI(85),
 			Threshold: 75,
 		},
 	}
@@ -738,7 +741,7 @@ func TestFetchImpl_FailingReport(t *testing.T) {
 		name: "test",
 		report: &confidence.Report{
 			Title:     "Failing Test",
-			Score:     60,
+			Score:     intPtrI(60),
 			Threshold: 75,
 		},
 	}
@@ -775,7 +778,7 @@ func TestFetchImpl_CustomTitleAndThreshold(t *testing.T) {
 		name: "test",
 		report: &confidence.Report{
 			Title:     "Custom Title",
-			Score:     85,
+			Score:     intPtrI(85),
 			Threshold: 90,
 		},
 	}
@@ -2905,6 +2908,96 @@ func TestAggregateImpl_IndividualBadgeCloseError(t *testing.T) {
 	}
 }
 
+func TestAggregateImpl_EmitJSON_Success(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("report1.json", `{"title": "Report 1", "score": 90, "threshold": 75}`)
+	fs.SetFileContent("report2.json", `{"title": "Report 2", "score": 80, "threshold": 75}`)
+
+	deps := &AggregateDeps{
+		FS:        fs,
+		Stderr:    &bytes.Buffer{},
+		Verbose:   false,
+		Quiet:     false,
+		ExitFunc:  func(code int) {},
+		Configs:   []string{"report1.json", "report2.json"},
+		Output:    "/output",
+		Dark:      false,
+		FailUnder: 0,
+		EmitJSON:  "/output/aggregate.json",
+	}
+
+	err := aggregateImpl(deps)
+	if err != nil {
+		t.Fatalf("aggregateImpl() error = %v", err)
+	}
+
+	// Verify JSON was written
+	jsonOut := fs.GetFileContent("/output/aggregate.json")
+	if jsonOut == "" {
+		t.Fatal("emit-json file should be created")
+	}
+	if !strings.Contains(jsonOut, `"score":`) {
+		t.Error("JSON should contain score")
+	}
+	if !strings.Contains(jsonOut, `"passed":`) {
+		t.Error("JSON should contain passed status")
+	}
+}
+
+func TestAggregateImpl_EmitJSON_CreateError(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("report.json", `{"title": "Test", "score": 85, "threshold": 75}`)
+	fs.SetError("create:/output/aggregate.json", errors.New("permission denied"))
+
+	deps := &AggregateDeps{
+		FS:        fs,
+		Stderr:    &bytes.Buffer{},
+		Verbose:   false,
+		Quiet:     false,
+		ExitFunc:  func(code int) {},
+		Configs:   []string{"report.json"},
+		Output:    "/output",
+		Dark:      false,
+		FailUnder: 0,
+		EmitJSON:  "/output/aggregate.json",
+	}
+
+	err := aggregateImpl(deps)
+	if err == nil {
+		t.Fatal("expected error when emit-json file creation fails")
+	}
+	if !strings.Contains(err.Error(), "creating emit-json file") {
+		t.Errorf("error should mention creating emit-json file, got: %v", err)
+	}
+}
+
+func TestAggregateImpl_EmitJSON_CloseError(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("report.json", `{"title": "Test", "score": 85, "threshold": 75}`)
+	fs.SetError("close:/output/aggregate.json", errors.New("disk full"))
+
+	deps := &AggregateDeps{
+		FS:        fs,
+		Stderr:    &bytes.Buffer{},
+		Verbose:   false,
+		Quiet:     false,
+		ExitFunc:  func(code int) {},
+		Configs:   []string{"report.json"},
+		Output:    "/output",
+		Dark:      false,
+		FailUnder: 0,
+		EmitJSON:  "/output/aggregate.json",
+	}
+
+	err := aggregateImpl(deps)
+	if err == nil {
+		t.Fatal("expected error when emit-json file close fails")
+	}
+	if !strings.Contains(err.Error(), "closing emit-json file") {
+		t.Errorf("error should mention closing emit-json file, got: %v", err)
+	}
+}
+
 // Note: fetchImpl uses a defer pattern for close errors that doesn't work with
 // non-named returns. Close errors in fetch are silently dropped. This test
 // documents the current behavior rather than testing error propagation.
@@ -2916,7 +3009,7 @@ func TestFetchImpl_FileCloseError_CurrentBehavior(t *testing.T) {
 		name: "test",
 		report: &confidence.Report{
 			Title:     "Test",
-			Score:     85,
+			Score:     intPtrI(85),
 			Threshold: 75,
 		},
 	}
@@ -2967,7 +3060,7 @@ func (e *errWriter) Write(p []byte) (int, error) {
 func TestWriteGitHubComment_WriteErrors(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Test Report",
-		Score:     85,
+		Score:     intPtrI(85),
 		Threshold: 75,
 		Version:   "1.0.0",
 		Factors: []confidence.Factor{
@@ -2989,7 +3082,7 @@ func TestWriteGitHubComment_WriteErrors(t *testing.T) {
 func TestWriteGitHubCommentHeader_WriteErrors(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Test Report",
-		Score:     85,
+		Score:     intPtrI(85),
 		Threshold: 75,
 	}
 
@@ -3007,7 +3100,7 @@ func TestWriteGitHubCommentHeader_WriteErrors(t *testing.T) {
 func TestWriteGitHubCommentHeader_WriteErrors_FailedReport(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Failing Report",
-		Score:     50,
+		Score:     intPtrI(50),
 		Threshold: 75,
 	}
 
@@ -3057,8 +3150,8 @@ func TestWriteGitHubCommentFooter_WriteError(t *testing.T) {
 }
 
 func TestWriteGitHubCommentBaseline_WriteError(t *testing.T) {
-	report := &confidence.Report{Score: 85}
-	baseline := &confidence.Report{Score: 80}
+	report := &confidence.Report{Score: intPtrI(85)}
+	baseline := &confidence.Report{Score: intPtrI(80)}
 
 	w := &errWriter{n: 0, err: errors.New("write failed")}
 	err := writeGitHubCommentBaseline(w, report, baseline)
@@ -3068,7 +3161,7 @@ func TestWriteGitHubCommentBaseline_WriteError(t *testing.T) {
 }
 
 func TestWriteGitHubCommentBaseline_NilBaseline(t *testing.T) {
-	report := &confidence.Report{Score: 85}
+	report := &confidence.Report{Score: intPtrI(85)}
 
 	// Nil baseline should not write anything
 	var buf bytes.Buffer
@@ -3088,7 +3181,7 @@ func TestWriteGitHubCommentBaseline_NilBaseline(t *testing.T) {
 func TestWriteMarkdown_WriteErrors(t *testing.T) {
 	report := &confidence.Report{
 		Title:       "Test Report",
-		Score:       85,
+		Score:       intPtrI(85),
 		Threshold:   75,
 		Description: "A description",
 		Factors: []confidence.Factor{
@@ -3110,10 +3203,10 @@ func TestWriteMarkdown_WriteErrors(t *testing.T) {
 func TestWriteMarkdown_WriteErrors_WithBaseline(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Test Report",
-		Score:     85,
+		Score:     intPtrI(85),
 		Threshold: 75,
 	}
-	baseline := &confidence.Report{Score: 80}
+	baseline := &confidence.Report{Score: intPtrI(80)}
 
 	// Test with baseline (different header format)
 	w := &errWriter{n: 0, err: errors.New("write failed")}
@@ -3126,7 +3219,7 @@ func TestWriteMarkdown_WriteErrors_WithBaseline(t *testing.T) {
 func TestWriteMarkdown_WriteErrors_NoDescription(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Test Report",
-		Score:     85,
+		Score:     intPtrI(85),
 		Threshold: 75,
 		// No description
 		Factors: []confidence.Factor{
@@ -3156,7 +3249,7 @@ func TestWriteText_WriteErrors(t *testing.T) {
 }
 
 func TestWriteText_WriteErrors_WithBaseline(t *testing.T) {
-	baseline := &confidence.Report{Score: 80}
+	baseline := &confidence.Report{Score: intPtrI(80)}
 
 	// Test with baseline (different format)
 	w := &errWriter{n: 0, err: errors.New("write failed")}
@@ -3167,7 +3260,7 @@ func TestWriteText_WriteErrors_WithBaseline(t *testing.T) {
 }
 
 func TestWriteText_WriteErrors_NegativeDelta(t *testing.T) {
-	baseline := &confidence.Report{Score: 90}
+	baseline := &confidence.Report{Score: intPtrI(90)}
 
 	// Test with negative delta
 	w := &errWriter{n: 0, err: errors.New("write failed")}
@@ -3184,7 +3277,7 @@ func TestWriteText_WriteErrors_NegativeDelta(t *testing.T) {
 func TestWriteJSON_WriteError(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Test Report",
-		Score:     85,
+		Score:     intPtrI(85),
 		Threshold: 75,
 	}
 

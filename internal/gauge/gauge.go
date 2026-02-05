@@ -62,7 +62,7 @@ func Generate(w io.Writer, report *confidence.Report, opts Options) error {
 
 	// Calculate arc geometry
 	arcLength := math.Pi * float64(radius)
-	filledLength := arcLength * float64(report.Score) / 100.0
+	filledLength := arcLength * float64(report.ScoreValue()) / 100.0
 
 	// Track path (semi-circle from left to right)
 	trackPath := fmt.Sprintf("M %d %d A %d %d 0 0 1 %d %d",
@@ -76,7 +76,7 @@ func Generate(w io.Writer, report *confidence.Report, opts Options) error {
 		scheme.TrackColor))
 
 	// Draw filled arc
-	scoreColor := scheme.ScoreColor(report.Score, thresholds.GreenAbove, thresholds.YellowAbove)
+	scoreColor := scheme.ScoreColor(report.ScoreValue(), thresholds.GreenAbove, thresholds.YellowAbove)
 	canvas.Path(trackPath, fmt.Sprintf(
 		"fill:none;stroke:%s;stroke-width:12;stroke-linecap:round;stroke-dasharray:%.2f %.2f",
 		scoreColor, filledLength, arcLength))
@@ -90,7 +90,7 @@ func Generate(w io.Writer, report *confidence.Report, opts Options) error {
 	}
 
 	// Score text
-	canvas.Text(centerX, centerY-radius/3, fmt.Sprintf("%d", report.Score),
+	canvas.Text(centerX, centerY-radius/3, fmt.Sprintf("%d", report.ScoreValue()),
 		fmt.Sprintf("text-anchor:middle;font-family:system-ui,-apple-system,sans-serif;font-size:%dpx;font-weight:bold;fill:%s",
 			radius/2, scheme.TextPrimary))
 

@@ -701,7 +701,7 @@ func TestFetchWithClient_NilIssueCounts(t *testing.T) {
 	}
 
 	// All scores should be 100 (zero issues)
-	if report.Score != 100 {
+	if report.ScoreValue() != 100 {
 		t.Errorf("Score = %d, want 100", report.Score)
 	}
 }
@@ -739,7 +739,7 @@ func TestFetchWithClient_AllClean(t *testing.T) {
 	}
 
 	// All scores should be 100 → weighted score = 100
-	if report.Score != 100 {
+	if report.ScoreValue() != 100 {
 		t.Errorf("Score = %d, want 100", report.Score)
 	}
 }
@@ -794,7 +794,7 @@ func TestFetchWithClient_CriticalVulnerabilities(t *testing.T) {
 	}
 
 	// Overall score should be 0
-	if report.Score != 0 {
+	if report.ScoreValue() != 0 {
 		t.Errorf("Score = %d, want 0", report.Score)
 	}
 }

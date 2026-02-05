@@ -77,8 +77,8 @@ func TestReportLoader_LoadReport(t *testing.T) {
 			if report.Title != tt.wantTitle {
 				t.Errorf("Title = %q, want %q", report.Title, tt.wantTitle)
 			}
-			if report.Score != tt.wantScore {
-				t.Errorf("Score = %d, want %d", report.Score, tt.wantScore)
+			if report.ScoreValue() != tt.wantScore {
+				t.Errorf("Score = %d, want %d", report.ScoreValue(), tt.wantScore)
 			}
 		})
 	}

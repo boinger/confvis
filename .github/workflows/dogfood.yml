@@ -73,51 +73,8 @@ jobs:
 
           echo "has_metrics=true" >> "$GITHUB_OUTPUT"
 
-          # Generate badge and dashboard (fail-under from .confvis.yaml)
-          ./confvis aggregate $CONFIGS -o ./badges --badge-type flat --icon "M7 1 A6 6 0 1 1 4 1.8 L7 7 Z" --label confvis
-
-      - name: Create aggregate confidence.json
-        if: steps.aggregate.outputs.has_metrics == 'true'
-        run: |
-          # Create aggregate report JSON for check and baseline commands
-          # Build factors array from available source files
-          FACTORS='[]'
-
-          for pair in "coverage.json:30" "quality.json:30" "ci.json:20" "security.json:20"; do
-            file="${pair%:*}"
-            weight="${pair#*:}"
-            if [ -f "$file" ]; then
-              title=$(jq -r '.title // "Unknown"' "$file")
-              score=$(jq -r '.score // 0' "$file")
-              FACTORS=$(echo "$FACTORS" | jq \
-                --arg name "$title" \
-                --arg score "$score" \
-                --arg weight "$weight" \
-                '. + [{"name": $name, "score": ($score | tonumber), "weight": ($weight | tonumber)}]')
-            fi
-          done
-
-          # Calculate weighted average (handle empty array)
-          if [ "$FACTORS" = "[]" ]; then
-            SCORE=0
-          else
-            SCORE=$(echo "$FACTORS" | jq '
-              if length == 0 then 0
-              else ([.[] | .score * .weight] | add) / ([.[] | .weight] | add) | floor
-              end')
-          fi
-
-          # Create the aggregate JSON
-          echo "$FACTORS" | jq \
-            --argjson score "$SCORE" \
-            '{
-              "title": "confvis Confidence",
-              "score": $score,
-              "threshold": 80,
-              "factors": .
-            }' > badges/confidence.json
-
-          echo "Aggregate score: $SCORE"
+          # Generate badge, dashboard, and aggregate JSON
+          ./confvis aggregate $CONFIGS -o ./badges --badge-type flat --icon "M7 1 A6 6 0 1 1 4 1.8 L7 7 Z" --label confvis --emit-json badges/confidence.json
 
       - name: Generate sparkline badge
         if: steps.aggregate.outputs.has_metrics == 'true'

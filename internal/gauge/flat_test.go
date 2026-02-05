@@ -8,10 +8,13 @@ import (
 	"github.com/boinger/confvis/internal/confidence"
 )
 
+// intPtr is a test helper that returns a pointer to an int.
+func intPtr(i int) *int { return &i }
+
 func TestGenerateFlat_BasicRendering(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Coverage",
-		Score:     85,
+		Score:     intPtr(85),
 		Threshold: 75,
 	}
 
@@ -52,7 +55,7 @@ func TestGenerateFlat_BasicRendering(t *testing.T) {
 func TestGenerateFlat_CustomLabel(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Code Coverage",
-		Score:     75,
+		Score:     intPtr(75),
 		Threshold: 75,
 	}
 
@@ -79,7 +82,7 @@ func TestGenerateFlat_CustomLabel(t *testing.T) {
 func TestGenerateFlat_EmptyLabel(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "",
-		Score:     85,
+		Score:     intPtr(85),
 		Threshold: 75,
 	}
 
@@ -114,9 +117,10 @@ func TestGenerateFlat_ScoreColorThresholds(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			score := tt.score
 			report := &confidence.Report{
 				Title:     "Test",
-				Score:     tt.score,
+				Score:     &score,
 				Threshold: 75,
 			}
 
@@ -139,7 +143,7 @@ func TestGenerateFlat_ScoreColorThresholds(t *testing.T) {
 func TestGenerateFlat_CustomColorThresholds(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Test",
-		Score:     85,
+		Score:     intPtr(85),
 		Threshold: 75,
 	}
 
@@ -168,7 +172,7 @@ func TestGenerateFlat_ReportColorThresholds(t *testing.T) {
 	// Test that report-level thresholds are used when CLI options are not set
 	report := &confidence.Report{
 		Title:     "Test",
-		Score:     85,
+		Score:     intPtr(85),
 		Threshold: 75,
 		Thresholds: &confidence.ColorThresholds{
 			GreenAbove:  90,
@@ -206,9 +210,10 @@ func TestGenerateFlat_PassFailStatus(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			score := tt.score
 			report := &confidence.Report{
 				Title:     "Test",
-				Score:     tt.score,
+				Score:     &score,
 				Threshold: tt.threshold,
 			}
 
@@ -230,7 +235,7 @@ func TestGenerateFlat_PassFailStatus(t *testing.T) {
 func TestGenerateFlat_CustomPassFailLabels(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Test",
-		Score:     60,
+		Score:     intPtr(60),
 		Threshold: 75,
 		PassLabel: "SUCCESS",
 		FailLabel: "NEEDS WORK",
@@ -256,7 +261,7 @@ func TestGenerateFlat_CustomPassFailLabels(t *testing.T) {
 func TestGenerateFlat_DarkMode(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Test",
-		Score:     85,
+		Score:     intPtr(85),
 		Threshold: 75,
 	}
 
@@ -278,7 +283,7 @@ func TestGenerateFlat_DarkMode(t *testing.T) {
 func TestGenerateFlat_LightMode(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Test",
-		Score:     85,
+		Score:     intPtr(85),
 		Threshold: 75,
 	}
 
@@ -310,7 +315,7 @@ func TestGenerateFlat_AllStyles(t *testing.T) {
 			t.Run(name, func(t *testing.T) {
 				report := &confidence.Report{
 					Title:     "Test",
-					Score:     85,
+					Score:     intPtr(85),
 					Threshold: 75,
 				}
 
@@ -340,7 +345,7 @@ func TestGenerateFlat_EdgeCases(t *testing.T) {
 	t.Run("score zero", func(t *testing.T) {
 		report := &confidence.Report{
 			Title:     "Test",
-			Score:     0,
+			Score:     intPtr(0),
 			Threshold: 75,
 		}
 
@@ -359,7 +364,7 @@ func TestGenerateFlat_EdgeCases(t *testing.T) {
 	t.Run("score 100", func(t *testing.T) {
 		report := &confidence.Report{
 			Title:     "Test",
-			Score:     100,
+			Score:     intPtr(100),
 			Threshold: 75,
 		}
 
@@ -378,7 +383,7 @@ func TestGenerateFlat_EdgeCases(t *testing.T) {
 	t.Run("very long label", func(t *testing.T) {
 		report := &confidence.Report{
 			Title:     "This is a very long report title that should still work",
-			Score:     85,
+			Score:     intPtr(85),
 			Threshold: 75,
 		}
 
@@ -398,7 +403,7 @@ func TestGenerateFlat_EdgeCases(t *testing.T) {
 func TestGenerateFlat_SVGStructure(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Test",
-		Score:     85,
+		Score:     intPtr(85),
 		Threshold: 75,
 	}
 

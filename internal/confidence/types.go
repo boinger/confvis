@@ -31,7 +31,7 @@ func DefaultColorThresholds() ColorThresholds {
 // Report represents a complete confidence report with overall score and breakdown.
 type Report struct {
 	Title       string           `json:"title"`
-	Score       int              `json:"score"`
+	Score       *int             `json:"score"`
 	Threshold   int              `json:"threshold"`
 	Description string           `json:"description,omitempty"`
 	Factors     []Factor         `json:"factors,omitempty"`
@@ -49,7 +49,15 @@ type Report struct {
 
 // Passed returns true if the score meets or exceeds the threshold.
 func (r *Report) Passed() bool {
-	return r.Score >= r.Threshold
+	return r.ScoreValue() >= r.Threshold
+}
+
+// ScoreValue returns the score value, or 0 if nil.
+func (r *Report) ScoreValue() int {
+	if r.Score == nil {
+		return 0
+	}
+	return *r.Score
 }
 
 // EffectivePassLabel returns the custom pass label or "PASS" if not specified.

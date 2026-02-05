@@ -207,11 +207,11 @@ func buildCheckOutput(report *confidence.Report) *CheckRunOutput {
 		status = "Failed"
 	}
 
-	title := fmt.Sprintf("%s: %d%% (%s)", report.Title, report.Score, status)
+	title := fmt.Sprintf("%s: %d%% (%s)", report.Title, report.ScoreValue(), status)
 
 	// Build summary with score and threshold
 	var summary strings.Builder
-	summary.WriteString(fmt.Sprintf("**Score:** %d%% | **Threshold:** %d%%\n\n", report.Score, report.Threshold))
+	summary.WriteString(fmt.Sprintf("**Score:** %d%% | **Threshold:** %d%%\n\n", report.ScoreValue(), report.Threshold))
 
 	if report.Description != "" {
 		summary.WriteString(report.Description)

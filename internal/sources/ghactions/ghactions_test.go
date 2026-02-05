@@ -695,7 +695,7 @@ func TestFetchWithClient_Success(t *testing.T) {
 	}
 
 	// 4/5 = 80%
-	if report.Score != 80 {
+	if report.ScoreValue() != 80 {
 		t.Errorf("Score = %d, want 80", report.Score)
 	}
 	if report.Title != "CI Pipeline" {
@@ -751,7 +751,7 @@ func TestFetchWithClient_ZeroRuns(t *testing.T) {
 	}
 
 	// 0 runs should result in 0% success rate (division edge case)
-	if report.Score != 0 {
+	if report.ScoreValue() != 0 {
 		t.Errorf("Score = %d, want 0", report.Score)
 	}
 	if report.Factors[0].Description != "0/0 successful runs" {
@@ -784,7 +784,7 @@ func TestFetchWithClient_AllFailures(t *testing.T) {
 	}
 
 	// 0/4 = 0%
-	if report.Score != 0 {
+	if report.ScoreValue() != 0 {
 		t.Errorf("Score = %d, want 0", report.Score)
 	}
 	if report.Factors[0].Description != "0/4 successful runs" {
@@ -823,7 +823,7 @@ func TestFetchWithClient_PartialSuccess(t *testing.T) {
 	}
 
 	// 5/10 = 50%
-	if report.Score != 50 {
+	if report.ScoreValue() != 50 {
 		t.Errorf("Score = %d, want 50", report.Score)
 	}
 	if report.Factors[0].Description != "5/10 successful runs" {

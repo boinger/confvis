@@ -12,10 +12,13 @@ import (
 	"github.com/boinger/confvis/internal/confidence"
 )
 
+// intPtrT is a test helper that returns a pointer to an int.
+func intPtrT(i int) *int { return &i }
+
 func TestNewBaseline(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Test Report",
-		Score:     85,
+		Score:     intPtrT(85),
 		Threshold: 75,
 	}
 
@@ -24,7 +27,7 @@ func TestNewBaseline(t *testing.T) {
 	if baseline.Title != "Test Report" {
 		t.Errorf("expected title 'Test Report', got %q", baseline.Title)
 	}
-	if baseline.Score != 85 {
+	if baseline.ScoreValue() != 85 {
 		t.Errorf("expected score 85, got %d", baseline.Score)
 	}
 	if baseline.Threshold != 75 {
@@ -58,7 +61,7 @@ func TestFileStorage_ReadWrite(t *testing.T) {
 	// Write baseline
 	report := &confidence.Report{
 		Title:     "Test",
-		Score:     80,
+		Score:     intPtrT(80),
 		Threshold: 70,
 	}
 	baseline := NewBaseline(report)
@@ -78,7 +81,7 @@ func TestFileStorage_ReadWrite(t *testing.T) {
 	if read.Title != "Test" {
 		t.Errorf("expected title 'Test', got %q", read.Title)
 	}
-	if read.Score != 80 {
+	if read.ScoreValue() != 80 {
 		t.Errorf("expected score 80, got %d", read.Score)
 	}
 	if read.Commit != "abc123" {
@@ -160,7 +163,7 @@ func TestGitRefStorage_ReadWrite(t *testing.T) {
 	// Write baseline
 	report := &confidence.Report{
 		Title:     "Git Test",
-		Score:     90,
+		Score:     intPtrT(90),
 		Threshold: 75,
 	}
 	baseline := NewBaseline(report)
@@ -186,7 +189,7 @@ func TestGitRefStorage_ReadWrite(t *testing.T) {
 	if read.Title != "Git Test" {
 		t.Errorf("expected title 'Git Test', got %q", read.Title)
 	}
-	if read.Score != 90 {
+	if read.ScoreValue() != 90 {
 		t.Errorf("expected score 90, got %d", read.Score)
 	}
 	if read.Commit != "def456" {
@@ -342,7 +345,7 @@ func TestIsGitRepo(t *testing.T) {
 func TestBaselineJSONSerialization(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Serialization Test",
-		Score:     75,
+		Score:     intPtrT(75),
 		Threshold: 70,
 		Factors: []confidence.Factor{
 			{Name: "Test", Score: 80, Weight: 100},
@@ -437,7 +440,7 @@ func TestWriteToFile_Convenience(t *testing.T) {
 
 	report := &confidence.Report{
 		Title:     "Convenience Test",
-		Score:     85,
+		Score:     intPtrT(85),
 		Threshold: 75,
 	}
 	baseline := NewBaseline(report)
@@ -484,7 +487,7 @@ func TestWriteToGitRef_Convenience(t *testing.T) {
 	ref := "refs/confvis/write-test"
 	report := &confidence.Report{
 		Title:     "WriteToGitRef Test",
-		Score:     88,
+		Score:     intPtrT(88),
 		Threshold: 80,
 	}
 	baseline := NewBaseline(report)

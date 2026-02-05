@@ -11,6 +11,9 @@ import (
 	"github.com/boinger/confvis/internal/confidence"
 )
 
+// intPtrT is a test helper that returns a pointer to an int.
+func intPtrT(i int) *int { return &i }
+
 func TestNewGitHubClient(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -65,7 +68,7 @@ func TestNewGitHubClientWithHTTP(t *testing.T) {
 func TestGitHubClient_CreateCheck(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Test Report",
-		Score:     85,
+		Score:     intPtrT(85),
 		Threshold: 70,
 		Factors: []confidence.Factor{
 			{Name: "Coverage", Score: 90, Weight: 50},
@@ -258,7 +261,7 @@ func verifyCheckRequest(t *testing.T, req *CheckRunRequest, opts CreateCheckOpti
 func TestGitHubClient_CreateCheck_FailingScore(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Test Report",
-		Score:     60,
+		Score:     intPtrT(60),
 		Threshold: 70, // Score below threshold
 	}
 
@@ -304,7 +307,7 @@ func TestBuildCheckOutput(t *testing.T) {
 			name: "passing report",
 			report: &confidence.Report{
 				Title:       "Code Quality",
-				Score:       85,
+				Score:       intPtrT(85),
 				Threshold:   70,
 				Description: "Quality assessment",
 			},
@@ -315,7 +318,7 @@ func TestBuildCheckOutput(t *testing.T) {
 			name: "failing report",
 			report: &confidence.Report{
 				Title:     "Code Quality",
-				Score:     60,
+				Score:     intPtrT(60),
 				Threshold: 70,
 			},
 			wantTitle:  "Code Quality: 60% (Failed)",
@@ -325,7 +328,7 @@ func TestBuildCheckOutput(t *testing.T) {
 			name: "with factors",
 			report: &confidence.Report{
 				Title:     "Code Quality",
-				Score:     85,
+				Score:     intPtrT(85),
 				Threshold: 70,
 				Factors: []confidence.Factor{
 					{Name: "Coverage", Score: 90, Weight: 50},

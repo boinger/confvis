@@ -216,7 +216,7 @@ func gaugeImpl(deps *GaugeDeps) error {
 	}
 
 	// Parse baseline report if comparing
-	baselineReport, delta, err := loadBaselineForComparison(deps, report.Score)
+	baselineReport, delta, err := loadBaselineForComparison(deps, report.ScoreValue())
 	if err != nil {
 		return err
 	}
@@ -227,7 +227,7 @@ func gaugeImpl(deps *GaugeDeps) error {
 
 	if showVerbose {
 		fmt.Printf("Generating %s for %q (score: %d, threshold: %d)\n",
-			deps.Format, report.Title, report.Score, report.Threshold)
+			deps.Format, report.Title, report.ScoreValue(), report.Threshold)
 	}
 
 	var w io.Writer
@@ -261,16 +261,16 @@ func gaugeImpl(deps *GaugeDeps) error {
 		fmt.Printf("Wrote %s to %s\n", deps.Format, deps.Output)
 	}
 
-	if deps.FailUnder > 0 && report.Score < deps.FailUnder {
+	if deps.FailUnder > 0 && report.ScoreValue() < deps.FailUnder {
 		if !deps.Quiet {
-			_, _ = fmt.Fprintf(deps.Stderr, "Score %d is below threshold %d\n", report.Score, deps.FailUnder)
+			_, _ = fmt.Fprintf(deps.Stderr, "Score %d is below threshold %d\n", report.ScoreValue(), deps.FailUnder)
 		}
 		deps.ExitFunc(1)
 	}
 
 	if deps.FailOnRegression && baselineReport != nil && delta < 0 {
 		if !deps.Quiet {
-			_, _ = fmt.Fprintf(deps.Stderr, "Score regressed from %d to %d (%d)\n", baselineReport.Score, report.Score, delta)
+			_, _ = fmt.Fprintf(deps.Stderr, "Score regressed from %d to %d (%d)\n", baselineReport.ScoreValue(), report.ScoreValue(), delta)
 		}
 		deps.ExitFunc(1)
 	}
@@ -296,7 +296,7 @@ func writeFormatOutput(w io.Writer, format string, report *confidence.Report, ba
 	case "json":
 		return writeJSON(w, report, baselineReport, delta)
 	case "text":
-		return writeText(w, report.Score, baselineReport, delta)
+		return writeText(w, report.ScoreValue(), baselineReport, delta)
 	case "markdown":
 		return writeMarkdown(w, report, baselineReport, delta)
 	case "github-comment":
@@ -333,7 +333,7 @@ func writeJSON(w io.Writer, report *confidence.Report, baselineReport *confidenc
 		Delta       *int   `json:"delta,omitempty"`
 	}{
 		Title:       report.Title,
-		Score:       report.Score,
+		Score:       report.ScoreValue(),
 		Threshold:   report.Threshold,
 		Passed:      report.Passed(),
 		Version:     report.Version,
@@ -341,7 +341,8 @@ func writeJSON(w io.Writer, report *confidence.Report, baselineReport *confidenc
 		Source:      report.Source,
 	}
 	if baselineReport != nil {
-		output.Baseline = &baselineReport.Score
+		baselineScore := baselineReport.ScoreValue()
+		output.Baseline = &baselineScore
 		output.Delta = &delta
 	}
 	enc := json.NewEncoder(w)
@@ -412,7 +413,7 @@ func generateSVGBadge(w io.Writer, report *confidence.Report, deps *GaugeDeps) e
 			}
 		}
 		// Append current score
-		scores = append(scores, report.Score)
+		scores = append(scores, report.ScoreValue())
 
 		sparkOpts := gauge.SparklineOptions{
 			Width:       deps.Width,
@@ -435,7 +436,7 @@ func generateSVGBadge(w io.Writer, report *confidence.Report, deps *GaugeDeps) e
 		}
 
 		// Append to history storage
-		entry := history.NewEntry(report.Score)
+		entry := history.NewEntry(report.ScoreValue())
 		if useGitRef && historyRef != "" {
 			if err := deps.GitRefAppender(historyRef, entry); err != nil {
 				return fmt.Errorf("appending to history git ref: %w", err)
@@ -510,7 +511,7 @@ func loadBaselineForComparison(deps *GaugeDeps, currentScore int) (*confidence.R
 		if b == nil {
 			return nil, 0, nil
 		}
-		return &b.Report, currentScore - b.Score, nil
+		return &b.Report, currentScore - b.ScoreValue(), nil
 	}
 
 	if deps.Compare != "" {
@@ -519,7 +520,7 @@ func loadBaselineForComparison(deps *GaugeDeps, currentScore int) (*confidence.R
 		if err != nil {
 			return nil, 0, fmt.Errorf("loading baseline: %w", err)
 		}
-		return baselineReport, currentScore - baselineReport.Score, nil
+		return baselineReport, currentScore - baselineReport.ScoreValue(), nil
 	}
 
 	return nil, 0, nil
@@ -588,7 +589,7 @@ func writeGitHubCommentHeader(w io.Writer, report *confidence.Report) error {
 	if _, err := fmt.Fprintln(w, "|--------|-------|"); err != nil {
 		return err
 	}
-	if _, err := fmt.Fprintf(w, "| Score | **%d%%** %s |\n", report.Score, statusEmoji); err != nil {
+	if _, err := fmt.Fprintf(w, "| Score | **%d%%** %s |\n", report.ScoreValue(), statusEmoji); err != nil {
 		return err
 	}
 	if _, err := fmt.Fprintf(w, "| Threshold | %d%% |\n", report.Threshold); err != nil {
@@ -602,7 +603,7 @@ func writeGitHubCommentBaseline(w io.Writer, report *confidence.Report, baseline
 	if baselineReport == nil {
 		return nil
 	}
-	delta := report.Score - baselineReport.Score
+	delta := report.ScoreValue() - baselineReport.ScoreValue()
 	deltaEmoji := ":left_right_arrow:"
 	if delta > 0 {
 		deltaEmoji = ":arrow_up:"
@@ -663,11 +664,11 @@ func writeMarkdown(w io.Writer, report *confidence.Report, baselineReport *confi
 		if delta < 0 {
 			sign = ""
 		}
-		if _, err := fmt.Fprintf(w, "## %s: %d%% (%s) [%s%d from %d%%]\n\n", report.Title, report.Score, status, sign, delta, baselineReport.Score); err != nil {
+		if _, err := fmt.Fprintf(w, "## %s: %d%% (%s) [%s%d from %d%%]\n\n", report.Title, report.ScoreValue(), status, sign, delta, baselineReport.ScoreValue()); err != nil {
 			return err
 		}
 	} else {
-		if _, err := fmt.Fprintf(w, "## %s: %d%% (%s)\n\n", report.Title, report.Score, status); err != nil {
+		if _, err := fmt.Fprintf(w, "## %s: %d%% (%s)\n\n", report.Title, report.ScoreValue(), status); err != nil {
 			return err
 		}
 	}

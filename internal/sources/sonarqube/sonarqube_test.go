@@ -207,7 +207,7 @@ func TestSource_Fetch_Success(t *testing.T) {
 	totalWeight := 20 + 20 + 20 + 20 + 10 + 10 + 5 + 5 // 110
 	weightedSum := 83*20 + 75*20 + 100*20 + 100*20 + 100*10 + 80*10 + 40*5 + 95*5
 	expectedScore := (weightedSum + totalWeight/2) / totalWeight // with rounding
-	if report.Score != expectedScore {
+	if report.ScoreValue() != expectedScore {
 		t.Errorf("Score = %d, want %d", report.Score, expectedScore)
 	}
 }

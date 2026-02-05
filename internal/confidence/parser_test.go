@@ -27,8 +27,8 @@ func TestParse_ValidJSON(t *testing.T) {
 	if report.Title != "Test Report" {
 		t.Errorf("Title = %q, want %q", report.Title, "Test Report")
 	}
-	if report.Score != 85 {
-		t.Errorf("Score = %d, want %d", report.Score, 85)
+	if report.ScoreValue() != 85 {
+		t.Errorf("Score = %d, want %d", report.ScoreValue(), 85)
 	}
 	if report.Threshold != 75 {
 		t.Errorf("Threshold = %d, want %d", report.Threshold, 75)
@@ -58,6 +58,16 @@ func TestParse_InvalidScore(t *testing.T) {
 			name:  "threshold too high",
 			input: `{"title": "Test", "score": 50, "threshold": 120}`,
 			want:  "threshold must be between 0 and 100",
+		},
+		{
+			name:  "factor threshold too high",
+			input: `{"title": "Test", "score": 50, "threshold": 75, "factors": [{"name": "F1", "score": 50, "weight": 50, "threshold": 999}]}`,
+			want:  `factor "F1" threshold must be between 0 and 100`,
+		},
+		{
+			name:  "factor threshold negative",
+			input: `{"title": "Test", "score": 50, "threshold": 75, "factors": [{"name": "F1", "score": 50, "weight": 50, "threshold": -5}]}`,
+			want:  `factor "F1" threshold must be between 0 and 100`,
 		},
 	}
 
@@ -129,7 +139,8 @@ func TestReport_Passed(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		r := &Report{Score: tt.score, Threshold: tt.threshold}
+		score := tt.score
+		r := &Report{Score: &score, Threshold: tt.threshold}
 		if got := r.Passed(); got != tt.want {
 			t.Errorf("Report{Score: %d, Threshold: %d}.Passed() = %v, want %v",
 				tt.score, tt.threshold, got, tt.want)
@@ -202,7 +213,8 @@ func TestParse_ColorThresholds_Invalid(t *testing.T) {
 
 func TestReport_EffectiveColorThresholds(t *testing.T) {
 	// Without thresholds, should return defaults
-	r := &Report{Title: "Test", Score: 85, Threshold: 75}
+	score := 85
+	r := &Report{Title: "Test", Score: &score, Threshold: 75}
 	thresholds := r.EffectiveColorThresholds()
 	if thresholds.GreenAbove != 75 || thresholds.YellowAbove != 50 {
 		t.Errorf("Expected defaults (75, 50), got (%d, %d)", thresholds.GreenAbove, thresholds.YellowAbove)
@@ -295,7 +307,7 @@ func TestParse_AutoCalculateScore(t *testing.T) {
 	}
 
 	// (80*50 + 60*50) / 100 = 70
-	if report.Score != 70 {
+	if report.ScoreValue() != 70 {
 		t.Errorf("Auto-calculated score = %d, want 70", report.Score)
 	}
 }
@@ -317,7 +329,7 @@ func TestParse_ExplicitScoreNotOverridden(t *testing.T) {
 	}
 
 	// Explicit score should be kept (not overridden to 100 from factors)
-	if report.Score != 50 {
+	if report.ScoreValue() != 50 {
 		t.Errorf("Score = %d, want 50 (explicit value)", report.Score)
 	}
 }
@@ -395,7 +407,8 @@ func TestParse_CustomLabels(t *testing.T) {
 
 func TestReport_EffectiveLabels(t *testing.T) {
 	// Default labels
-	r := &Report{Title: "Test", Score: 85, Threshold: 75}
+	score := 85
+	r := &Report{Title: "Test", Score: &score, Threshold: 75}
 	if r.EffectivePassLabel() != "PASS" {
 		t.Errorf("EffectivePassLabel() = %q, want PASS", r.EffectivePassLabel())
 	}
@@ -436,8 +449,8 @@ factors:
 	if report.Title != "Test Report" {
 		t.Errorf("Title = %q, want %q", report.Title, "Test Report")
 	}
-	if report.Score != 85 {
-		t.Errorf("Score = %d, want %d", report.Score, 85)
+	if report.ScoreValue() != 85 {
+		t.Errorf("Score = %d, want %d", report.ScoreValue(), 85)
 	}
 	if report.Threshold != 75 {
 		t.Errorf("Threshold = %d, want %d", report.Threshold, 75)
@@ -475,7 +488,7 @@ factors:
 	}
 
 	// (80*50 + 60*50) / 100 = 70
-	if report.Score != 70 {
+	if report.ScoreValue() != 70 {
 		t.Errorf("Auto-calculated score = %d, want 70", report.Score)
 	}
 }
@@ -514,8 +527,8 @@ func TestParseFile_JSON(t *testing.T) {
 	if report.Title != "Code Quality Report" {
 		t.Errorf("Title = %q, want %q", report.Title, "Code Quality Report")
 	}
-	if report.Score != 85 {
-		t.Errorf("Score = %d, want %d", report.Score, 85)
+	if report.ScoreValue() != 85 {
+		t.Errorf("Score = %d, want %d", report.ScoreValue(), 85)
 	}
 }
 
@@ -529,8 +542,8 @@ func TestParseFile_YAML(t *testing.T) {
 	if report.Title != "Code Quality Report" {
 		t.Errorf("Title = %q, want %q", report.Title, "Code Quality Report")
 	}
-	if report.Score != 85 {
-		t.Errorf("Score = %d, want %d", report.Score, 85)
+	if report.ScoreValue() != 85 {
+		t.Errorf("Score = %d, want %d", report.ScoreValue(), 85)
 	}
 }
 
@@ -550,8 +563,8 @@ func TestParseFileWithFormat_ExplicitJSON(t *testing.T) {
 		t.Fatalf("ParseFileWithFormat() error = %v", err)
 	}
 
-	if report.Score != 85 {
-		t.Errorf("Score = %d, want %d", report.Score, 85)
+	if report.ScoreValue() != 85 {
+		t.Errorf("Score = %d, want %d", report.ScoreValue(), 85)
 	}
 }
 
@@ -561,8 +574,8 @@ func TestParseFileWithFormat_ExplicitYAML(t *testing.T) {
 		t.Fatalf("ParseFileWithFormat() error = %v", err)
 	}
 
-	if report.Score != 85 {
-		t.Errorf("Score = %d, want %d", report.Score, 85)
+	if report.ScoreValue() != 85 {
+		t.Errorf("Score = %d, want %d", report.ScoreValue(), 85)
 	}
 }
 
@@ -573,8 +586,8 @@ func TestParseFileWithFormat_AutoDetect(t *testing.T) {
 		t.Fatalf("ParseFileWithFormat(Auto) error = %v", err)
 	}
 
-	if report.Score != 85 {
-		t.Errorf("Score = %d, want %d", report.Score, 85)
+	if report.ScoreValue() != 85 {
+		t.Errorf("Score = %d, want %d", report.ScoreValue(), 85)
 	}
 }
 
@@ -668,5 +681,45 @@ func TestParseFile_NegativeThreshold(t *testing.T) {
 	_, err := ParseFile(invalidPath)
 	if err == nil {
 		t.Error("ParseFile() expected validation error for negative threshold")
+	}
+}
+
+func TestReport_ScoreValue(t *testing.T) {
+	intPtr := func(i int) *int { return &i }
+
+	tests := []struct {
+		name  string
+		score *int
+		want  int
+	}{
+		{
+			name:  "nil score returns 0",
+			score: nil,
+			want:  0,
+		},
+		{
+			name:  "zero score returns 0",
+			score: intPtr(0),
+			want:  0,
+		},
+		{
+			name:  "positive score returns value",
+			score: intPtr(85),
+			want:  85,
+		},
+		{
+			name:  "max score returns 100",
+			score: intPtr(100),
+			want:  100,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			report := &Report{Score: tt.score}
+			if got := report.ScoreValue(); got != tt.want {
+				t.Errorf("ScoreValue() = %d, want %d", got, tt.want)
+			}
+		})
 	}
 }

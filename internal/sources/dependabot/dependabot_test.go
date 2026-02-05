@@ -91,7 +91,7 @@ func TestSource_FetchWithClient(t *testing.T) {
 				t.Fatalf("FetchWithClient() error = %v", err)
 			}
 
-			if report.Score != tt.wantScore {
+			if report.ScoreValue() != tt.wantScore {
 				t.Errorf("Score = %d, want %d", report.Score, tt.wantScore)
 			}
 
@@ -209,7 +209,7 @@ func TestSource_Fetch_Success(t *testing.T) {
 
 	// With 1 high severity alert: score should be 93
 	// (100*40 + 85*30 + 100*20 + 100*10) / 100 = 95.5 -> 95
-	if report.Score < 90 || report.Score > 100 {
+	if report.ScoreValue() < 90 || report.ScoreValue() > 100 {
 		t.Errorf("Score = %d, expected between 90-100 for single high severity", report.Score)
 	}
 }

@@ -83,9 +83,10 @@ func ParseWithFormat(r io.Reader, format Format) (*Report, error) {
 		}
 	}
 
-	// Auto-calculate score from factors if score is omitted
-	if report.Score == 0 && len(report.Factors) > 0 {
-		report.Score = report.CalculateScore()
+	// Auto-calculate score from factors if score is omitted (nil)
+	if report.Score == nil && len(report.Factors) > 0 {
+		score := report.CalculateScore()
+		report.Score = &score
 	}
 
 	if err := Validate(&report); err != nil {
@@ -101,8 +102,8 @@ func Validate(r *Report) error {
 		return fmt.Errorf("validation: title is required")
 	}
 
-	if r.Score < 0 || r.Score > 100 {
-		return fmt.Errorf("validation: score must be between 0 and 100, got %d", r.Score)
+	if r.Score != nil && (*r.Score < 0 || *r.Score > 100) {
+		return fmt.Errorf("validation: score must be between 0 and 100, got %d", *r.Score)
 	}
 
 	if r.Threshold < 0 || r.Threshold > 100 {
@@ -118,6 +119,9 @@ func Validate(r *Report) error {
 		}
 		if f.Weight < 0 || f.Weight > 100 {
 			return fmt.Errorf("validation: factor[%d] weight must be between 0 and 100, got %d", i, f.Weight)
+		}
+		if f.Threshold < 0 || f.Threshold > 100 {
+			return fmt.Errorf("validation: factor %q threshold must be between 0 and 100, got %d", f.Name, f.Threshold)
 		}
 	}
 

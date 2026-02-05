@@ -658,6 +658,7 @@ confvis aggregate -c <config>[:weight] [-c <config>[:weight] ...] -o <output-dir
 | `--label` | | Custom label for flat badge (defaults to 'Aggregate') |
 | `--dark` | false | Use dark mode colors |
 | `--fail-under` | 0 | Exit with code 1 if aggregate score is below this value |
+| `--emit-json` | | Write aggregate report JSON to this path (useful for CI/CD pipelines) |
 
 #### Config Format
 
@@ -701,6 +702,9 @@ confvis aggregate -c api.json:60 -c web.json:40 -o ./output -v
 
 # Flat badge with icon and custom label
 confvis aggregate -c api.json -c web.json -o ./output --badge-type flat --icon "M7 1 A6 6 0 1 1 4 1.8 L7 7 Z" --label "My Project"
+
+# Emit JSON metadata for CI pipelines
+confvis aggregate -c api.json -c web.json -o ./output --emit-json ./output/confidence.json
 ```
 
 ---
@@ -800,7 +804,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version: '1.23'
 
       - name: Install confvis
         run: go install github.com/boinger/confvis/cmd/confvis@latest

@@ -99,7 +99,7 @@ func generateImpl(deps *GenerateDeps) error {
 
 	if showVerbose {
 		fmt.Printf("Generating output for %q (score: %d, threshold: %d)\n",
-			report.Title, report.Score, report.Threshold)
+			report.Title, report.ScoreValue(), report.Threshold)
 	}
 
 	// Create output directories
@@ -120,9 +120,9 @@ func generateImpl(deps *GenerateDeps) error {
 		return err
 	}
 
-	if deps.FailUnder > 0 && report.Score < deps.FailUnder {
+	if deps.FailUnder > 0 && report.ScoreValue() < deps.FailUnder {
 		if !deps.Quiet {
-			_, _ = fmt.Fprintf(deps.Stderr, "Score %d is below threshold %d\n", report.Score, deps.FailUnder)
+			_, _ = fmt.Fprintf(deps.Stderr, "Score %d is below threshold %d\n", report.ScoreValue(), deps.FailUnder)
 		}
 		deps.ExitFunc(1)
 	}

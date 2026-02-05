@@ -197,10 +197,10 @@ func outputCheckDryRun(deps *CheckGitHubDeps, opts checks.CreateCheckOptions, re
 	_, _ = fmt.Fprintf(deps.Stdout, "Status:     completed\n")
 	_, _ = fmt.Fprintf(deps.Stdout, "Conclusion: %s\n", conclusion)
 	_, _ = fmt.Fprintln(deps.Stdout)
-	_, _ = fmt.Fprintf(deps.Stdout, "Title: Confidence Score: %d%% (%s)\n", report.Score, status)
+	_, _ = fmt.Fprintf(deps.Stdout, "Title: Confidence Score: %d%% (%s)\n", report.ScoreValue(), status)
 	_, _ = fmt.Fprintln(deps.Stdout)
 	_, _ = fmt.Fprintln(deps.Stdout, "Summary:")
-	_, _ = fmt.Fprintf(deps.Stdout, "  Score:     %d%%\n", report.Score)
+	_, _ = fmt.Fprintf(deps.Stdout, "  Score:     %d%%\n", report.ScoreValue())
 	_, _ = fmt.Fprintf(deps.Stdout, "  Threshold: %d%%\n", report.Threshold)
 	_, _ = fmt.Fprintf(deps.Stdout, "  Status:    %s\n", status)
 	if len(report.Factors) > 0 {

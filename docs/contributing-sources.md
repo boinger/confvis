@@ -57,7 +57,7 @@ The `confidence.Report` returned by `Fetch()`:
 ```go
 type Report struct {
     Title       string    // Display name
-    Score       int       // 0-100, calculated from factors
+    Score       *int      // 0-100, calculated from factors if nil
     Threshold   int       // Minimum acceptable score
     Factors     []Factor  // Score breakdown
     Source      string    // Source identifier
@@ -458,9 +458,10 @@ func (s *Source) Name() string {
 
 func (s *Source) Fetch(ctx context.Context, opts sources.Options) (*confidence.Report, error) {
     // Implement fetching and scoring logic
+    score := 100 // Calculate your score
     return &confidence.Report{
         Title:       opts.Title,
-        Score:       100,
+        Score:       &score,
         Threshold:   opts.Threshold,
         Source:      sourceName,
         GeneratedAt: time.Now().UTC().Format(time.RFC3339),

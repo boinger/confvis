@@ -8,10 +8,13 @@ import (
 	"github.com/boinger/confvis/internal/confidence"
 )
 
+// intPtrS is a test helper for sparkline_test.go.
+func intPtrS(i int) *int { return &i }
+
 func TestGenerateSparkline_BasicRendering(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Coverage",
-		Score:     85,
+		Score:     intPtrS(85),
 		Threshold: 75,
 	}
 
@@ -55,7 +58,7 @@ func TestGenerateSparkline_BasicRendering(t *testing.T) {
 func TestGenerateSparkline_SingleScore(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Coverage",
-		Score:     75,
+		Score:     intPtrS(75),
 		Threshold: 75,
 	}
 
@@ -84,7 +87,7 @@ func TestGenerateSparkline_SingleScore(t *testing.T) {
 func TestGenerateSparkline_EmptyScores(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Coverage",
-		Score:     85,
+		Score:     intPtrS(85),
 		Threshold: 75,
 	}
 
@@ -121,7 +124,7 @@ func TestGenerateSparkline_EmptyScores(t *testing.T) {
 func TestGenerateSparkline_NilScores(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Coverage",
-		Score:     85,
+		Score:     intPtrS(85),
 		Threshold: 75,
 	}
 
@@ -145,7 +148,7 @@ func TestGenerateSparkline_NilScores(t *testing.T) {
 func TestGenerateSparkline_DefaultDimensions(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Coverage",
-		Score:     85,
+		Score:     intPtrS(85),
 		Threshold: 75,
 	}
 
@@ -174,7 +177,7 @@ func TestGenerateSparkline_DefaultDimensions(t *testing.T) {
 func TestGenerateSparkline_CustomDimensions(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Coverage",
-		Score:     85,
+		Score:     intPtrS(85),
 		Threshold: 75,
 	}
 
@@ -213,9 +216,10 @@ func TestGenerateSparkline_ColorThresholds(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			score := tt.score
 			report := &confidence.Report{
 				Title:     "Test",
-				Score:     tt.score,
+				Score:     &score,
 				Threshold: 75,
 			}
 
@@ -240,7 +244,7 @@ func TestGenerateSparkline_ColorThresholds(t *testing.T) {
 func TestGenerateSparkline_CustomColorThresholds(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Test",
-		Score:     85,
+		Score:     intPtrS(85),
 		Threshold: 75,
 	}
 
@@ -267,7 +271,7 @@ func TestGenerateSparkline_CustomColorThresholds(t *testing.T) {
 func TestGenerateSparkline_DarkMode(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Test",
-		Score:     85,
+		Score:     intPtrS(85),
 		Threshold: 75,
 	}
 
@@ -308,7 +312,7 @@ func TestGenerateSparkline_AllStyles(t *testing.T) {
 			t.Run(name, func(t *testing.T) {
 				report := &confidence.Report{
 					Title:     "Test",
-					Score:     85,
+					Score:     intPtrS(85),
 					Threshold: 75,
 				}
 
@@ -339,7 +343,7 @@ func TestGenerateSparkline_EdgeCases(t *testing.T) {
 	t.Run("all same values", func(t *testing.T) {
 		report := &confidence.Report{
 			Title:     "Test",
-			Score:     75,
+			Score:     intPtrS(75),
 			Threshold: 75,
 		}
 
@@ -361,7 +365,7 @@ func TestGenerateSparkline_EdgeCases(t *testing.T) {
 	t.Run("extreme values", func(t *testing.T) {
 		report := &confidence.Report{
 			Title:     "Test",
-			Score:     100,
+			Score:     intPtrS(100),
 			Threshold: 75,
 		}
 
@@ -383,7 +387,7 @@ func TestGenerateSparkline_EdgeCases(t *testing.T) {
 	t.Run("two points", func(t *testing.T) {
 		report := &confidence.Report{
 			Title:     "Test",
-			Score:     85,
+			Score:     intPtrS(85),
 			Threshold: 75,
 		}
 
@@ -406,7 +410,7 @@ func TestGenerateSparkline_EdgeCases(t *testing.T) {
 func TestGenerateSparkline_SVGStructure(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Test",
-		Score:     85,
+		Score:     intPtrS(85),
 		Threshold: 75,
 	}
 

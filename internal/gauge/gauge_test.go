@@ -8,10 +8,13 @@ import (
 	"github.com/boinger/confvis/internal/confidence"
 )
 
+// intPtrG is a test helper for gauge_test.go.
+func intPtrG(i int) *int { return &i }
+
 func TestGenerate_ContainsExpectedElements(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Test",
-		Score:     85,
+		Score:     intPtrG(85),
 		Threshold: 75,
 	}
 
@@ -47,7 +50,7 @@ func TestGenerate_ContainsExpectedElements(t *testing.T) {
 func TestGenerate_FailingReport(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Failing Test",
-		Score:     60,
+		Score:     intPtrG(60),
 		Threshold: 75,
 	}
 
@@ -68,7 +71,7 @@ func TestGenerate_FailingReport(t *testing.T) {
 func TestGenerate_DarkMode(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Test",
-		Score:     85,
+		Score:     intPtrG(85),
 		Threshold: 75,
 	}
 
@@ -92,7 +95,7 @@ func TestGenerate_DarkMode(t *testing.T) {
 func TestGenerate_CustomDimensions(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Test",
-		Score:     75,
+		Score:     intPtrG(75),
 		Threshold: 75,
 	}
 
@@ -168,7 +171,7 @@ func TestScoreColor_CustomThresholds(t *testing.T) {
 func TestGenerateToString(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Test",
-		Score:     85,
+		Score:     intPtrG(85),
 		Threshold: 75,
 	}
 
@@ -233,7 +236,7 @@ func TestStyleNames(t *testing.T) {
 func TestGenerateToString_WithOptions(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Test",
-		Score:     50,
+		Score:     intPtrG(50),
 		Threshold: 75,
 	}
 

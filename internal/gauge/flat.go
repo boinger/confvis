@@ -46,7 +46,7 @@ func GenerateFlat(w io.Writer, report *confidence.Report, opts FlatOptions) erro
 	}
 
 	// Score and status text
-	scoreText := fmt.Sprintf("%d%%", report.Score)
+	scoreText := fmt.Sprintf("%d%%", report.ScoreValue())
 	statusText := report.EffectivePassLabel()
 	if !report.Passed() {
 		statusText = report.EffectiveFailLabel()
@@ -66,7 +66,7 @@ func GenerateFlat(w io.Writer, report *confidence.Report, opts FlatOptions) erro
 	height := 20
 	radius := 3
 
-	scoreColor := scheme.ScoreColor(report.Score, thresholds.GreenAbove, thresholds.YellowAbove)
+	scoreColor := scheme.ScoreColor(report.ScoreValue(), thresholds.GreenAbove, thresholds.YellowAbove)
 
 	canvas := svg.New(w)
 	canvas.Start(totalWidth, height)

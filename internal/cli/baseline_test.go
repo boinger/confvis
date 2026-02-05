@@ -11,6 +11,9 @@ import (
 	"github.com/boinger/confvis/internal/confidence"
 )
 
+// intPtr is a test helper that returns a pointer to an int.
+func intPtr(i int) *int { return &i }
+
 func TestParseBaselineConfig(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -50,8 +53,8 @@ func TestParseBaselineConfig(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parseBaselineConfig() error = %v", err)
 			}
-			if report.Score != tt.wantScore {
-				t.Errorf("Score = %d, want %d", report.Score, tt.wantScore)
+			if report.ScoreValue() != tt.wantScore {
+				t.Errorf("Score = %d, want %d", report.ScoreValue(), tt.wantScore)
 			}
 		})
 	}
@@ -110,7 +113,7 @@ func TestOutputBaseline(t *testing.T) {
 			name:   "text format",
 			format: "text",
 			baseline: &baseline.Baseline{
-				Report:  confidence.Report{Score: 85},
+				Report:  confidence.Report{Score: intPtr(85)},
 				SavedAt: "2024-01-01T00:00:00Z",
 				Commit:  "abc1234567890",
 				Branch:  "main",
@@ -120,7 +123,7 @@ func TestOutputBaseline(t *testing.T) {
 		{
 			name:     "json format",
 			format:   "json",
-			baseline: &baseline.Baseline{Report: confidence.Report{Score: 85}},
+			baseline: &baseline.Baseline{Report: confidence.Report{Score: intPtr(85)}},
 			contains: `"score": 85`,
 		},
 	}
@@ -168,7 +171,7 @@ func TestLoadBaseline(t *testing.T) {
 			name: "from file",
 			file: "baseline.json",
 			fileReader: func(string) (*baseline.Baseline, error) {
-				return &baseline.Baseline{Report: confidence.Report{Score: 75}}, nil
+				return &baseline.Baseline{Report: confidence.Report{Score: intPtr(75)}}, nil
 			},
 			wantScore:  75,
 			wantSource: "baseline.json",
@@ -178,7 +181,7 @@ func TestLoadBaseline(t *testing.T) {
 			ref:       "refs/confvis/baseline",
 			isGitRepo: func() bool { return true },
 			gitRefReader: func(string) (*baseline.Baseline, error) {
-				return &baseline.Baseline{Report: confidence.Report{Score: 80}}, nil
+				return &baseline.Baseline{Report: confidence.Report{Score: intPtr(80)}}, nil
 			},
 			wantScore:  80,
 			wantSource: "refs/confvis/baseline",
@@ -205,7 +208,7 @@ func TestLoadBaseline(t *testing.T) {
 			if err != nil {
 				t.Fatalf("loadBaseline() error = %v", err)
 			}
-			if b.Score != tt.wantScore {
+			if b.ScoreValue() != tt.wantScore {
 				t.Errorf("Score = %d, want %d", b.Score, tt.wantScore)
 			}
 			if source != tt.wantSource {
@@ -232,7 +235,7 @@ func TestSaveBaseline(t *testing.T) {
 			name:     "dry run",
 			dryRun:   true,
 			file:     "baseline.json",
-			baseline: &baseline.Baseline{Report: confidence.Report{Score: 85, Title: "Test"}},
+			baseline: &baseline.Baseline{Report: confidence.Report{Score: intPtr(85), Title: "Test"}},
 			contains: "DRY RUN",
 		},
 		{
@@ -240,7 +243,7 @@ func TestSaveBaseline(t *testing.T) {
 			file:    "baseline.json",
 			verbose: true,
 			baseline: &baseline.Baseline{
-				Report: confidence.Report{Score: 85},
+				Report: confidence.Report{Score: intPtr(85)},
 				Commit: "abc123",
 			},
 		},
@@ -248,7 +251,7 @@ func TestSaveBaseline(t *testing.T) {
 			name:     "to git ref",
 			ref:      "refs/confvis/baseline",
 			verbose:  true,
-			baseline: &baseline.Baseline{Report: confidence.Report{Score: 85}},
+			baseline: &baseline.Baseline{Report: confidence.Report{Score: intPtr(85)}},
 		},
 	}
 

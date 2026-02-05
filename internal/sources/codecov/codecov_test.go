@@ -491,7 +491,7 @@ func TestFetchWithClient_Success(t *testing.T) {
 	}
 
 	// 87.5 truncates to 87
-	if report.Score != 87 {
+	if report.ScoreValue() != 87 {
 		t.Errorf("Score = %d, want 87", report.Score)
 	}
 	if report.Title != "Coverage Report" {
@@ -545,7 +545,7 @@ func TestFetchWithClient_ZeroCoverage(t *testing.T) {
 		t.Fatalf("FetchWithClient() error = %v", err)
 	}
 
-	if report.Score != 0 {
+	if report.ScoreValue() != 0 {
 		t.Errorf("Score = %d, want 0", report.Score)
 	}
 }
@@ -568,7 +568,7 @@ func TestFetchWithClient_FullCoverage(t *testing.T) {
 		t.Fatalf("FetchWithClient() error = %v", err)
 	}
 
-	if report.Score != 100 {
+	if report.ScoreValue() != 100 {
 		t.Errorf("Score = %d, want 100", report.Score)
 	}
 }
@@ -592,7 +592,7 @@ func TestFetchWithClient_PartialCoverage(t *testing.T) {
 	}
 
 	// 55.7 truncates to 55
-	if report.Score != 55 {
+	if report.ScoreValue() != 55 {
 		t.Errorf("Score = %d, want 55", report.Score)
 	}
 }

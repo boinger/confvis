@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -23,6 +24,7 @@ var (
 	aggBadgeType string
 	aggIcon      string
 	aggLabel     string
+	aggEmitJSON  string
 )
 
 var aggregateCmd = &cobra.Command{
@@ -52,6 +54,7 @@ func init() {
 	aggregateCmd.Flags().StringVar(&aggBadgeType, "badge-type", "gauge", "badge type: gauge or flat")
 	aggregateCmd.Flags().StringVar(&aggIcon, "icon", "", "SVG path data for flat badge icon")
 	aggregateCmd.Flags().StringVar(&aggLabel, "label", "", "custom label for flat badge (defaults to 'Aggregate')")
+	aggregateCmd.Flags().StringVar(&aggEmitJSON, "emit-json", "", "write aggregate report JSON to file")
 
 	if err := aggregateCmd.MarkFlagRequired("config"); err != nil {
 		panic(err)
@@ -84,6 +87,7 @@ type AggregateDeps struct {
 	BadgeType string
 	Icon      string
 	Label     string
+	EmitJSON  string
 }
 
 func runAggregate(_ *cobra.Command, _ []string) error {
@@ -100,6 +104,7 @@ func runAggregate(_ *cobra.Command, _ []string) error {
 		BadgeType: aggBadgeType,
 		Icon:      aggIcon,
 		Label:     aggLabel,
+		EmitJSON:  aggEmitJSON,
 	})
 }
 
@@ -119,7 +124,7 @@ func aggregateImpl(deps *AggregateDeps) error {
 	var weightedSum int
 	for _, r := range reports {
 		totalWeight += r.Weight
-		weightedSum += r.Report.Score * r.Weight
+		weightedSum += r.Report.ScoreValue() * r.Weight
 	}
 
 	aggregateScore := 0
@@ -132,7 +137,7 @@ func aggregateImpl(deps *AggregateDeps) error {
 	if showVerbose {
 		fmt.Printf("Aggregating %d reports (aggregate score: %d)\n", len(reports), aggregateScore)
 		for _, r := range reports {
-			fmt.Printf("  - %s: %d (weight: %d)\n", r.Report.Title, r.Report.Score, r.Weight)
+			fmt.Printf("  - %s: %d (weight: %d)\n", r.Report.Title, r.Report.ScoreValue(), r.Weight)
 		}
 	}
 
@@ -145,7 +150,7 @@ func aggregateImpl(deps *AggregateDeps) error {
 	// Build aggregate report for badge generation
 	aggregateReport := &confidence.Report{
 		Title:     "Aggregate",
-		Score:     aggregateScore,
+		Score:     &aggregateScore,
 		Threshold: 75, // Default threshold
 	}
 
@@ -153,6 +158,13 @@ func aggregateImpl(deps *AggregateDeps) error {
 	for _, r := range reports {
 		if r.Report.Threshold > 0 && (aggregateReport.Threshold == 75 || r.Report.Threshold < aggregateReport.Threshold) {
 			aggregateReport.Threshold = r.Report.Threshold
+		}
+	}
+
+	// Write aggregate JSON if requested
+	if deps.EmitJSON != "" {
+		if err := writeAggregateJSON(deps.FS, deps.EmitJSON, aggregateReport, showVerbose); err != nil {
+			return err
 		}
 	}
 
@@ -339,6 +351,50 @@ func sanitizeFilename(s string) string {
 		}
 	}
 	return result.String()
+}
+
+// writeAggregateJSON writes the aggregate report to a JSON file.
+func writeAggregateJSON(fs FileSystem, path string, report *confidence.Report, verbose bool) error {
+	// Ensure parent directory exists
+	dir := filepath.Dir(path)
+	if dir != "" && dir != "." {
+		if err := fs.MkdirAll(dir, 0o755); err != nil {
+			return fmt.Errorf("creating directory for emit-json: %w", err)
+		}
+	}
+
+	f, err := fs.Create(path)
+	if err != nil {
+		return fmt.Errorf("creating emit-json file: %w", err)
+	}
+
+	output := struct {
+		Title     string `json:"title"`
+		Score     int    `json:"score"`
+		Threshold int    `json:"threshold"`
+		Passed    bool   `json:"passed"`
+	}{
+		Title:     report.Title,
+		Score:     report.ScoreValue(),
+		Threshold: report.Threshold,
+		Passed:    report.Passed(),
+	}
+
+	enc := json.NewEncoder(f)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(output); err != nil {
+		_ = f.Close()
+		return fmt.Errorf("encoding JSON: %w", err)
+	}
+
+	if err := f.Close(); err != nil {
+		return fmt.Errorf("closing emit-json file: %w", err)
+	}
+
+	if verbose {
+		fmt.Printf("Wrote JSON to %s\n", path)
+	}
+	return nil
 }
 
 // openConfigFile is defined in generate.go, but we need to ensure it uses

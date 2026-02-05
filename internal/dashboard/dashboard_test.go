@@ -9,10 +9,13 @@ import (
 	"github.com/boinger/confvis/internal/confidence"
 )
 
+// intPtrT is a test helper that returns a pointer to an int.
+func intPtrT(i int) *int { return &i }
+
 func TestGenerate_ValidHTML(t *testing.T) {
 	report := &confidence.Report{
 		Title:       "Test Report",
-		Score:       85,
+		Score:       intPtrT(85),
 		Threshold:   75,
 		Description: "A test description",
 		Factors: []confidence.Factor{
@@ -70,7 +73,7 @@ func TestGenerate_ValidHTML(t *testing.T) {
 func TestGenerate_FailingReport(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Failing Report",
-		Score:     60,
+		Score:     intPtrT(60),
 		Threshold: 75,
 	}
 
@@ -91,7 +94,7 @@ func TestGenerate_FailingReport(t *testing.T) {
 func TestGenerate_DarkMode(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Dark Mode Test",
-		Score:     85,
+		Score:     intPtrT(85),
 		Threshold: 75,
 	}
 
@@ -112,7 +115,7 @@ func TestGenerate_DarkMode(t *testing.T) {
 func TestGenerate_NoFactors(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Simple Report",
-		Score:     75,
+		Score:     intPtrT(75),
 		Threshold: 75,
 	}
 
@@ -137,7 +140,7 @@ func TestGenerateMulti_BasicOutput(t *testing.T) {
 		{
 			Report: &confidence.Report{
 				Title:     "API Coverage",
-				Score:     90,
+				Score:     intPtrT(90),
 				Threshold: 75,
 			},
 			Weight: 60,
@@ -146,7 +149,7 @@ func TestGenerateMulti_BasicOutput(t *testing.T) {
 		{
 			Report: &confidence.Report{
 				Title:     "Web Coverage",
-				Score:     80,
+				Score:     intPtrT(80),
 				Threshold: 75,
 			},
 			Weight: 40,
@@ -156,7 +159,7 @@ func TestGenerateMulti_BasicOutput(t *testing.T) {
 
 	aggregate := &confidence.Report{
 		Title:     "Aggregate",
-		Score:     86,
+		Score:     intPtrT(86),
 		Threshold: 75,
 	}
 
@@ -222,7 +225,7 @@ func TestGenerateMulti_EmptyReports(t *testing.T) {
 
 	aggregate := &confidence.Report{
 		Title:     "Aggregate",
-		Score:     0,
+		Score:     intPtrT(0),
 		Threshold: 75,
 	}
 
@@ -256,7 +259,7 @@ func TestGenerateMulti_SingleReport(t *testing.T) {
 		{
 			Report: &confidence.Report{
 				Title:     "Single Report",
-				Score:     75,
+				Score:     intPtrT(75),
 				Threshold: 75,
 			},
 			Weight: 100,
@@ -266,7 +269,7 @@ func TestGenerateMulti_SingleReport(t *testing.T) {
 
 	aggregate := &confidence.Report{
 		Title:     "Aggregate",
-		Score:     75,
+		Score:     intPtrT(75),
 		Threshold: 75,
 	}
 
@@ -292,7 +295,7 @@ func TestGenerateMulti_DarkMode(t *testing.T) {
 		{
 			Report: &confidence.Report{
 				Title:     "Test",
-				Score:     85,
+				Score:     intPtrT(85),
 				Threshold: 75,
 			},
 			Weight: 100,
@@ -302,7 +305,7 @@ func TestGenerateMulti_DarkMode(t *testing.T) {
 
 	aggregate := &confidence.Report{
 		Title:     "Aggregate",
-		Score:     85,
+		Score:     intPtrT(85),
 		Threshold: 75,
 	}
 
@@ -325,7 +328,7 @@ func TestGenerateMulti_LightMode(t *testing.T) {
 		{
 			Report: &confidence.Report{
 				Title:     "Test",
-				Score:     85,
+				Score:     intPtrT(85),
 				Threshold: 75,
 			},
 			Weight: 100,
@@ -335,7 +338,7 @@ func TestGenerateMulti_LightMode(t *testing.T) {
 
 	aggregate := &confidence.Report{
 		Title:     "Aggregate",
-		Score:     85,
+		Score:     intPtrT(85),
 		Threshold: 75,
 	}
 
@@ -358,7 +361,7 @@ func TestGenerateMulti_FailingAggregate(t *testing.T) {
 		{
 			Report: &confidence.Report{
 				Title:     "Failing Report",
-				Score:     60,
+				Score:     intPtrT(60),
 				Threshold: 75,
 			},
 			Weight: 100,
@@ -368,7 +371,7 @@ func TestGenerateMulti_FailingAggregate(t *testing.T) {
 
 	aggregate := &confidence.Report{
 		Title:     "Aggregate",
-		Score:     60,
+		Score:     intPtrT(60),
 		Threshold: 75,
 	}
 
@@ -391,7 +394,7 @@ func TestGenerateMulti_WithFactors(t *testing.T) {
 		{
 			Report: &confidence.Report{
 				Title:     "Coverage Report",
-				Score:     85,
+				Score:     intPtrT(85),
 				Threshold: 75,
 				Factors: []confidence.Factor{
 					{Name: "Unit Tests", Score: 90, Weight: 50},
@@ -405,7 +408,7 @@ func TestGenerateMulti_WithFactors(t *testing.T) {
 
 	aggregate := &confidence.Report{
 		Title:     "Aggregate",
-		Score:     85,
+		Score:     intPtrT(85),
 		Threshold: 75,
 	}
 
@@ -436,7 +439,7 @@ func TestGenerateMulti_FactorsWithURLs(t *testing.T) {
 		{
 			Report: &confidence.Report{
 				Title:     "Coverage Report",
-				Score:     85,
+				Score:     intPtrT(85),
 				Threshold: 75,
 				Factors: []confidence.Factor{
 					{Name: "Codecov", Score: 90, Weight: 50, URL: "https://codecov.io/report"},
@@ -450,7 +453,7 @@ func TestGenerateMulti_FactorsWithURLs(t *testing.T) {
 
 	aggregate := &confidence.Report{
 		Title:     "Aggregate",
-		Score:     85,
+		Score:     intPtrT(85),
 		Threshold: 75,
 	}
 
@@ -482,7 +485,7 @@ func TestGenerateMulti_HTMLStructure(t *testing.T) {
 		{
 			Report: &confidence.Report{
 				Title:     "Test Report",
-				Score:     85,
+				Score:     intPtrT(85),
 				Threshold: 75,
 			},
 			Weight: 100,
@@ -492,7 +495,7 @@ func TestGenerateMulti_HTMLStructure(t *testing.T) {
 
 	aggregate := &confidence.Report{
 		Title:     "Aggregate",
-		Score:     85,
+		Score:     intPtrT(85),
 		Threshold: 75,
 	}
 
@@ -527,7 +530,7 @@ func TestGenerateMulti_MultipleReportsWithMixedPassFail(t *testing.T) {
 		{
 			Report: &confidence.Report{
 				Title:     "Passing Report",
-				Score:     90,
+				Score:     intPtrT(90),
 				Threshold: 75,
 			},
 			Weight: 50,
@@ -536,7 +539,7 @@ func TestGenerateMulti_MultipleReportsWithMixedPassFail(t *testing.T) {
 		{
 			Report: &confidence.Report{
 				Title:     "Failing Report",
-				Score:     50,
+				Score:     intPtrT(50),
 				Threshold: 75,
 			},
 			Weight: 50,
@@ -547,7 +550,7 @@ func TestGenerateMulti_MultipleReportsWithMixedPassFail(t *testing.T) {
 	// Aggregate passes (weighted average ~70, but threshold met due to higher passing report)
 	aggregate := &confidence.Report{
 		Title:     "Aggregate",
-		Score:     70,
+		Score:     intPtrT(70),
 		Threshold: 75,
 	}
 
@@ -598,7 +601,7 @@ func (e *errWriter) Write(p []byte) (int, error) {
 func TestGenerate_WriteError(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Test Report",
-		Score:     85,
+		Score:     intPtrT(85),
 		Threshold: 75,
 	}
 
@@ -613,7 +616,7 @@ func TestGenerate_WriteError(t *testing.T) {
 func TestGenerate_WriteError_MidStream(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Test Report",
-		Score:     85,
+		Score:     intPtrT(85),
 		Threshold: 75,
 		Factors: []confidence.Factor{
 			{Name: "Factor1", Score: 90, Weight: 50},
@@ -635,7 +638,7 @@ func TestGenerateMulti_WriteError(t *testing.T) {
 		{
 			Report: &confidence.Report{
 				Title:     "Test Report",
-				Score:     85,
+				Score:     intPtrT(85),
 				Threshold: 75,
 			},
 			Weight: 100,
@@ -645,7 +648,7 @@ func TestGenerateMulti_WriteError(t *testing.T) {
 
 	aggregate := &confidence.Report{
 		Title:     "Aggregate",
-		Score:     85,
+		Score:     intPtrT(85),
 		Threshold: 75,
 	}
 
@@ -662,7 +665,7 @@ func TestGenerateMulti_WriteError_MidStream(t *testing.T) {
 		{
 			Report: &confidence.Report{
 				Title:     "Test Report",
-				Score:     85,
+				Score:     intPtrT(85),
 				Threshold: 75,
 			},
 			Weight: 100,
@@ -672,7 +675,7 @@ func TestGenerateMulti_WriteError_MidStream(t *testing.T) {
 
 	aggregate := &confidence.Report{
 		Title:     "Aggregate",
-		Score:     85,
+		Score:     intPtrT(85),
 		Threshold: 75,
 	}
 

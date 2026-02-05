@@ -33,7 +33,7 @@ func TestBuildReport(t *testing.T) {
 	// Expected weighted score: (67*40 + 100*30 + 100*20 + 100*10) = 8680
 	// With rounding: (8680 + 50) / 100 = 87
 	expectedScore := 87
-	if report.Score != expectedScore {
+	if report.ScoreValue() != expectedScore {
 		t.Errorf("Score = %d, want %d", report.Score, expectedScore)
 	}
 
@@ -50,7 +50,7 @@ func TestBuildReport(t *testing.T) {
 func TestBuildReport_EmptyFactors(t *testing.T) {
 	report := BuildReport("Empty", "testsource", 50, []confidence.Factor{})
 
-	if report.Score != 0 {
+	if report.ScoreValue() != 0 {
 		t.Errorf("Score = %d, want 0 for empty factors", report.Score)
 	}
 }
@@ -63,7 +63,7 @@ func TestBuildReport_PerfectScore(t *testing.T) {
 
 	report := BuildReport("Perfect", "testsource", 75, factors)
 
-	if report.Score != 100 {
+	if report.ScoreValue() != 100 {
 		t.Errorf("Score = %d, want 100", report.Score)
 	}
 }

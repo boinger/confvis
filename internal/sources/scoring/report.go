@@ -16,6 +16,7 @@ func BuildReport(title, sourceName string, threshold int, factors []confidence.F
 		GeneratedAt: time.Now().UTC().Format(time.RFC3339),
 		Factors:     factors,
 	}
-	report.Score = report.CalculateScore()
+	score := report.CalculateScore()
+	report.Score = &score
 	return report
 }

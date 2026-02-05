@@ -279,7 +279,7 @@ func fetchImpl(ctx context.Context, deps *FetchDeps) error {
 		if !report.Passed() {
 			status = "FAIL"
 		}
-		_, _ = fmt.Fprintf(deps.Stderr, "Score: %d/%d (%s)\n", report.Score, report.Threshold, status)
+		_, _ = fmt.Fprintf(deps.Stderr, "Score: %d/%d (%s)\n", report.ScoreValue(), report.Threshold, status)
 		if !outputToStdout {
 			_, _ = fmt.Fprintf(deps.Stderr, "Wrote report to %s\n", deps.Output)
 		}

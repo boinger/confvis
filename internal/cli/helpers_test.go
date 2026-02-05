@@ -10,6 +10,9 @@ import (
 	"github.com/boinger/confvis/internal/confidence"
 )
 
+// intPtrH is a test helper that returns a pointer to an int (H suffix to avoid redeclaration with baseline_test.go).
+func intPtrH(i int) *int { return &i }
+
 // Tests for sanitizeFilename
 
 func TestSanitizeFilename_Basic(t *testing.T) {
@@ -179,8 +182,8 @@ func TestParseConfigsWithWeights_SingleFile(t *testing.T) {
 	}
 
 	// Check report was parsed
-	if results[0].Report.Score != 85 {
-		t.Errorf("report score should be 85, got %d", results[0].Report.Score)
+	if results[0].Report.ScoreValue() != 85 {
+		t.Errorf("report score should be 85, got %d", results[0].Report.ScoreValue())
 	}
 
 	// Check path is preserved
@@ -361,8 +364,8 @@ func TestParseConfigsWithWeights_YAMLFile(t *testing.T) {
 	}
 
 	// YAML file should be parsed correctly
-	if results[0].Report.Score != 85 {
-		t.Errorf("YAML report score should be 85, got %d", results[0].Report.Score)
+	if results[0].Report.ScoreValue() != 85 {
+		t.Errorf("YAML report score should be 85, got %d", results[0].Report.ScoreValue())
 	}
 }
 
@@ -433,7 +436,7 @@ func TestParseConfigsWithWeights_ReportFields(t *testing.T) {
 func TestWriteMarkdown_BasicReport(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Test Report",
-		Score:     85,
+		Score:     intPtrH(85),
 		Threshold: 75,
 	}
 
@@ -454,7 +457,7 @@ func TestWriteMarkdown_BasicReport(t *testing.T) {
 func TestWriteMarkdown_FailingReport(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Failing Report",
-		Score:     60,
+		Score:     intPtrH(60),
 		Threshold: 75,
 	}
 
@@ -475,7 +478,7 @@ func TestWriteMarkdown_FailingReport(t *testing.T) {
 func TestWriteMarkdown_WithDescription(t *testing.T) {
 	report := &confidence.Report{
 		Title:       "Test Report",
-		Score:       85,
+		Score:       intPtrH(85),
 		Threshold:   75,
 		Description: "This is a test description.",
 	}
@@ -496,7 +499,7 @@ func TestWriteMarkdown_WithDescription(t *testing.T) {
 func TestWriteMarkdown_WithFactors(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Test Report",
-		Score:     85,
+		Score:     intPtrH(85),
 		Threshold: 75,
 		Factors: []confidence.Factor{
 			{Name: "Coverage", Score: 90, Weight: 50},
@@ -529,7 +532,7 @@ func TestWriteMarkdown_WithFactors(t *testing.T) {
 func TestWriteMarkdown_WithFactorURLs(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Test Report",
-		Score:     85,
+		Score:     intPtrH(85),
 		Threshold: 75,
 		Factors: []confidence.Factor{
 			{Name: "Coverage", Score: 90, Weight: 50, URL: "https://example.com/coverage"},
@@ -559,13 +562,13 @@ func TestWriteMarkdown_WithFactorURLs(t *testing.T) {
 func TestWriteMarkdown_WithBaseline(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Test Report",
-		Score:     85,
+		Score:     intPtrH(85),
 		Threshold: 75,
 	}
 
 	baseline := &confidence.Report{
 		Title:     "Baseline",
-		Score:     62,
+		Score:     intPtrH(62),
 		Threshold: 75,
 	}
 
@@ -588,13 +591,13 @@ func TestWriteMarkdown_WithBaseline(t *testing.T) {
 func TestWriteMarkdown_WithNegativeDelta(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Test Report",
-		Score:     62,
+		Score:     intPtrH(62),
 		Threshold: 75,
 	}
 
 	baseline := &confidence.Report{
 		Title:     "Baseline",
-		Score:     85,
+		Score:     intPtrH(85),
 		Threshold: 75,
 	}
 
@@ -617,7 +620,7 @@ func TestWriteMarkdown_WithNegativeDelta(t *testing.T) {
 func TestWriteMarkdown_CustomLabels(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Test Report",
-		Score:     85,
+		Score:     intPtrH(85),
 		Threshold: 75,
 		PassLabel: "APPROVED",
 	}
@@ -639,7 +642,7 @@ func TestWriteMarkdown_CustomLabels(t *testing.T) {
 func TestWriteMarkdown_CustomFailLabel(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Test Report",
-		Score:     60,
+		Score:     intPtrH(60),
 		Threshold: 75,
 		FailLabel: "NEEDS IMPROVEMENT",
 	}
@@ -661,7 +664,7 @@ func TestWriteMarkdown_CustomFailLabel(t *testing.T) {
 func TestWriteMarkdown_NoFactors(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Simple Report",
-		Score:     85,
+		Score:     intPtrH(85),
 		Threshold: 75,
 	}
 
@@ -683,7 +686,7 @@ func TestWriteMarkdown_EdgeCases(t *testing.T) {
 	t.Run("zero score", func(t *testing.T) {
 		report := &confidence.Report{
 			Title:     "Zero Score",
-			Score:     0,
+			Score:     intPtrH(0),
 			Threshold: 75,
 		}
 
@@ -701,7 +704,7 @@ func TestWriteMarkdown_EdgeCases(t *testing.T) {
 	t.Run("100 score", func(t *testing.T) {
 		report := &confidence.Report{
 			Title:     "Perfect Score",
-			Score:     100,
+			Score:     intPtrH(100),
 			Threshold: 75,
 		}
 
@@ -719,13 +722,13 @@ func TestWriteMarkdown_EdgeCases(t *testing.T) {
 	t.Run("zero delta", func(t *testing.T) {
 		report := &confidence.Report{
 			Title:     "Test",
-			Score:     85,
+			Score:     intPtrH(85),
 			Threshold: 75,
 		}
 
 		baseline := &confidence.Report{
 			Title:     "Baseline",
-			Score:     85,
+			Score:     intPtrH(85),
 			Threshold: 75,
 		}
 
@@ -750,7 +753,7 @@ func TestGenerateBadge_Basic(t *testing.T) {
 
 	report := &confidence.Report{
 		Title:     "Test Report",
-		Score:     85,
+		Score:     intPtrH(85),
 		Threshold: 75,
 	}
 
@@ -780,7 +783,7 @@ func TestGenerateBadge_DarkMode(t *testing.T) {
 
 	report := &confidence.Report{
 		Title:     "Test Report",
-		Score:     85,
+		Score:     intPtrH(85),
 		Threshold: 75,
 	}
 
@@ -807,7 +810,7 @@ func TestGenerateBadge_InvalidPath(t *testing.T) {
 
 	report := &confidence.Report{
 		Title:     "Test",
-		Score:     85,
+		Score:     intPtrH(85),
 		Threshold: 75,
 	}
 
@@ -825,7 +828,7 @@ func TestGenerateDashboard_Basic(t *testing.T) {
 
 	report := &confidence.Report{
 		Title:     "Test Report",
-		Score:     85,
+		Score:     intPtrH(85),
 		Threshold: 75,
 	}
 
@@ -855,7 +858,7 @@ func TestGenerateDashboard_DarkMode(t *testing.T) {
 
 	report := &confidence.Report{
 		Title:     "Test Report",
-		Score:     85,
+		Score:     intPtrH(85),
 		Threshold: 75,
 	}
 
@@ -881,7 +884,7 @@ func TestGenerateDashboard_WithFactors(t *testing.T) {
 
 	report := &confidence.Report{
 		Title:     "Test Report",
-		Score:     85,
+		Score:     intPtrH(85),
 		Threshold: 75,
 		Factors: []confidence.Factor{
 			{Name: "Coverage", Score: 90, Weight: 50},
@@ -911,7 +914,7 @@ func TestGenerateDashboard_InvalidPath(t *testing.T) {
 
 	report := &confidence.Report{
 		Title:     "Test",
-		Score:     85,
+		Score:     intPtrH(85),
 		Threshold: 75,
 	}
 
@@ -929,7 +932,7 @@ func TestGenerateAggregateBadge_Basic(t *testing.T) {
 
 	report := &confidence.Report{
 		Title:     "Aggregate",
-		Score:     80,
+		Score:     intPtrH(80),
 		Threshold: 75,
 	}
 
@@ -955,7 +958,7 @@ func TestGenerateAggregateBadge_FlatType(t *testing.T) {
 
 	report := &confidence.Report{
 		Title:     "Aggregate",
-		Score:     80,
+		Score:     intPtrH(80),
 		Threshold: 75,
 	}
 
@@ -985,7 +988,7 @@ func TestGenerateAggregateBadge_FlatWithIcon(t *testing.T) {
 
 	report := &confidence.Report{
 		Title:     "Aggregate",
-		Score:     80,
+		Score:     intPtrH(80),
 		Threshold: 75,
 	}
 
@@ -1017,7 +1020,7 @@ func TestGenerateAggregateBadge_FlatWithLabel(t *testing.T) {
 
 	report := &confidence.Report{
 		Title:     "Aggregate",
-		Score:     80,
+		Score:     intPtrH(80),
 		Threshold: 75,
 	}
 
@@ -1044,7 +1047,7 @@ func TestGenerateAggregateBadge_DarkMode(t *testing.T) {
 
 	report := &confidence.Report{
 		Title:     "Aggregate",
-		Score:     80,
+		Score:     intPtrH(80),
 		Threshold: 75,
 	}
 
@@ -1069,7 +1072,7 @@ func TestGenerateAggregateBadge_InvalidPath(t *testing.T) {
 
 	report := &confidence.Report{
 		Title:     "Aggregate",
-		Score:     80,
+		Score:     intPtrH(80),
 		Threshold: 75,
 	}
 
@@ -1089,7 +1092,7 @@ func TestGenerateMultiDashboard_Basic(t *testing.T) {
 		{
 			Report: &confidence.Report{
 				Title:     "Report 1",
-				Score:     90,
+				Score:     intPtrH(90),
 				Threshold: 75,
 			},
 			Weight: 60,
@@ -1098,7 +1101,7 @@ func TestGenerateMultiDashboard_Basic(t *testing.T) {
 		{
 			Report: &confidence.Report{
 				Title:     "Report 2",
-				Score:     80,
+				Score:     intPtrH(80),
 				Threshold: 75,
 			},
 			Weight: 40,
@@ -1108,7 +1111,7 @@ func TestGenerateMultiDashboard_Basic(t *testing.T) {
 
 	aggregate := &confidence.Report{
 		Title:     "Aggregate",
-		Score:     86,
+		Score:     intPtrH(86),
 		Threshold: 75,
 	}
 
@@ -1142,7 +1145,7 @@ func TestGenerateMultiDashboard_DarkMode(t *testing.T) {
 		{
 			Report: &confidence.Report{
 				Title:     "Report 1",
-				Score:     85,
+				Score:     intPtrH(85),
 				Threshold: 75,
 			},
 			Weight: 100,
@@ -1152,7 +1155,7 @@ func TestGenerateMultiDashboard_DarkMode(t *testing.T) {
 
 	aggregate := &confidence.Report{
 		Title:     "Aggregate",
-		Score:     85,
+		Score:     intPtrH(85),
 		Threshold: 75,
 	}
 
@@ -1178,7 +1181,7 @@ func TestGenerateMultiDashboard_InvalidPath(t *testing.T) {
 	reports := []reportWithWeight{}
 	aggregate := &confidence.Report{
 		Title:     "Aggregate",
-		Score:     0,
+		Score:     intPtrH(0),
 		Threshold: 75,
 	}
 
@@ -1196,7 +1199,7 @@ func TestGenerateBadge_Verbose(t *testing.T) {
 
 	report := &confidence.Report{
 		Title:     "Test Report",
-		Score:     85,
+		Score:     intPtrH(85),
 		Threshold: 75,
 	}
 
@@ -1218,7 +1221,7 @@ func TestGenerateDashboard_Verbose(t *testing.T) {
 
 	report := &confidence.Report{
 		Title:     "Test Report",
-		Score:     85,
+		Score:     intPtrH(85),
 		Threshold: 75,
 	}
 
@@ -1240,7 +1243,7 @@ func TestGenerateAggregateBadge_Verbose(t *testing.T) {
 
 	report := &confidence.Report{
 		Title:     "Aggregate",
-		Score:     80,
+		Score:     intPtrH(80),
 		Threshold: 75,
 	}
 
@@ -1264,7 +1267,7 @@ func TestGenerateMultiDashboard_Verbose(t *testing.T) {
 		{
 			Report: &confidence.Report{
 				Title:     "Report 1",
-				Score:     85,
+				Score:     intPtrH(85),
 				Threshold: 75,
 			},
 			Weight: 100,
@@ -1274,7 +1277,7 @@ func TestGenerateMultiDashboard_Verbose(t *testing.T) {
 
 	aggregate := &confidence.Report{
 		Title:     "Aggregate",
-		Score:     85,
+		Score:     intPtrH(85),
 		Threshold: 75,
 	}
 
@@ -1298,7 +1301,7 @@ func TestGenerateBadge_FailingScore(t *testing.T) {
 
 	report := &confidence.Report{
 		Title:     "Failing Report",
-		Score:     50,
+		Score:     intPtrH(50),
 		Threshold: 75,
 	}
 
@@ -1324,7 +1327,7 @@ func TestGenerateDashboard_FailingScore(t *testing.T) {
 
 	report := &confidence.Report{
 		Title:     "Failing Report",
-		Score:     50,
+		Score:     intPtrH(50),
 		Threshold: 75,
 	}
 
@@ -1350,7 +1353,7 @@ func TestGenerateAggregateBadge_FailingScore(t *testing.T) {
 
 	report := &confidence.Report{
 		Title:     "Failing Aggregate",
-		Score:     50,
+		Score:     intPtrH(50),
 		Threshold: 75,
 	}
 
@@ -1378,7 +1381,7 @@ func TestGenerateMultiDashboard_MixedScores(t *testing.T) {
 		{
 			Report: &confidence.Report{
 				Title:     "Passing Report",
-				Score:     90,
+				Score:     intPtrH(90),
 				Threshold: 75,
 			},
 			Weight: 50,
@@ -1387,7 +1390,7 @@ func TestGenerateMultiDashboard_MixedScores(t *testing.T) {
 		{
 			Report: &confidence.Report{
 				Title:     "Failing Report",
-				Score:     50,
+				Score:     intPtrH(50),
 				Threshold: 75,
 			},
 			Weight: 50,
@@ -1397,7 +1400,7 @@ func TestGenerateMultiDashboard_MixedScores(t *testing.T) {
 
 	aggregate := &confidence.Report{
 		Title:     "Aggregate",
-		Score:     70, // Mixed result
+		Score:     intPtrH(70), // Mixed result
 		Threshold: 75,
 	}
 
@@ -1423,7 +1426,7 @@ func TestGenerateMultiDashboard_MixedScores(t *testing.T) {
 func TestWriteMarkdown_FactorWithDescription(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Test Report",
-		Score:     85,
+		Score:     intPtrH(85),
 		Threshold: 75,
 		Factors: []confidence.Factor{
 			{Name: "Coverage", Score: 90, Weight: 50, Description: "Unit test coverage"},

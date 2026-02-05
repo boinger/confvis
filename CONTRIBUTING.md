@@ -204,6 +204,10 @@ confvis/
 │   ├── dashboard/      # HTML dashboard generation
 │   ├── history/        # Sparkline history tracking
 │   └── sources/        # External metric sources
+│       ├── cmdrun/     # Command execution utilities (shared)
+│       ├── httpclient/ # HTTP client utilities (shared)
+│       ├── repoparse/  # Repository parsing (shared)
+│       ├── scoring/    # Scoring algorithms (shared)
 │       ├── codecov/    # Codecov coverage metrics
 │       ├── dependabot/ # GitHub Dependabot alerts
 │       ├── ghactions/  # GitHub Actions CI metrics

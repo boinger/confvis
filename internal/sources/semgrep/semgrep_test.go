@@ -92,7 +92,7 @@ func TestSource_BuildReport(t *testing.T) {
 				t.Fatalf("buildReport() error = %v", err)
 			}
 
-			if result.Score != tt.wantScore {
+			if result.ScoreValue() != tt.wantScore {
 				t.Errorf("Score = %d, want %d", result.Score, tt.wantScore)
 			}
 
@@ -136,7 +136,7 @@ func TestSource_FetchFromReader(t *testing.T) {
 	// Info: 100*25 = 2500
 	// Total: 8850/100 = 89 (integer rounding)
 	wantScore := 89
-	if result.Score != wantScore {
+	if result.ScoreValue() != wantScore {
 		t.Errorf("Score = %d, want %d", result.Score, wantScore)
 	}
 }
@@ -295,7 +295,7 @@ echo '{"results":[]}'
 	}
 
 	// Clean scan should have score of 100
-	if report.Score != 100 {
+	if report.ScoreValue() != 100 {
 		t.Errorf("Score = %d, want 100 for clean scan", report.Score)
 	}
 }
@@ -327,7 +327,7 @@ echo '{"results":[]}'
 		t.Fatalf("Fetch() error = %v", err)
 	}
 
-	if report.Score != 100 {
+	if report.ScoreValue() != 100 {
 		t.Errorf("Score = %d, want 100", report.Score)
 	}
 }
@@ -491,7 +491,7 @@ func TestSource_Fetch_FromStdin(t *testing.T) {
 	// Warning: 100*35 = 3500
 	// Info: 100*25 = 2500
 	// Total: 9200/100 = 92
-	if report.Score != 92 {
+	if report.ScoreValue() != 92 {
 		t.Errorf("Score = %d, want 92", report.Score)
 	}
 }

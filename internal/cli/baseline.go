@@ -209,7 +209,7 @@ func saveBaseline(deps *BaselineDeps, b *baseline.Baseline, useFile bool) error 
 		}
 		if deps.Verbose && !deps.Quiet {
 			_, _ = fmt.Fprintf(deps.Stdout, "Saved baseline to %s (score: %d, commit: %s)\n",
-				deps.File, b.Score, truncateCommit(b.Commit))
+				deps.File, b.ScoreValue(), truncateCommit(b.Commit))
 		}
 		return nil
 	}
@@ -219,7 +219,7 @@ func saveBaseline(deps *BaselineDeps, b *baseline.Baseline, useFile bool) error 
 	}
 	if deps.Verbose && !deps.Quiet {
 		_, _ = fmt.Fprintf(deps.Stdout, "Saved baseline to %s (score: %d, commit: %s)\n",
-			deps.Ref, b.Score, truncateCommit(b.Commit))
+			deps.Ref, b.ScoreValue(), truncateCommit(b.Commit))
 	}
 	return nil
 }
@@ -237,7 +237,7 @@ func outputBaselineDryRun(deps *BaselineDeps, b *baseline.Baseline, useFile bool
 	_, _ = fmt.Fprintf(deps.Stdout, "Destination: %s (%s)\n", destination, destType)
 	_, _ = fmt.Fprintln(deps.Stdout)
 	_, _ = fmt.Fprintln(deps.Stdout, "Baseline content:")
-	_, _ = fmt.Fprintf(deps.Stdout, "  Score:   %d\n", b.Score)
+	_, _ = fmt.Fprintf(deps.Stdout, "  Score:   %d\n", b.ScoreValue())
 	_, _ = fmt.Fprintf(deps.Stdout, "  Title:   %s\n", b.Title)
 	if b.Commit != "" {
 		_, _ = fmt.Fprintf(deps.Stdout, "  Commit:  %s\n", truncateCommit(b.Commit))
@@ -303,7 +303,7 @@ func outputBaseline(deps *BaselineDeps, b *baseline.Baseline) error {
 			return fmt.Errorf("encoding JSON: %w", err)
 		}
 	case "text":
-		_, _ = fmt.Fprintf(deps.Stdout, "Baseline: %d%%", b.Score)
+		_, _ = fmt.Fprintf(deps.Stdout, "Baseline: %d%%", b.ScoreValue())
 		if b.SavedAt != "" {
 			_, _ = fmt.Fprintf(deps.Stdout, " (saved %s", b.SavedAt)
 			if b.Commit != "" {

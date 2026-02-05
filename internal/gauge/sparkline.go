@@ -40,7 +40,7 @@ func GenerateSparkline(w io.Writer, report *confidence.Report, opts SparklineOpt
 		thresholds.YellowAbove = opts.YellowAbove
 	}
 
-	scoreColor := scheme.ScoreColor(report.Score, thresholds.GreenAbove, thresholds.YellowAbove)
+	scoreColor := scheme.ScoreColor(report.ScoreValue(), thresholds.GreenAbove, thresholds.YellowAbove)
 
 	// Calculate dimensions
 	labelWidth := 40 // Space for score text
@@ -91,7 +91,7 @@ func GenerateSparkline(w io.Writer, report *confidence.Report, opts SparklineOpt
 	// Score text on the right
 	textX := opts.Width - labelWidth/2
 	textY := opts.Height/2 + 5
-	canvas.Text(textX, textY, fmt.Sprintf("%d%%", report.Score),
+	canvas.Text(textX, textY, fmt.Sprintf("%d%%", report.ScoreValue()),
 		fmt.Sprintf("text-anchor:middle;font-family:system-ui,-apple-system,sans-serif;font-size:12px;font-weight:bold;fill:%s", scoreColor))
 
 	canvas.End()
