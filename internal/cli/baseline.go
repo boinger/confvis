@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -297,10 +296,8 @@ func loadBaseline(deps *BaselineDeps) (*baseline.Baseline, string, error) {
 func outputBaseline(deps *BaselineDeps, b *baseline.Baseline) error {
 	switch deps.Format {
 	case "json":
-		enc := json.NewEncoder(deps.Stdout)
-		enc.SetIndent("", "  ")
-		if err := enc.Encode(b); err != nil {
-			return fmt.Errorf("encoding JSON: %w", err)
+		if err := encodeJSONIndented(deps.Stdout, b); err != nil {
+			return err
 		}
 	case "text":
 		_, _ = fmt.Fprintf(deps.Stdout, "Baseline: %d%%", b.ScoreValue())

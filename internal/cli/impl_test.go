@@ -2967,8 +2967,8 @@ func TestAggregateImpl_EmitJSON_CreateError(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error when emit-json file creation fails")
 	}
-	if !strings.Contains(err.Error(), "creating emit-json file") {
-		t.Errorf("error should mention creating emit-json file, got: %v", err)
+	if !strings.Contains(err.Error(), "creating JSON file") {
+		t.Errorf("error should mention creating JSON file, got: %v", err)
 	}
 }
 
@@ -2994,8 +2994,8 @@ func TestAggregateImpl_EmitJSON_CloseError(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error when emit-json file close fails")
 	}
-	if !strings.Contains(err.Error(), "closing emit-json file") {
-		t.Errorf("error should mention closing emit-json file, got: %v", err)
+	if !strings.Contains(err.Error(), "closing JSON file") {
+		t.Errorf("error should mention closing JSON file, got: %v", err)
 	}
 }
 

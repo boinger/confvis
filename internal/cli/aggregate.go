@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -282,41 +281,16 @@ func generateAggregateBadge(path string, report *confidence.Report, dark bool, b
 }
 
 func generateAggregateBadgeWithFS(fs FileSystem, path string, report *confidence.Report, dark bool, badgeType, icon, label string, verbose bool) error {
-	f, err := fs.Create(path)
-	if err != nil {
-		return fmt.Errorf("creating badge file: %w", err)
-	}
-
-	var genErr error
-	if badgeType == "flat" {
-		flatOpts := gauge.FlatOptions{
-			Icon:     icon,
-			Label:    label,
-			DarkMode: dark,
+	return writeToFileWithFS(fs, path, verbose, "badge", func(w io.Writer) error {
+		if badgeType == "flat" {
+			return gauge.GenerateFlat(w, report, gauge.FlatOptions{
+				Icon: icon, Label: label, DarkMode: dark,
+			})
 		}
-		genErr = gauge.GenerateFlat(f, report, flatOpts)
-	} else {
-		opts := gauge.Options{
-			Width:    200,
-			Height:   120,
-			DarkMode: dark,
-		}
-		genErr = gauge.Generate(f, report, opts)
-	}
-
-	if genErr != nil {
-		_ = f.Close()
-		return fmt.Errorf("generating badge: %w", genErr)
-	}
-
-	if err := f.Close(); err != nil {
-		return fmt.Errorf("closing badge file: %w", err)
-	}
-
-	if verbose {
-		fmt.Printf("Wrote badge to %s\n", path)
-	}
-	return nil
+		return gauge.Generate(w, report, gauge.Options{
+			Width: 200, Height: 120, DarkMode: dark,
+		})
+	})
 }
 
 func generateMultiDashboard(path string, reports []reportWithWeight, aggregate *confidence.Report, dark, fragment, verbose bool) error {
@@ -324,13 +298,8 @@ func generateMultiDashboard(path string, reports []reportWithWeight, aggregate *
 }
 
 func generateMultiDashboardWithFS(fs FileSystem, path string, reports []reportWithWeight, aggregate *confidence.Report, dark, fragment, verbose bool) error {
-	f, err := fs.Create(path)
-	if err != nil {
-		return fmt.Errorf("creating dashboard file: %w", err)
-	}
-
 	// Convert to format expected by dashboard
-	var dashReports []dashboard.ReportSummary
+	dashReports := make([]dashboard.ReportSummary, 0, len(reports))
 	for _, r := range reports {
 		dashReports = append(dashReports, dashboard.ReportSummary{
 			Report: r.Report,
@@ -339,23 +308,11 @@ func generateMultiDashboardWithFS(fs FileSystem, path string, reports []reportWi
 		})
 	}
 
-	opts := dashboard.MultiOptions{
-		DarkMode: dark,
-		Fragment: fragment,
-	}
-	if err := dashboard.GenerateMulti(f, dashReports, aggregate, opts); err != nil {
-		_ = f.Close()
-		return fmt.Errorf("generating dashboard: %w", err)
-	}
-
-	if err := f.Close(); err != nil {
-		return fmt.Errorf("closing dashboard file: %w", err)
-	}
-
-	if verbose {
-		fmt.Printf("Wrote dashboard to %s\n", path)
-	}
-	return nil
+	return writeToFileWithFS(fs, path, verbose, "dashboard", func(w io.Writer) error {
+		return dashboard.GenerateMulti(w, dashReports, aggregate, dashboard.MultiOptions{
+			DarkMode: dark, Fragment: fragment,
+		})
+	})
 }
 
 // sanitizeFilename creates a safe filename from a string.
@@ -381,11 +338,6 @@ func writeAggregateJSON(fs FileSystem, path string, report *confidence.Report, v
 		}
 	}
 
-	f, err := fs.Create(path)
-	if err != nil {
-		return fmt.Errorf("creating emit-json file: %w", err)
-	}
-
 	output := struct {
 		Title     string `json:"title"`
 		Score     int    `json:"score"`
@@ -398,21 +350,9 @@ func writeAggregateJSON(fs FileSystem, path string, report *confidence.Report, v
 		Passed:    report.Passed(),
 	}
 
-	enc := json.NewEncoder(f)
-	enc.SetIndent("", "  ")
-	if err := enc.Encode(output); err != nil {
-		_ = f.Close()
-		return fmt.Errorf("encoding JSON: %w", err)
-	}
-
-	if err := f.Close(); err != nil {
-		return fmt.Errorf("closing emit-json file: %w", err)
-	}
-
-	if verbose {
-		fmt.Printf("Wrote JSON to %s\n", path)
-	}
-	return nil
+	return writeToFileWithFS(fs, path, verbose, "JSON", func(w io.Writer) error {
+		return encodeJSONIndented(w, output)
+	})
 }
 
 // openConfigFile is defined in generate.go, but we need to ensure it uses

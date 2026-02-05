@@ -30,15 +30,7 @@ func GenerateSparkline(w io.Writer, report *confidence.Report, opts SparklineOpt
 	}
 
 	scheme := GetColorScheme(opts.Style, opts.DarkMode)
-
-	// Determine color thresholds
-	thresholds := report.EffectiveColorThresholds()
-	if opts.GreenAbove > 0 {
-		thresholds.GreenAbove = opts.GreenAbove
-	}
-	if opts.YellowAbove > 0 {
-		thresholds.YellowAbove = opts.YellowAbove
-	}
+	thresholds := resolveColorThresholds(report, opts.GreenAbove, opts.YellowAbove)
 
 	scoreColor := scheme.ScoreColor(report.ScoreValue(), thresholds.GreenAbove, thresholds.YellowAbove)
 

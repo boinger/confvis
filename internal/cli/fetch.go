@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -279,10 +278,8 @@ func writeFetchOutput(deps *FetchDeps, report *confidence.Report, outputToStdout
 		}()
 	}
 
-	enc := json.NewEncoder(out)
-	enc.SetIndent("", "  ")
-	if err := enc.Encode(report); err != nil {
-		return fmt.Errorf("encoding JSON: %w", err)
+	if err := encodeJSONIndented(out, report); err != nil {
+		return err
 	}
 
 	return nil

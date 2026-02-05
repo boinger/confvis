@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -357,12 +356,7 @@ func writeJSON(w io.Writer, report *confidence.Report, baselineReport *confidenc
 		output.Baseline = &baselineScore
 		output.Delta = &delta
 	}
-	enc := json.NewEncoder(w)
-	enc.SetIndent("", "  ")
-	if err := enc.Encode(output); err != nil {
-		return fmt.Errorf("encoding JSON: %w", err)
-	}
-	return nil
+	return encodeJSONIndented(w, output)
 }
 
 // writeText generates plain text output for the report.

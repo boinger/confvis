@@ -2,11 +2,11 @@ package cli
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -147,21 +147,41 @@ func openConfigFile(fs FileSystem, path string, format confidence.Format) (io.Re
 
 	// Auto-detect format from extension
 	if format == confidence.FormatAuto {
-		format = detectConfigFormat(path)
+		format = confidence.DetectFormat(path)
 	}
 
 	return bytes.NewReader(content), format, nil
 }
 
-// detectConfigFormat returns the format based on file extension.
-func detectConfigFormat(path string) confidence.Format {
-	ext := strings.ToLower(filepath.Ext(path))
-	switch ext {
-	case ".yaml", ".yml":
-		return confidence.FormatYAML
-	default:
-		return confidence.FormatJSON
+
+// writeToFileWithFS creates a file, calls the generator function, closes the file,
+// and optionally prints a verbose message. It handles error cleanup on the file handle.
+func writeToFileWithFS(fs FileSystem, path string, verbose bool, label string, fn func(io.Writer) error) error {
+	f, err := fs.Create(path)
+	if err != nil {
+		return fmt.Errorf("creating %s file: %w", label, err)
 	}
+	if err := fn(f); err != nil {
+		_ = f.Close()
+		return fmt.Errorf("generating %s: %w", label, err)
+	}
+	if err := f.Close(); err != nil {
+		return fmt.Errorf("closing %s file: %w", label, err)
+	}
+	if verbose {
+		fmt.Printf("Wrote %s to %s\n", label, path)
+	}
+	return nil
+}
+
+// encodeJSONIndented writes v as pretty-printed JSON to w.
+func encodeJSONIndented(w io.Writer, v any) error {
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(v); err != nil {
+		return fmt.Errorf("encoding JSON: %w", err)
+	}
+	return nil
 }
 
 func generateBadge(path string, report *confidence.Report, dark, verbose bool) error {
@@ -169,29 +189,9 @@ func generateBadge(path string, report *confidence.Report, dark, verbose bool) e
 }
 
 func generateBadgeWithFS(fs FileSystem, path string, report *confidence.Report, dark, verbose bool) error {
-	f, err := fs.Create(path)
-	if err != nil {
-		return fmt.Errorf("creating badge file: %w", err)
-	}
-
-	opts := gauge.Options{
-		Width:    200,
-		Height:   120,
-		DarkMode: dark,
-	}
-	if err := gauge.Generate(f, report, opts); err != nil {
-		_ = f.Close()
-		return fmt.Errorf("generating badge: %w", err)
-	}
-
-	if err := f.Close(); err != nil {
-		return fmt.Errorf("closing badge file: %w", err)
-	}
-
-	if verbose {
-		fmt.Printf("Wrote badge to %s\n", path)
-	}
-	return nil
+	return writeToFileWithFS(fs, path, verbose, "badge", func(w io.Writer) error {
+		return gauge.Generate(w, report, gauge.Options{Width: 200, Height: 120, DarkMode: dark})
+	})
 }
 
 func generateDashboard(path string, report *confidence.Report, dark, verbose bool) error {
@@ -199,25 +199,7 @@ func generateDashboard(path string, report *confidence.Report, dark, verbose boo
 }
 
 func generateDashboardWithFS(fs FileSystem, path string, report *confidence.Report, dark, verbose bool) error {
-	f, err := fs.Create(path)
-	if err != nil {
-		return fmt.Errorf("creating dashboard file: %w", err)
-	}
-
-	opts := dashboard.Options{
-		DarkMode: dark,
-	}
-	if err := dashboard.Generate(f, report, opts); err != nil {
-		_ = f.Close()
-		return fmt.Errorf("generating dashboard: %w", err)
-	}
-
-	if err := f.Close(); err != nil {
-		return fmt.Errorf("closing dashboard file: %w", err)
-	}
-
-	if verbose {
-		fmt.Printf("Wrote dashboard to %s\n", path)
-	}
-	return nil
+	return writeToFileWithFS(fs, path, verbose, "dashboard", func(w io.Writer) error {
+		return dashboard.Generate(w, report, dashboard.Options{DarkMode: dark})
+	})
 }

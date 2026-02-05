@@ -36,7 +36,7 @@ func ParseFileWithFormat(path string, format Format) (*Report, error) {
 
 	// Auto-detect format from extension
 	if format == FormatAuto {
-		format = detectFormat(path)
+		format = DetectFormat(path)
 	}
 
 	report, err := ParseWithFormat(f, format)
@@ -46,8 +46,8 @@ func ParseFileWithFormat(path string, format Format) (*Report, error) {
 	return report, err
 }
 
-// detectFormat returns the format based on file extension.
-func detectFormat(path string) Format {
+// DetectFormat returns the format based on file extension.
+func DetectFormat(path string) Format {
 	ext := strings.ToLower(filepath.Ext(path))
 	switch ext {
 	case ".yaml", ".yml":

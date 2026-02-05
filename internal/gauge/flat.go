@@ -29,15 +29,7 @@ type FlatOptions struct {
 // GenerateFlat creates a shields.io-style flat badge for the given report.
 func GenerateFlat(w io.Writer, report *confidence.Report, opts FlatOptions) error {
 	scheme := GetColorScheme(opts.Style, opts.DarkMode)
-
-	// Determine color thresholds
-	thresholds := report.EffectiveColorThresholds()
-	if opts.GreenAbove > 0 {
-		thresholds.GreenAbove = opts.GreenAbove
-	}
-	if opts.YellowAbove > 0 {
-		thresholds.YellowAbove = opts.YellowAbove
-	}
+	thresholds := resolveColorThresholds(report, opts.GreenAbove, opts.YellowAbove)
 
 	// Use custom label or default to report title
 	label := opts.Label

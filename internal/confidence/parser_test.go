@@ -508,9 +508,9 @@ func TestDetectFormat(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		got := detectFormat(tt.path)
+		got := DetectFormat(tt.path)
 		if got != tt.want {
-			t.Errorf("detectFormat(%q) = %q, want %q", tt.path, got, tt.want)
+			t.Errorf("DetectFormat(%q) = %q, want %q", tt.path, got, tt.want)
 		}
 	}
 }

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/boinger/confvis/internal/confidence"
+	"github.com/boinger/confvis/internal/sources/httpclient"
 )
 
 const (
@@ -66,19 +67,13 @@ type GitHubClientConfig struct {
 
 // NewGitHubClient creates a new GitHub Checks API client.
 func NewGitHubClient(cfg GitHubClientConfig) *GitHubClient {
-	baseURL := cfg.BaseURL
-	if baseURL == "" {
-		baseURL = defaultGitHubAPIURL
-	}
-	baseURL = strings.TrimRight(baseURL, "/")
-
 	timeout := cfg.Timeout
 	if timeout == 0 {
 		timeout = defaultTimeout
 	}
 
 	return &GitHubClient{
-		baseURL:    baseURL,
+		baseURL:    httpclient.NormalizeBaseURL(cfg.BaseURL, defaultGitHubAPIURL),
 		token:      cfg.Token,
 		httpClient: &http.Client{Timeout: timeout},
 	}
@@ -87,14 +82,8 @@ func NewGitHubClient(cfg GitHubClientConfig) *GitHubClient {
 // NewGitHubClientWithHTTP creates a new client with a custom HTTP client.
 // This is primarily intended for testing.
 func NewGitHubClientWithHTTP(cfg GitHubClientConfig, httpClient *http.Client) *GitHubClient {
-	baseURL := cfg.BaseURL
-	if baseURL == "" {
-		baseURL = defaultGitHubAPIURL
-	}
-	baseURL = strings.TrimRight(baseURL, "/")
-
 	return &GitHubClient{
-		baseURL:    baseURL,
+		baseURL:    httpclient.NormalizeBaseURL(cfg.BaseURL, defaultGitHubAPIURL),
 		token:      cfg.Token,
 		httpClient: httpClient,
 	}
@@ -165,20 +154,20 @@ func (c *GitHubClient) CreateCheck(ctx context.Context, report *confidence.Repor
 	return c.postCheckRun(ctx, endpoint, req)
 }
 
-func (c *GitHubClient) postCheckRun(ctx context.Context, endpoint string, req CheckRunRequest) (*CheckRunResponse, error) {
-	body, err := json.Marshal(req)
-	if err != nil {
-		return nil, fmt.Errorf(errMarshalingRequest, err)
-	}
-
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
+// doRequest executes an HTTP request with standard GitHub API headers.
+// It returns the response body bytes on success, or an error if the request
+// fails or the status code doesn't match expectedStatus.
+func (c *GitHubClient) doRequest(ctx context.Context, method, endpoint string, body io.Reader, expectedStatus int) ([]byte, error) {
+	httpReq, err := http.NewRequestWithContext(ctx, method, endpoint, body)
 	if err != nil {
 		return nil, fmt.Errorf(errCreatingRequest, err)
 	}
 
 	httpReq.Header.Set(headerAuthorization, bearerPrefix+c.token)
 	httpReq.Header.Set(headerAccept, acceptGitHubJSON)
-	httpReq.Header.Set(headerContentType, contentTypeJSON)
+	if body != nil {
+		httpReq.Header.Set(headerContentType, contentTypeJSON)
+	}
 	httpReq.Header.Set(headerGitHubAPIVersion, gitHubAPIVersion)
 
 	resp, err := c.httpClient.Do(httpReq)
@@ -192,8 +181,26 @@ func (c *GitHubClient) postCheckRun(ctx context.Context, endpoint string, req Ch
 		return nil, fmt.Errorf(errReadingResponse, err)
 	}
 
-	if resp.StatusCode != http.StatusCreated {
+	if resp.StatusCode != expectedStatus {
 		return nil, fmt.Errorf(errAPIStatus, resp.StatusCode, string(respBody))
+	}
+
+	return respBody, nil
+}
+
+// marshalAndPost marshals a request body and sends it via doRequest.
+func (c *GitHubClient) marshalAndPost(ctx context.Context, method, endpoint string, reqBody any, expectedStatus int) ([]byte, error) {
+	jsonBody, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, fmt.Errorf(errMarshalingRequest, err)
+	}
+	return c.doRequest(ctx, method, endpoint, bytes.NewReader(jsonBody), expectedStatus)
+}
+
+func (c *GitHubClient) postCheckRun(ctx context.Context, endpoint string, req CheckRunRequest) (*CheckRunResponse, error) {
+	respBody, err := c.marshalAndPost(ctx, http.MethodPost, endpoint, req, http.StatusCreated)
+	if err != nil {
+		return nil, err
 	}
 
 	var result CheckRunResponse
@@ -305,28 +312,9 @@ func (c *GitHubClient) FindComment(ctx context.Context, opts CommentOptions) (*C
 
 	endpoint := fmt.Sprintf(issueCommentsEndpoint, c.baseURL, opts.Owner, opts.Repo, opts.PR)
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	respBody, err := c.doRequest(ctx, http.MethodGet, endpoint, nil, http.StatusOK)
 	if err != nil {
-		return nil, fmt.Errorf(errCreatingRequest, err)
-	}
-
-	httpReq.Header.Set(headerAuthorization, bearerPrefix+c.token)
-	httpReq.Header.Set(headerAccept, acceptGitHubJSON)
-	httpReq.Header.Set(headerGitHubAPIVersion, gitHubAPIVersion)
-
-	resp, err := c.httpClient.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf(errMakingRequest, err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf(errReadingResponse, err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf(errAPIStatus, resp.StatusCode, string(respBody))
+		return nil, err
 	}
 
 	var comments issueCommentsResponse
@@ -358,38 +346,11 @@ func (c *GitHubClient) PostComment(ctx context.Context, opts CommentOptions, bod
 
 	endpoint := fmt.Sprintf(issueCommentsEndpoint, c.baseURL, opts.Owner, opts.Repo, opts.PR)
 
-	reqBody := struct {
+	respBody, err := c.marshalAndPost(ctx, http.MethodPost, endpoint, struct {
 		Body string `json:"body"`
-	}{Body: body}
-
-	jsonBody, err := json.Marshal(reqBody)
+	}{Body: body}, http.StatusCreated)
 	if err != nil {
-		return nil, fmt.Errorf(errMarshalingRequest, err)
-	}
-
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(jsonBody))
-	if err != nil {
-		return nil, fmt.Errorf(errCreatingRequest, err)
-	}
-
-	httpReq.Header.Set(headerAuthorization, bearerPrefix+c.token)
-	httpReq.Header.Set(headerAccept, acceptGitHubJSON)
-	httpReq.Header.Set(headerContentType, contentTypeJSON)
-	httpReq.Header.Set(headerGitHubAPIVersion, gitHubAPIVersion)
-
-	resp, err := c.httpClient.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf(errMakingRequest, err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf(errReadingResponse, err)
-	}
-
-	if resp.StatusCode != http.StatusCreated {
-		return nil, fmt.Errorf(errAPIStatus, resp.StatusCode, string(respBody))
+		return nil, err
 	}
 
 	var result CommentResponse
@@ -408,38 +369,11 @@ func (c *GitHubClient) UpdateComment(ctx context.Context, opts CommentOptions, c
 
 	endpoint := fmt.Sprintf("%s/repos/%s/%s/issues/comments/%d", c.baseURL, opts.Owner, opts.Repo, commentID)
 
-	reqBody := struct {
+	respBody, err := c.marshalAndPost(ctx, http.MethodPatch, endpoint, struct {
 		Body string `json:"body"`
-	}{Body: body}
-
-	jsonBody, err := json.Marshal(reqBody)
+	}{Body: body}, http.StatusOK)
 	if err != nil {
-		return nil, fmt.Errorf(errMarshalingRequest, err)
-	}
-
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPatch, endpoint, bytes.NewReader(jsonBody))
-	if err != nil {
-		return nil, fmt.Errorf(errCreatingRequest, err)
-	}
-
-	httpReq.Header.Set(headerAuthorization, bearerPrefix+c.token)
-	httpReq.Header.Set(headerAccept, acceptGitHubJSON)
-	httpReq.Header.Set(headerContentType, contentTypeJSON)
-	httpReq.Header.Set(headerGitHubAPIVersion, gitHubAPIVersion)
-
-	resp, err := c.httpClient.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf(errMakingRequest, err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf(errReadingResponse, err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf(errAPIStatus, resp.StatusCode, string(respBody))
+		return nil, err
 	}
 
 	var result CommentResponse
@@ -458,27 +392,8 @@ func (c *GitHubClient) DeleteComment(ctx context.Context, opts CommentOptions, c
 
 	endpoint := fmt.Sprintf("%s/repos/%s/%s/issues/comments/%d", c.baseURL, opts.Owner, opts.Repo, commentID)
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodDelete, endpoint, nil)
-	if err != nil {
-		return fmt.Errorf(errCreatingRequest, err)
-	}
-
-	httpReq.Header.Set(headerAuthorization, bearerPrefix+c.token)
-	httpReq.Header.Set(headerAccept, acceptGitHubJSON)
-	httpReq.Header.Set(headerGitHubAPIVersion, gitHubAPIVersion)
-
-	resp, err := c.httpClient.Do(httpReq)
-	if err != nil {
-		return fmt.Errorf(errMakingRequest, err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusNoContent {
-		respBody, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf(errAPIStatus, resp.StatusCode, string(respBody))
-	}
-
-	return nil
+	_, err := c.doRequest(ctx, http.MethodDelete, endpoint, nil, http.StatusNoContent)
+	return err
 }
 
 // FindAllConfvisComments finds all confvis comments on a PR.
@@ -493,28 +408,9 @@ func (c *GitHubClient) FindAllConfvisComments(ctx context.Context, opts CommentO
 
 	endpoint := fmt.Sprintf(issueCommentsEndpoint, c.baseURL, opts.Owner, opts.Repo, opts.PR)
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	respBody, err := c.doRequest(ctx, http.MethodGet, endpoint, nil, http.StatusOK)
 	if err != nil {
-		return nil, fmt.Errorf(errCreatingRequest, err)
-	}
-
-	httpReq.Header.Set(headerAuthorization, bearerPrefix+c.token)
-	httpReq.Header.Set(headerAccept, acceptGitHubJSON)
-	httpReq.Header.Set(headerGitHubAPIVersion, gitHubAPIVersion)
-
-	resp, err := c.httpClient.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf(errMakingRequest, err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf(errReadingResponse, err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf(errAPIStatus, resp.StatusCode, string(respBody))
+		return nil, err
 	}
 
 	var comments issueCommentsResponse

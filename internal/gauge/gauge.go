@@ -31,6 +31,18 @@ func DefaultOptions() Options {
 	}
 }
 
+// resolveColorThresholds merges CLI/option overrides with report-level defaults.
+func resolveColorThresholds(report *confidence.Report, greenAbove, yellowAbove int) confidence.ColorThresholds {
+	thresholds := report.EffectiveColorThresholds()
+	if greenAbove > 0 {
+		thresholds.GreenAbove = greenAbove
+	}
+	if yellowAbove > 0 {
+		thresholds.YellowAbove = yellowAbove
+	}
+	return thresholds
+}
+
 // Generate creates an SVG gauge for the given report and writes it to w.
 func Generate(w io.Writer, report *confidence.Report, opts Options) error {
 	if opts.Width == 0 {
@@ -41,15 +53,7 @@ func Generate(w io.Writer, report *confidence.Report, opts Options) error {
 	}
 
 	scheme := GetColorScheme(opts.Style, opts.DarkMode)
-
-	// Determine color thresholds: CLI overrides > report config > defaults
-	thresholds := report.EffectiveColorThresholds()
-	if opts.GreenAbove > 0 {
-		thresholds.GreenAbove = opts.GreenAbove
-	}
-	if opts.YellowAbove > 0 {
-		thresholds.YellowAbove = opts.YellowAbove
-	}
+	thresholds := resolveColorThresholds(report, opts.GreenAbove, opts.YellowAbove)
 
 	canvas := svg.New(w)
 	canvas.Startview(opts.Width, opts.Height, 0, 0, opts.Width, opts.Height)
