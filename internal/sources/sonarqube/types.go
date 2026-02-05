@@ -31,18 +31,6 @@ const (
 	MetricDuplicatedLinesDensity = "duplicated_lines_density"
 )
 
-// AllMetrics lists all metrics to fetch from SonarQube.
-var AllMetrics = []string{
-	MetricCoverage,
-	MetricReliabilityRating,
-	MetricSecurityRating,
-	MetricSqaleRating,
-	MetricVulnerabilities,
-	MetricBugs,
-	MetricCodeSmells,
-	MetricDuplicatedLinesDensity,
-}
-
 // RatingToScore converts a SonarQube rating (1.0-5.0 for A-E) to a score (0-100).
 // A=100, B=75, C=50, D=25, E=0
 func RatingToScore(rating float64) int {

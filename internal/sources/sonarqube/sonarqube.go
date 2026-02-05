@@ -104,6 +104,15 @@ var metricMappings = []metricMapping{
 	{MetricDuplicatedLinesDensity, "Duplication", 5, metricKindDuplication},
 }
 
+// metricKeys derives the list of metric keys from metricMappings.
+func metricKeys() []string {
+	keys := make([]string, len(metricMappings))
+	for i, m := range metricMappings {
+		keys[i] = m.Key
+	}
+	return keys
+}
+
 // measuresToFactors converts SonarQube measures to confidence factors.
 func (s *Source) measuresToFactors(measures *MeasuresResponse, client *Client, project, branch string) []confidence.Factor {
 	measureMap := make(map[string]string)

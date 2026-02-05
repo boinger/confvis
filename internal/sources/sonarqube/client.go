@@ -53,7 +53,7 @@ func NewClientWithHTTP(baseURL, token string, httpClient *http.Client) *Client {
 func (c *Client) FetchMeasures(ctx context.Context, project, branch string) (*MeasuresResponse, error) {
 	params := url.Values{
 		"component":  {project},
-		"metricKeys": {strings.Join(AllMetrics, ",")},
+		"metricKeys": {strings.Join(metricKeys(), ",")},
 	}
 	if branch != "" {
 		params.Set("branch", branch)
