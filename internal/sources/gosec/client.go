@@ -3,8 +3,6 @@ package gosec
 import (
 	"bytes"
 	"context"
-	"encoding/json"
-	"fmt"
 	"os/exec"
 
 	"github.com/boinger/confvis/internal/sources/cmdrun"
@@ -47,27 +45,16 @@ func (c *Client) Scan(ctx context.Context, path string) (*Report, error) {
 	}
 
 	// Even if no issues are found, gosec outputs a valid JSON report
-	stdout := bytes.TrimSpace(result.Stdout)
-	if len(stdout) == 0 {
-		// No output likely means an error occurred
-		return nil, fmt.Errorf("gosec produced no output")
-	}
-
-	// Parse JSON output
-	var report Report
-	if err := json.Unmarshal(stdout, &report); err != nil {
-		return nil, fmt.Errorf("parsing gosec output: %w", err)
-	}
-
-	return &report, nil
+	return cmdrun.ParseJSONOutput[Report](result.Stdout, "gosec")
 }
 
 // checkGosecError returns nil if the error is acceptable (exit code 1 = issues found),
 // otherwise returns a formatted error.
+// Gosec needs special handling because exit code 1 is only valid if stdout contains JSON.
 func checkGosecError(err error, stdout, stderr []byte) error {
 	exitError, ok := err.(*exec.ExitError)
 	if !ok {
-		return fmt.Errorf("gosec scan failed: %w", err)
+		return cmdrun.FormatError(err, stderr, "gosec", "scan")
 	}
 
 	// Exit code 1 means issues were found - this is valid output, not an error

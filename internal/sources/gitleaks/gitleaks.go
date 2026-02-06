@@ -3,7 +3,6 @@ package gitleaks
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 
 	"github.com/boinger/confvis/internal/confidence"
 	"github.com/boinger/confvis/internal/sources"
@@ -64,14 +63,7 @@ func (s *Source) FetchWithClient(ctx context.Context, fetcher Fetcher, opts sour
 	}
 
 	// Determine title
-	title := opts.Title
-	if title == "" {
-		absPath, err := filepath.Abs(path)
-		if err != nil {
-			absPath = path
-		}
-		title = filepath.Base(absPath)
-	}
+	title := sources.DeriveTitleFromPath(path, opts.Title)
 
 	// Build factor with secrets count
 	// Each secret deducts points; no secrets = 100

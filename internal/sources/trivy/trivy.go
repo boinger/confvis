@@ -3,7 +3,6 @@ package trivy
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 
 	"github.com/boinger/confvis/internal/confidence"
 	"github.com/boinger/confvis/internal/sources"
@@ -39,12 +38,6 @@ func (s *Source) Fetch(ctx context.Context, opts sources.Options) (*confidence.R
 		path = "."
 	}
 
-	// Resolve to absolute path for clearer output
-	absPath, err := filepath.Abs(path)
-	if err != nil {
-		absPath = path
-	}
-
 	// Create client
 	client := NewClient(command)
 
@@ -58,10 +51,7 @@ func (s *Source) Fetch(ctx context.Context, opts sources.Options) (*confidence.R
 	counts := countFromResults(report.Results)
 
 	// Determine title
-	title := opts.Title
-	if title == "" {
-		title = filepath.Base(absPath)
-	}
+	title := sources.DeriveTitleFromPath(path, opts.Title)
 
 	// Build factors with severity-based scoring
 	factors := scoring.BuildVulnFactors(

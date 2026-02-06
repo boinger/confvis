@@ -3,7 +3,6 @@ package trufflehog
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"strings"
 
 	"github.com/boinger/confvis/internal/confidence"
@@ -79,11 +78,8 @@ func (s *Source) FetchWithClient(ctx context.Context, fetcher Fetcher, opts sour
 	// Count findings by verification status
 	counts := countFindingsByVerification(findings)
 
-	// Determine title
-	title := opts.Title
-	if title == "" {
-		title = deriveTitle(target)
-	}
+	// Determine title - trufflehog targets can be paths or git URLs
+	title := deriveTitleWithOpts(target, opts.Title)
 
 	// Build factors with verification-based scoring
 	factors := []confidence.Factor{
@@ -104,8 +100,11 @@ func (s *Source) FetchWithClient(ctx context.Context, fetcher Fetcher, opts sour
 	return scoring.BuildReport(title, sourceName, opts.Threshold, factors), nil
 }
 
-// deriveTitle extracts a title from the target path or URL.
-func deriveTitle(target string) string {
+// deriveTitleWithOpts extracts a title from the target path or URL.
+func deriveTitleWithOpts(target, explicitTitle string) string {
+	if explicitTitle != "" {
+		return explicitTitle
+	}
 	if isGitURL(target) {
 		// Extract repo name from URL
 		parts := strings.Split(strings.TrimSuffix(target, ".git"), "/")
@@ -114,12 +113,8 @@ func deriveTitle(target string) string {
 		}
 		return target
 	}
-
-	absPath, err := filepath.Abs(target)
-	if err != nil {
-		absPath = target
-	}
-	return filepath.Base(absPath)
+	// For filesystem paths, use the shared helper
+	return sources.DeriveTitleFromPath(target, "")
 }
 
 // isGitURL checks if the target looks like a git URL.

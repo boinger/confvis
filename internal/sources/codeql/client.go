@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/boinger/confvis/internal/sources/httpclient"
+	"github.com/boinger/confvis/internal/sources/scoring"
 )
 
 // Client is an HTTP client for the GitHub Code Scanning API.
@@ -92,7 +92,7 @@ func (c *Client) AlertsURL(owner, repo string) string {
 // CodeQL alerts have a security_severity_level field (critical, high, medium, low).
 // If that's not set, we fall back to the rule severity (error->high, warning->medium, note->low).
 func countAlertsBySeverity(alerts AlertsResponse) AlertCounts {
-	var counts AlertCounts
+	var scoringCounts scoring.SeverityCounts
 	for _, alert := range alerts {
 		// Prefer security_severity_level if available
 		severity := strings.ToLower(alert.Rule.SecuritySeverityLevel)
@@ -103,27 +103,16 @@ func countAlertsBySeverity(alerts AlertsResponse) AlertCounts {
 				severity = "high"
 			case "warning":
 				severity = "medium"
-			case "note", "none":
-				severity = "low"
 			default:
 				severity = "low"
 			}
 		}
-
-		switch severity {
-		case "critical":
-			counts.Critical++
-		case "high":
-			counts.High++
-		case "medium":
-			counts.Medium++
-		case "low":
-			counts.Low++
-		default:
-			if severity != "" {
-				fmt.Fprintf(os.Stderr, "Warning: unknown codeql severity %q, alert not counted\n", severity)
-			}
-		}
+		scoring.CountSeverity(&scoringCounts, severity, "codeql", true)
 	}
-	return counts
+	return AlertCounts{
+		Critical: scoringCounts.Critical,
+		High:     scoringCounts.High,
+		Medium:   scoringCounts.Medium,
+		Low:      scoringCounts.Low,
+	}
 }

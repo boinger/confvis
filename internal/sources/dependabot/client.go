@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/boinger/confvis/internal/sources/httpclient"
+	"github.com/boinger/confvis/internal/sources/scoring"
 )
 
 // Client is an HTTP client for the GitHub Dependabot Alerts API.
@@ -86,23 +86,14 @@ func (c *Client) AlertsURL(owner, repo string) string {
 
 // countAlertsBySeverity counts alerts grouped by severity.
 func countAlertsBySeverity(alerts AlertsResponse) AlertCounts {
-	var counts AlertCounts
+	var scoringCounts scoring.SeverityCounts
 	for _, alert := range alerts {
-		switch strings.ToLower(alert.SecurityAdvisory.Severity) {
-		case "critical":
-			counts.Critical++
-		case "high":
-			counts.High++
-		case "medium":
-			counts.Medium++
-		case "low":
-			counts.Low++
-		default:
-			sev := strings.ToLower(alert.SecurityAdvisory.Severity)
-			if sev != "" {
-				fmt.Fprintf(os.Stderr, "Warning: unknown dependabot severity %q, alert not counted\n", sev)
-			}
-		}
+		scoring.CountSeverity(&scoringCounts, alert.SecurityAdvisory.Severity, "dependabot", true)
 	}
-	return counts
+	return AlertCounts{
+		Critical: scoringCounts.Critical,
+		High:     scoringCounts.High,
+		Medium:   scoringCounts.Medium,
+		Low:      scoringCounts.Low,
+	}
 }

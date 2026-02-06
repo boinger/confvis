@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os/exec"
 
 	"github.com/boinger/confvis/internal/sources/cmdrun"
 )
@@ -40,7 +39,7 @@ func (c *Client) Scan(ctx context.Context, path string) ([]Finding, error) {
 	result, err := cmdrun.Run(ctx, c.command, args, "trufflehog")
 	// TruffleHog returns exit code 183 when secrets are found
 	if err != nil {
-		if fatalErr := checkTrufflehogError(err, result.Stderr); fatalErr != nil {
+		if fatalErr := cmdrun.CheckAcceptableExitCode(err, []int{183}, result.Stderr, "trufflehog", "scan"); fatalErr != nil {
 			return nil, fatalErr
 		}
 	}
@@ -66,7 +65,7 @@ func (c *Client) ScanGit(ctx context.Context, repoURL string) ([]Finding, error)
 
 	result, err := cmdrun.Run(ctx, c.command, args, "trufflehog")
 	if err != nil {
-		if fatalErr := checkTrufflehogError(err, result.Stderr); fatalErr != nil {
+		if fatalErr := cmdrun.CheckAcceptableExitCode(err, []int{183}, result.Stderr, "trufflehog", "scan"); fatalErr != nil {
 			return nil, fatalErr
 		}
 	}
@@ -77,22 +76,6 @@ func (c *Client) ScanGit(ctx context.Context, repoURL string) ([]Finding, error)
 	}
 
 	return parseJSONLines(stdout)
-}
-
-// checkTrufflehogError returns nil if the error is acceptable,
-// otherwise returns a formatted error.
-func checkTrufflehogError(err error, stderr []byte) error {
-	exitError, ok := err.(*exec.ExitError)
-	if !ok {
-		return fmt.Errorf("trufflehog scan failed: %w", err)
-	}
-
-	// Exit code 183 means secrets were found - this is valid output, not an error
-	if exitError.ExitCode() == 183 {
-		return nil
-	}
-
-	return cmdrun.FormatError(err, stderr, "trufflehog", "scan")
 }
 
 // parseJSONLines parses TruffleHog's JSON lines output.

@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 
 	"github.com/boinger/confvis/internal/confidence"
@@ -73,4 +74,18 @@ func Names() []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+// DeriveTitleFromPath returns a friendly title from a file path.
+// If an explicit title is provided, it returns that.
+// Otherwise, resolves the path to an absolute path and returns the base name.
+func DeriveTitleFromPath(path, explicitTitle string) string {
+	if explicitTitle != "" {
+		return explicitTitle
+	}
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		absPath = path
+	}
+	return filepath.Base(absPath)
 }

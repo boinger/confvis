@@ -3,9 +3,6 @@ package gitleaks
 import (
 	"bytes"
 	"context"
-	"encoding/json"
-	"fmt"
-	"os/exec"
 
 	"github.com/boinger/confvis/internal/sources/cmdrun"
 )
@@ -42,7 +39,7 @@ func (c *Client) Scan(ctx context.Context, path string) (Report, error) {
 	result, err := cmdrun.Run(ctx, c.command, args, "gitleaks")
 	// Gitleaks returns exit code 1 when leaks are found, which is not an error for us
 	if err != nil {
-		if fatalErr := checkGitleaksError(err, result.Stderr); fatalErr != nil {
+		if fatalErr := cmdrun.CheckAcceptableExitCode(err, []int{1}, result.Stderr, "gitleaks", "detect"); fatalErr != nil {
 			return nil, fatalErr
 		}
 	}
@@ -54,26 +51,10 @@ func (c *Client) Scan(ctx context.Context, path string) (Report, error) {
 	}
 
 	// Parse JSON output
-	var report Report
-	if err := json.Unmarshal(stdout, &report); err != nil {
-		return nil, fmt.Errorf("parsing gitleaks output: %w", err)
+	report, err := cmdrun.ParseJSONOutput[Report](stdout, "gitleaks")
+	if err != nil {
+		return nil, err
 	}
 
-	return report, nil
-}
-
-// checkGitleaksError returns nil if the error is acceptable (exit code 1 = leaks found),
-// otherwise returns a formatted error.
-func checkGitleaksError(err error, stderr []byte) error {
-	exitError, ok := err.(*exec.ExitError)
-	if !ok {
-		return fmt.Errorf("gitleaks scan failed: %w", err)
-	}
-
-	// Exit code 1 means leaks were found - this is valid output, not an error
-	if exitError.ExitCode() == 1 {
-		return nil
-	}
-
-	return cmdrun.FormatError(err, stderr, "gitleaks", "detect")
+	return *report, nil
 }

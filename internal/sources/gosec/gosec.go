@@ -3,7 +3,6 @@ package gosec
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 
 	"github.com/boinger/confvis/internal/confidence"
 	"github.com/boinger/confvis/internal/sources"
@@ -61,19 +60,12 @@ func (s *Source) FetchWithClient(ctx context.Context, fetcher Fetcher, opts sour
 	// Count findings by severity
 	counts := countFromIssues(report.Issues)
 
-	// Determine title
-	title := opts.Title
-	if title == "" {
-		absPath, err := filepath.Abs(path)
-		if err != nil {
-			absPath = path
-		}
-		// Handle "./..." pattern
-		if path == "./..." {
-			absPath = filepath.Dir(absPath)
-		}
-		title = filepath.Base(absPath)
+	// Determine title - gosec uses "./..." pattern, so derive from parent dir
+	effectivePath := path
+	if path == "./..." {
+		effectivePath = "."
 	}
+	title := sources.DeriveTitleFromPath(effectivePath, opts.Title)
 
 	// Build factors with severity-based scoring
 	factors := []confidence.Factor{

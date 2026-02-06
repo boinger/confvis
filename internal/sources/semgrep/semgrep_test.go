@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/boinger/confvis/internal/sources"
+	"github.com/boinger/confvis/internal/sources/cmdrun"
 )
 
 func Test_countFromResults(t *testing.T) {
@@ -194,7 +195,7 @@ func TestClient_Scan_EmptyCommand(t *testing.T) {
 	}
 }
 
-func TestCheckSemgrepError(t *testing.T) {
+func TestCheckAcceptableExitCode_Semgrep(t *testing.T) {
 	tests := []struct {
 		name       string
 		err        error
@@ -230,9 +231,9 @@ func TestCheckSemgrepError(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			stderr := []byte(tt.stderr)
-			err := checkSemgrepError(tt.err, stderr)
+			err := cmdrun.CheckAcceptableExitCode(tt.err, []int{1}, stderr, "semgrep", "scan")
 			if (err == nil) != tt.wantNilErr {
-				t.Errorf("checkSemgrepError() returned error = %v, wantNilErr = %v", err, tt.wantNilErr)
+				t.Errorf("CheckAcceptableExitCode() returned error = %v, wantNilErr = %v", err, tt.wantNilErr)
 			}
 		})
 	}

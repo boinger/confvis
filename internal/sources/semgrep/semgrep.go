@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 
 	"github.com/boinger/confvis/internal/confidence"
 	"github.com/boinger/confvis/internal/sources"
@@ -98,14 +97,7 @@ func (s *Source) buildReport(report *Report, opts sources.Options, path string) 
 	counts := countFromResults(report.Results)
 
 	// Determine title
-	title := opts.Title
-	if title == "" {
-		absPath, err := filepath.Abs(path)
-		if err != nil {
-			absPath = path
-		}
-		title = filepath.Base(absPath)
-	}
+	title := sources.DeriveTitleFromPath(path, opts.Title)
 
 	// Build factors with severity-based scoring
 	factors := []confidence.Factor{

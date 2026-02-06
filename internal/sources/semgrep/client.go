@@ -1,12 +1,10 @@
 package semgrep
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
-	"os/exec"
 
 	"github.com/boinger/confvis/internal/sources/cmdrun"
 )
@@ -42,38 +40,13 @@ func (c *Client) Scan(ctx context.Context, path string, config string) (*Report,
 	result, err := cmdrun.Run(ctx, c.command, args, "semgrep")
 	// Semgrep returns exit code 1 when findings exist, which is not an error for us
 	if err != nil {
-		if fatalErr := checkSemgrepError(err, result.Stderr); fatalErr != nil {
+		if fatalErr := cmdrun.CheckAcceptableExitCode(err, []int{1}, result.Stderr, "semgrep", "scan"); fatalErr != nil {
 			return nil, fatalErr
 		}
 	}
 
-	if len(bytes.TrimSpace(result.Stdout)) == 0 {
-		return nil, fmt.Errorf("semgrep produced no output")
-	}
-
 	// Parse JSON output
-	var report Report
-	if err := json.Unmarshal(result.Stdout, &report); err != nil {
-		return nil, fmt.Errorf("parsing semgrep output: %w", err)
-	}
-
-	return &report, nil
-}
-
-// checkSemgrepError returns nil if the error is acceptable (exit code 1 = findings found),
-// otherwise returns a formatted error.
-func checkSemgrepError(err error, stderr []byte) error {
-	exitError, ok := err.(*exec.ExitError)
-	if !ok {
-		return fmt.Errorf("semgrep scan failed: %w", err)
-	}
-
-	// Exit code 1 means findings were found - this is valid output, not an error
-	if exitError.ExitCode() == 1 {
-		return nil
-	}
-
-	return cmdrun.FormatError(err, stderr, "semgrep", "scan")
+	return cmdrun.ParseJSONOutput[Report](result.Stdout, "semgrep")
 }
 
 // parseFromReader parses semgrep JSON output from a reader.

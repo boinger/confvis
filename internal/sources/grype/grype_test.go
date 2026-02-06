@@ -65,25 +65,28 @@ func Test_countFromMatches_UnknownSeverity(t *testing.T) {
 	}
 }
 
-func TestDeriveTitle(t *testing.T) {
+func TestDeriveTitleWithOpts(t *testing.T) {
 	tests := []struct {
-		target string
-		want   string
+		target        string
+		explicitTitle string
+		want          string
 	}{
-		// For paths, derive to base name
-		{"./src", "src"},
+		// Explicit title takes precedence
+		{"./src", "Custom Title", "Custom Title"},
+		// For paths without explicit title, derive to base name
+		{"./src", "", "src"},
 		// For container images, preserve the full name
-		{"alpine:3.18", "alpine:3.18"},
-		{"nginx:latest", "nginx:latest"},
-		{"myrepo/myimage:v1.0", "myrepo/myimage:v1.0"},
-		{"myimage", "myimage"},
+		{"alpine:3.18", "", "alpine:3.18"},
+		{"nginx:latest", "", "nginx:latest"},
+		{"myrepo/myimage:v1.0", "", "myrepo/myimage:v1.0"},
+		{"myimage", "", "myimage"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.target, func(t *testing.T) {
-			got := deriveTitle(tt.target)
+			got := deriveTitleWithOpts(tt.target, tt.explicitTitle)
 			if got != tt.want {
-				t.Errorf("deriveTitle(%q) = %q, want %q", tt.target, got, tt.want)
+				t.Errorf("deriveTitleWithOpts(%q, %q) = %q, want %q", tt.target, tt.explicitTitle, got, tt.want)
 			}
 		})
 	}

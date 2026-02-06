@@ -4,6 +4,7 @@ package cmdrun
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -53,4 +54,39 @@ func FormatError(err error, stderr []byte, toolName, action string) error {
 		return fmt.Errorf("%s %s failed: %w: %s", toolName, action, err, stderrStr)
 	}
 	return fmt.Errorf("%s %s failed: %w", toolName, action, err)
+}
+
+// CheckAcceptableExitCode returns nil if the error is an acceptable exit code,
+// otherwise returns a formatted error.
+// acceptableCodes lists exit codes that are valid output (e.g., 1 for findings found).
+func CheckAcceptableExitCode(err error, acceptableCodes []int, stderr []byte, toolName, action string) error {
+	exitError, ok := err.(*exec.ExitError)
+	if !ok {
+		return fmt.Errorf("%s %s failed: %w", toolName, action, err)
+	}
+
+	exitCode := exitError.ExitCode()
+	for _, code := range acceptableCodes {
+		if exitCode == code {
+			return nil
+		}
+	}
+
+	return FormatError(err, stderr, toolName, action)
+}
+
+// ParseJSONOutput unmarshals JSON from command output with standard error handling.
+// If stdout is empty or whitespace-only, returns an error.
+func ParseJSONOutput[T any](stdout []byte, toolName string) (*T, error) {
+	trimmed := bytes.TrimSpace(stdout)
+	if len(trimmed) == 0 {
+		return nil, fmt.Errorf("%s produced no output", toolName)
+	}
+
+	var result T
+	if err := json.Unmarshal(trimmed, &result); err != nil {
+		return nil, fmt.Errorf("parsing %s output: %w", toolName, err)
+	}
+
+	return &result, nil
 }

@@ -1,10 +1,7 @@
 package grype
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"fmt"
 
 	"github.com/boinger/confvis/internal/sources/cmdrun"
 )
@@ -37,15 +34,6 @@ func (c *Client) Scan(ctx context.Context, target string) (*Report, error) {
 		return nil, cmdrun.FormatError(err, result.Stderr, "grype", "scan")
 	}
 
-	if len(bytes.TrimSpace(result.Stdout)) == 0 {
-		return nil, fmt.Errorf("grype produced no output")
-	}
-
 	// Parse JSON output
-	var report Report
-	if err := json.Unmarshal(result.Stdout, &report); err != nil {
-		return nil, fmt.Errorf("parsing grype output: %w", err)
-	}
-
-	return &report, nil
+	return cmdrun.ParseJSONOutput[Report](result.Stdout, "grype")
 }

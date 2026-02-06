@@ -52,12 +52,8 @@ func (s *Source) Fetch(ctx context.Context, opts sources.Options) (*confidence.R
 	// Aggregate counts
 	counts := countFromMatches(report.Matches)
 
-	// Determine title
-	title := opts.Title
-	if title == "" {
-		// Try to make a nice title from the target
-		title = deriveTitle(target)
-	}
+	// Determine title - grype targets can be paths or container images
+	title := deriveTitleWithOpts(target, opts.Title)
 
 	// Build factors with severity-based scoring
 	factors := scoring.BuildVulnFactors(
@@ -70,19 +66,17 @@ func (s *Source) Fetch(ctx context.Context, opts sources.Options) (*confidence.R
 	return scoring.BuildReport(title, sourceName, opts.Threshold, factors), nil
 }
 
-// deriveTitle creates a title from the target path or image name.
-func deriveTitle(target string) string {
+// deriveTitleWithOpts creates a title from the target path or image name.
+func deriveTitleWithOpts(target, explicitTitle string) string {
+	if explicitTitle != "" {
+		return explicitTitle
+	}
 	// If it looks like a container image (contains : for tag), return as-is
 	if looksLikeContainerImage(target) {
 		return target
 	}
-
-	// For filesystem paths, use the directory name
-	absPath, err := filepath.Abs(target)
-	if err != nil {
-		return target
-	}
-	return filepath.Base(absPath)
+	// For filesystem paths, use the shared helper
+	return sources.DeriveTitleFromPath(target, "")
 }
 
 // looksLikeContainerImage returns true if target looks like a container image reference.
