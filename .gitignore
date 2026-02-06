@@ -21,3 +21,6 @@ Thumbs.db
 
 # Build output
 dist/
+
+# Local test reports (CI generates these in workflow root)
+badges/reports/
