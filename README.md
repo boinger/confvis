@@ -19,6 +19,11 @@ instead of:
 [![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=boinger_confvis&metric=ncloc)](https://sonarcloud.io/summary/overall?id=boinger_confvis)
 [![Technical Debt](https://sonarcloud.io/api/project_badges/measure?project=boinger_confvis&metric=sqale_index)](https://sonarcloud.io/summary/overall?id=boinger_confvis)
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=boinger_confvis&metric=coverage)](https://sonarcloud.io/summary/overall?id=boinger_confvis)
+[![Coveralls](https://coveralls.io/repos/github/boinger/confvis/badge.svg?branch=main)](https://coveralls.io/github/boinger/confvis?branch=main)
+[![CodeQL](https://github.com/boinger/confvis/actions/workflows/codeql.yml/badge.svg)](https://github.com/boinger/confvis/actions/workflows/codeql.yml)
+[![Gosec](https://img.shields.io/badge/gosec-passing-brightgreen?logo=go)](https://github.com/boinger/confvis/security)
+[![GitLeaks](https://img.shields.io/badge/gitleaks-passing-brightgreen?logo=git)](https://github.com/boinger/confvis/security)
+[![TruffleHog](https://img.shields.io/badge/trufflehog-passing-brightgreen?logo=git)](https://github.com/boinger/confvis/security)
 
 Generate visual confidence badges and dashboards from aggregated code metrics.
 
