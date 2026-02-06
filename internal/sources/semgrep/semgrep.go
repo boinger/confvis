@@ -38,16 +38,10 @@ func (s *Source) Fetch(ctx context.Context, opts sources.Options) (*confidence.R
 	command := sources.ResolveCommand(opts, "semgrep-cmd", EnvCommand)
 
 	// Resolve config (rules) from Extra options
-	config := ""
-	if opts.Extra != nil {
-		config = opts.Extra["config"]
-	}
+	config := sources.GetExtra(opts, "config", "")
 
 	// Check if we should read from stdin
-	fromStdin := false
-	if opts.Extra != nil {
-		fromStdin = opts.Extra["from-stdin"] == "true"
-	}
+	fromStdin := sources.GetExtra(opts, "from-stdin", "") == "true"
 
 	// If reading from stdin, parse the piped output
 	if fromStdin {
@@ -100,26 +94,11 @@ func (s *Source) buildReport(report *Report, opts sources.Options, path string) 
 	title := sources.DeriveTitleFromPath(path, opts.Title)
 
 	// Build factors with severity-based scoring
-	factors := []confidence.Factor{
-		{
-			Name:        "Error Findings",
-			Score:       scoring.SeverityScore(counts.Error, penaltyError),
-			Weight:      weightError,
-			Description: fmt.Sprintf("%d errors", counts.Error),
-		},
-		{
-			Name:        "Warning Findings",
-			Score:       scoring.SeverityScore(counts.Warning, penaltyWarning),
-			Weight:      weightWarning,
-			Description: fmt.Sprintf("%d warnings", counts.Warning),
-		},
-		{
-			Name:        "Info Findings",
-			Score:       scoring.SeverityScore(counts.Info, penaltyInfo),
-			Weight:      weightInfo,
-			Description: fmt.Sprintf("%d info", counts.Info),
-		},
-	}
+	factors := scoring.BuildSeverityFactors([]scoring.SeverityConfig{
+		{Name: "Error Findings", Count: counts.Error, Penalty: penaltyError, Weight: weightError},
+		{Name: "Warning Findings", Count: counts.Warning, Penalty: penaltyWarning, Weight: weightWarning},
+		{Name: "Info Findings", Count: counts.Info, Penalty: penaltyInfo, Weight: weightInfo},
+	}, "")
 
 	return scoring.BuildReport(title, sourceName, opts.Threshold, factors), nil
 }

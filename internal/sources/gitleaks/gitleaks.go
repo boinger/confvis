@@ -66,17 +66,9 @@ func (s *Source) FetchWithClient(ctx context.Context, fetcher Fetcher, opts sour
 	title := sources.DeriveTitleFromPath(path, opts.Title)
 
 	// Build factor with secrets count
-	// Each secret deducts points; no secrets = 100
-	score := scoring.SeverityScore(counts.Secrets, penaltyPerSecret)
-
-	factors := []confidence.Factor{
-		{
-			Name:        "Leaked Secrets",
-			Score:       score,
-			Weight:      weightSecrets,
-			Description: fmt.Sprintf("%d secrets detected", counts.Secrets),
-		},
-	}
+	factors := scoring.BuildSeverityFactors([]scoring.SeverityConfig{
+		{Name: "Leaked Secrets", Count: counts.Secrets, Penalty: penaltyPerSecret, Weight: weightSecrets},
+	}, "")
 
 	return scoring.BuildReport(title, sourceName, opts.Threshold, factors), nil
 }

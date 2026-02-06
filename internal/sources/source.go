@@ -89,3 +89,24 @@ func DeriveTitleFromPath(path, explicitTitle string) string {
 	}
 	return filepath.Base(absPath)
 }
+
+// GetExtra retrieves a value from opts.Extra, returning defaultValue if not found or empty.
+func GetExtra(opts Options, key, defaultValue string) string {
+	if opts.Extra != nil {
+		if v, ok := opts.Extra[key]; ok && v != "" {
+			return v
+		}
+	}
+	return defaultValue
+}
+
+// ResolveTitle returns the first non-empty string from the provided values.
+// Typically used as ResolveTitle(opts.Title, derivedTitle, fallback).
+func ResolveTitle(values ...string) string {
+	for _, v := range values {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
+}

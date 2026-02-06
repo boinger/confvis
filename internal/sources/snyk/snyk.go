@@ -55,13 +55,7 @@ func (s *Source) Fetch(ctx context.Context, opts sources.Options) (*confidence.R
 	}
 
 	// Resolve org ID from Extra options or environment
-	orgID := ""
-	if opts.Extra != nil {
-		orgID = opts.Extra["org"]
-	}
-	if orgID == "" {
-		orgID = os.Getenv(EnvOrgID)
-	}
+	orgID := sources.GetExtra(opts, "org", os.Getenv(EnvOrgID))
 	if orgID == "" {
 		return nil, fmt.Errorf("snyk organization ID required: use --org flag or set %s", EnvOrgID)
 	}
@@ -93,13 +87,7 @@ func (s *Source) FetchWithClient(ctx context.Context, fetcher Fetcher, opts sour
 	}
 
 	// Determine title
-	title := opts.Title
-	if title == "" {
-		title = project.Data.Attributes.Name
-	}
-	if title == "" {
-		title = projectID
-	}
+	title := sources.ResolveTitle(opts.Title, project.Data.Attributes.Name, projectID)
 
 	// Build factors with severity-based scoring
 	factors := scoring.BuildVulnFactors(

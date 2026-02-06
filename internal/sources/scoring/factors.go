@@ -99,11 +99,11 @@ func extractSeverity(name string) string {
 	switch name {
 	case "Critical Vulnerabilities":
 		return "critical"
-	case "High Vulnerabilities":
+	case "High Vulnerabilities", "High Severity":
 		return "high"
-	case "Medium Vulnerabilities":
+	case "Medium Vulnerabilities", "Medium Severity":
 		return "medium"
-	case "Low Vulnerabilities":
+	case "Low Vulnerabilities", "Low Severity":
 		return "low"
 	case "Error Findings":
 		return "errors"
@@ -111,6 +111,12 @@ func extractSeverity(name string) string {
 		return "warnings"
 	case "Info Findings":
 		return "info"
+	case "Verified Secrets":
+		return "verified secrets"
+	case "Unverified Secrets":
+		return "unverified secrets"
+	case "Leaked Secrets":
+		return "secrets detected"
 	default:
 		return "issues"
 	}

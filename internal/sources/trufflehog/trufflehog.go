@@ -46,12 +46,7 @@ func (s *Source) Fetch(ctx context.Context, opts sources.Options) (*confidence.R
 	}
 
 	// Check if scanning git or filesystem
-	scanMode := "filesystem"
-	if opts.Extra != nil {
-		if mode := opts.Extra["mode"]; mode != "" {
-			scanMode = mode
-		}
-	}
+	scanMode := sources.GetExtra(opts, "mode", "filesystem")
 
 	client := NewClient(command)
 
@@ -82,20 +77,10 @@ func (s *Source) FetchWithClient(ctx context.Context, fetcher Fetcher, opts sour
 	title := deriveTitleWithOpts(target, opts.Title)
 
 	// Build factors with verification-based scoring
-	factors := []confidence.Factor{
-		{
-			Name:        "Verified Secrets",
-			Score:       scoring.SeverityScore(counts.Verified, penaltyVerified),
-			Weight:      weightVerified,
-			Description: fmt.Sprintf("%d verified secrets", counts.Verified),
-		},
-		{
-			Name:        "Unverified Secrets",
-			Score:       scoring.SeverityScore(counts.Unverified, penaltyUnverified),
-			Weight:      weightUnverified,
-			Description: fmt.Sprintf("%d unverified secrets", counts.Unverified),
-		},
-	}
+	factors := scoring.BuildSeverityFactors([]scoring.SeverityConfig{
+		{Name: "Verified Secrets", Count: counts.Verified, Penalty: penaltyVerified, Weight: weightVerified},
+		{Name: "Unverified Secrets", Count: counts.Unverified, Penalty: penaltyUnverified, Weight: weightUnverified},
+	}, "")
 
 	return scoring.BuildReport(title, sourceName, opts.Threshold, factors), nil
 }

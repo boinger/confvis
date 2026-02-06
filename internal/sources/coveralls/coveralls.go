@@ -2,12 +2,11 @@ package coveralls
 
 import (
 	"context"
-	"math"
 	"time"
 
 	"github.com/boinger/confvis/internal/confidence"
 	"github.com/boinger/confvis/internal/sources"
-	"github.com/boinger/confvis/internal/sources/scoring"
+	"github.com/boinger/confvis/internal/sources/coverage"
 )
 
 const sourceName = "coveralls"
@@ -49,14 +48,7 @@ func (s *Source) Fetch(ctx context.Context, opts sources.Options) (*confidence.R
 		return nil, err
 	}
 
-	// Get service from Extra options, default to github
-	service := "github"
-	if opts.Extra != nil {
-		if svc, ok := opts.Extra["service"]; ok && svc != "" {
-			service = svc
-		}
-	}
-
+	service := coverage.ResolveService(opts)
 	client := NewClient(cfg.Token, cfg.Timeout)
 
 	return s.FetchWithClient(ctx, client, opts, service)
@@ -65,27 +57,11 @@ func (s *Source) Fetch(ctx context.Context, opts sources.Options) (*confidence.R
 // FetchWithClient retrieves coverage metrics using the provided Fetcher.
 // This allows injecting mock clients for testing.
 func (s *Source) FetchWithClient(ctx context.Context, fetcher Fetcher, opts sources.Options, service string) (*confidence.Report, error) {
-	// Fetch report
 	report, err := fetcher.FetchReport(ctx, service, opts.Project)
 	if err != nil {
 		return nil, err
 	}
 
-	// Determine title
-	title := opts.Title
-	if title == "" {
-		title = opts.Project
-	}
-
-	// Build factors
-	factors := []confidence.Factor{
-		{
-			Name:   "Code Coverage",
-			Score:  int(math.Round(report.CoveredPercent)),
-			Weight: 100,
-			URL:    fetcher.ReportURL(service, opts.Project),
-		},
-	}
-
-	return scoring.BuildReport(title, sourceName, opts.Threshold, factors), nil
+	title := sources.ResolveTitle(opts.Title, opts.Project)
+	return coverage.BuildReport(title, sourceName, opts.Threshold, report.CoveredPercent, fetcher.ReportURL(service, opts.Project)), nil
 }

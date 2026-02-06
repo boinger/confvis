@@ -59,15 +59,12 @@ func (s *Source) Fetch(ctx context.Context, opts sources.Options) (*confidence.R
 	}
 
 	// Parse extra options
-	var workflow, event string
+	workflow := sources.GetExtra(opts, "workflow", "")
+	event := sources.GetExtra(opts, "event", "")
 	runCount := DefaultRunCount
-	if opts.Extra != nil {
-		workflow = opts.Extra["workflow"]
-		event = opts.Extra["event"]
-		if countStr, ok := opts.Extra["count"]; ok && countStr != "" {
-			if n, err := strconv.Atoi(countStr); err == nil && n > 0 {
-				runCount = n
-			}
+	if countStr := sources.GetExtra(opts, "count", ""); countStr != "" {
+		if n, err := strconv.Atoi(countStr); err == nil && n > 0 {
+			runCount = n
 		}
 	}
 
@@ -104,10 +101,7 @@ func (s *Source) FetchWithClient(ctx context.Context, fetcher Fetcher, opts sour
 	}
 
 	// Determine title
-	title := opts.Title
-	if title == "" {
-		title = opts.Project
-	}
+	title := sources.ResolveTitle(opts.Title, opts.Project)
 
 	// Build description
 	description := fmt.Sprintf("%d/%d successful runs", successCount, totalCount)

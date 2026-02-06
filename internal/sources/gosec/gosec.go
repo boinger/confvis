@@ -68,26 +68,11 @@ func (s *Source) FetchWithClient(ctx context.Context, fetcher Fetcher, opts sour
 	title := sources.DeriveTitleFromPath(effectivePath, opts.Title)
 
 	// Build factors with severity-based scoring
-	factors := []confidence.Factor{
-		{
-			Name:        "High Severity",
-			Score:       scoring.SeverityScore(counts.High, penaltyHigh),
-			Weight:      weightHigh,
-			Description: fmt.Sprintf("%d high severity issues", counts.High),
-		},
-		{
-			Name:        "Medium Severity",
-			Score:       scoring.SeverityScore(counts.Medium, penaltyMedium),
-			Weight:      weightMedium,
-			Description: fmt.Sprintf("%d medium severity issues", counts.Medium),
-		},
-		{
-			Name:        "Low Severity",
-			Score:       scoring.SeverityScore(counts.Low, penaltyLow),
-			Weight:      weightLow,
-			Description: fmt.Sprintf("%d low severity issues", counts.Low),
-		},
-	}
+	factors := scoring.BuildSeverityFactors([]scoring.SeverityConfig{
+		{Name: "High Severity", Count: counts.High, Penalty: penaltyHigh, Weight: weightHigh},
+		{Name: "Medium Severity", Count: counts.Medium, Penalty: penaltyMedium, Weight: weightMedium},
+		{Name: "Low Severity", Count: counts.Low, Penalty: penaltyLow, Weight: weightLow},
+	}, "")
 
 	return scoring.BuildReport(title, sourceName, opts.Threshold, factors), nil
 }

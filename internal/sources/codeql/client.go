@@ -2,39 +2,38 @@ package codeql
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/boinger/confvis/internal/sources/httpclient"
+	"github.com/boinger/confvis/internal/sources/githubalerts"
 	"github.com/boinger/confvis/internal/sources/scoring"
 )
 
+var alertsConfig = githubalerts.Config{
+	EndpointPath: "code-scanning/alerts",
+	WebURLPath:   "security/code-scanning",
+}
+
 // Client is an HTTP client for the GitHub Code Scanning API.
 type Client struct {
-	baseURL string
-	http    *httpclient.Client
+	*githubalerts.Client
 }
 
 // NewClient creates a new CodeQL API client.
 func NewClient(baseURL, token string, timeout time.Duration) *Client {
-	cfg := httpclient.GitHubConfig(baseURL, token, timeout)
 	return &Client{
-		baseURL: cfg.BaseURL,
-		http:    httpclient.New(cfg),
+		Client: githubalerts.NewClient(baseURL, token, timeout, alertsConfig),
 	}
 }
 
 // NewClientWithHTTP creates a new client with a custom HTTP client.
 // This is primarily intended for testing.
 func NewClientWithHTTP(baseURL, token string, httpClient *http.Client) *Client {
-	cfg := httpclient.GitHubConfig(baseURL, token, 0)
 	return &Client{
-		baseURL: cfg.BaseURL,
-		http:    httpclient.NewWithHTTPClient(cfg, httpClient),
+		Client: githubalerts.NewClientWithHTTP(baseURL, token, httpClient, alertsConfig),
 	}
 }
 
@@ -55,11 +54,10 @@ func (c *Client) FetchAlerts(ctx context.Context, owner, repo, toolName string) 
 			params.Set("tool_name", toolName)
 		}
 
-		endpoint := fmt.Sprintf("%s/repos/%s/%s/code-scanning/alerts?%s",
-			c.baseURL, url.PathEscape(owner), url.PathEscape(repo), params.Encode())
+		endpoint := c.BuildEndpoint(owner, repo, params)
 
 		var pageAlerts AlertsResponse
-		if err := c.http.Get(ctx, endpoint, &pageAlerts); err != nil {
+		if err := c.HTTP.Get(ctx, endpoint, &pageAlerts); err != nil {
 			return nil, err
 		}
 
@@ -71,21 +69,6 @@ func (c *Client) FetchAlerts(ctx context.Context, owner, repo, toolName string) 
 	}
 
 	return allAlerts, nil
-}
-
-// AlertsURL returns the web URL for code scanning alerts in a repository.
-func (c *Client) AlertsURL(owner, repo string) string {
-	// GitHub web URL is always github.com regardless of API URL (for GHES it would differ)
-	host := "github.com"
-	if c.baseURL != httpclient.GitHubDefaultURL {
-		// Extract host from API URL for GitHub Enterprise
-		if u, err := url.Parse(c.baseURL); err == nil {
-			host = u.Host
-			// Remove 'api.' prefix if present for GHES
-			host = strings.TrimPrefix(host, "api.")
-		}
-	}
-	return fmt.Sprintf("https://%s/%s/%s/security/code-scanning", host, owner, repo)
 }
 
 // countAlertsBySeverity counts alerts grouped by security severity level.
