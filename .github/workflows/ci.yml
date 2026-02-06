@@ -55,6 +55,14 @@ jobs:
           files: coverage.out
           fail_ci_if_error: false
 
+      - name: Upload coverage to Coveralls
+        uses: coverallsapp/github-action@648a8eb78e6d50909eff900e4ec85cab4524a45b # v2
+        if: matrix.go == '1.23'
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          file: coverage.out
+          format: golang
+
   lint:
     runs-on: ubuntu-latest
     steps:
