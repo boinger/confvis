@@ -5,11 +5,39 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
+	"github.com/boinger/confvis/internal/sources"
 	"github.com/boinger/confvis/internal/sources/httpclient"
 )
+
+// Default severity penalties for GitHub security alerts.
+const (
+	PenaltyCritical = 25
+	PenaltyHigh     = 15
+	PenaltyMedium   = 5
+	PenaltyLow      = 2
+)
+
+// Default factor weights for GitHub security alerts.
+const (
+	WeightCritical = 40
+	WeightHigh     = 30
+	WeightMedium   = 20
+	WeightLow      = 10
+)
+
+// Penalties returns the standard penalty array for GitHub alerts.
+func Penalties() [4]int {
+	return [4]int{PenaltyCritical, PenaltyHigh, PenaltyMedium, PenaltyLow}
+}
+
+// Weights returns the standard weight array for GitHub alerts.
+func Weights() [4]int {
+	return [4]int{WeightCritical, WeightHigh, WeightMedium, WeightLow}
+}
 
 // Config defines the configuration for a GitHub alerts source.
 type Config struct {
@@ -61,4 +89,24 @@ func (c *Client) AlertsURL(owner, repo string) string {
 		}
 	}
 	return fmt.Sprintf("https://%s/%s/%s/%s", host, owner, repo, c.Config.WebURLPath)
+}
+
+// ResolveTokenWithFallback resolves a token from the config, falling back to GITHUB_TOKEN.
+func ResolveTokenWithFallback(cfg *sources.ResolvedConfig, sourceName, primaryEnv string) (string, error) {
+	token := cfg.Token
+	if token == "" {
+		token = os.Getenv("GITHUB_TOKEN")
+	}
+	if token == "" {
+		return "", fmt.Errorf("%s token required: use --token flag or set %s (or GITHUB_TOKEN)", sourceName, primaryEnv)
+	}
+	return token, nil
+}
+
+// ResolveTitle returns the explicit title or formats owner/repo.
+func ResolveTitle(explicit, owner, repo string) string {
+	if explicit != "" {
+		return explicit
+	}
+	return fmt.Sprintf("%s/%s", owner, repo)
 }
