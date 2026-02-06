@@ -5,26 +5,14 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/boinger/confvis/internal/sources"
+	"github.com/boinger/confvis/internal/sources/scoring"
 )
 
-// mockFetcher implements Fetcher for testing.
-type mockFetcher struct {
-	alerts   AlertsResponse
-	alertErr error
-}
-
-func (m *mockFetcher) FetchAlerts(_ context.Context, _, _ string) (AlertsResponse, error) {
-	return m.alerts, m.alertErr
-}
-
-func (m *mockFetcher) AlertsURL(owner, repo string) string {
-	return "https://github.com/" + owner + "/" + repo + "/security/dependabot"
-}
-
-func Test_countAlertsBySeverity(t *testing.T) {
+func TestCountAlerts(t *testing.T) {
 	alerts := AlertsResponse{
 		{Number: 1, SecurityAdvisory: SecurityAdvisory{Severity: "critical"}},
 		{Number: 2, SecurityAdvisory: SecurityAdvisory{Severity: "critical"}},
@@ -35,7 +23,15 @@ func Test_countAlertsBySeverity(t *testing.T) {
 		{Number: 7, SecurityAdvisory: SecurityAdvisory{Severity: "low"}},
 	}
 
-	counts := countAlertsBySeverity(alerts)
+	data, err := json.Marshal(alerts)
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+
+	counts, err := countAlerts(data)
+	if err != nil {
+		t.Fatalf("countAlerts() error = %v", err)
+	}
 
 	if counts.Critical != 2 {
 		t.Errorf("Critical = %d, want 2", counts.Critical)
@@ -51,7 +47,7 @@ func Test_countAlertsBySeverity(t *testing.T) {
 	}
 }
 
-func Test_countAlertsBySeverity_UnknownSeverity(t *testing.T) {
+func TestCountAlerts_UnknownSeverity(t *testing.T) {
 	// Unknown severities should not be counted but will log a warning
 	alerts := AlertsResponse{
 		{Number: 1, SecurityAdvisory: SecurityAdvisory{Severity: "critical"}},
@@ -60,7 +56,15 @@ func Test_countAlertsBySeverity_UnknownSeverity(t *testing.T) {
 		{Number: 4, SecurityAdvisory: SecurityAdvisory{Severity: ""}},         // Empty, no warning
 	}
 
-	counts := countAlertsBySeverity(alerts)
+	data, err := json.Marshal(alerts)
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+
+	counts, err := countAlerts(data)
+	if err != nil {
+		t.Fatalf("countAlerts() error = %v", err)
+	}
 
 	if counts.Critical != 1 {
 		t.Errorf("Critical = %d, want 1", counts.Critical)
@@ -76,62 +80,38 @@ func Test_countAlertsBySeverity_UnknownSeverity(t *testing.T) {
 	}
 }
 
-func TestSource_FetchWithClient(t *testing.T) {
-	tests := []struct {
-		name      string
-		alerts    AlertsResponse
-		wantScore int
-	}{
-		{
-			name:      "no vulnerabilities",
-			alerts:    AlertsResponse{},
-			wantScore: 100,
-		},
-		{
-			name: "one critical",
-			alerts: AlertsResponse{
-				{Number: 1, SecurityAdvisory: SecurityAdvisory{Severity: "critical"}},
-			},
-			wantScore: 90, // (75*40 + 100*30 + 100*20 + 100*10) / 100 = 90
-		},
-		{
-			name: "mixed severities",
-			alerts: AlertsResponse{
-				{Number: 1, SecurityAdvisory: SecurityAdvisory{Severity: "critical"}},
-				{Number: 2, SecurityAdvisory: SecurityAdvisory{Severity: "high"}},
-				{Number: 3, SecurityAdvisory: SecurityAdvisory{Severity: "medium"}},
-				{Number: 4, SecurityAdvisory: SecurityAdvisory{Severity: "low"}},
-			},
-			wantScore: 84, // (75*40 + 85*30 + 95*20 + 98*10) / 100 = 84.3 -> 84
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			s := &Source{}
-			mock := &mockFetcher{alerts: tt.alerts}
-
-			report, err := s.FetchWithClient(context.Background(), mock, defaultOpts(), "owner", "repo")
-			if err != nil {
-				t.Fatalf("FetchWithClient() error = %v", err)
-			}
-
-			if report.ScoreValue() != tt.wantScore {
-				t.Errorf("Score = %d, want %d", report.Score, tt.wantScore)
-			}
-
-			if report.Source != sourceName {
-				t.Errorf("Source = %q, want %q", report.Source, sourceName)
-			}
-
-			if len(report.Factors) != 4 {
-				t.Errorf("len(Factors) = %d, want 4", len(report.Factors))
-			}
-		})
+func TestCountAlerts_InvalidJSON(t *testing.T) {
+	_, err := countAlerts([]byte("invalid json"))
+	if err == nil {
+		t.Error("expected error for invalid JSON")
 	}
 }
 
-func TestClient_FetchAlerts(t *testing.T) {
+func TestCountAlerts_EmptyAlerts(t *testing.T) {
+	data, err := json.Marshal(AlertsResponse{})
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+	counts, err := countAlerts(data)
+	if err != nil {
+		t.Fatalf("countAlerts() error = %v", err)
+	}
+	if counts != (scoring.SeverityCounts{}) {
+		t.Errorf("expected zero counts, got %+v", counts)
+	}
+}
+
+func TestSource_Registration(t *testing.T) {
+	s := sources.Get("dependabot")
+	if s == nil {
+		t.Error("dependabot source not registered")
+	}
+	if s.Name() != "dependabot" {
+		t.Errorf("Name() = %q, want %q", s.Name(), "dependabot")
+	}
+}
+
+func TestSource_Fetch_Success(t *testing.T) {
 	alerts := AlertsResponse{
 		{Number: 1, SecurityAdvisory: SecurityAdvisory{Severity: "high", GHSAID: "GHSA-1234"}},
 	}
@@ -148,18 +128,100 @@ func TestClient_FetchAlerts(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClientWithHTTP(server.URL, "test-token", server.Client())
-	result, err := client.FetchAlerts(context.Background(), "owner", "repo")
-	if err != nil {
-		t.Fatalf("FetchAlerts() error = %v", err)
+	t.Setenv("GITHUB_TOKEN", "test-token")
+	t.Setenv("GITHUB_API_URL", server.URL)
+
+	s := sources.Get("dependabot")
+	opts := sources.Options{
+		Project:   "owner/repo",
+		Threshold: 75,
 	}
 
-	if len(result) != 1 {
-		t.Errorf("len(result) = %d, want 1", len(result))
+	report, err := s.Fetch(context.Background(), opts)
+	if err != nil {
+		t.Fatalf("Fetch() error = %v", err)
+	}
+
+	if report == nil {
+		t.Fatal("expected non-nil report")
+	}
+
+	if report.Source != "dependabot" {
+		t.Errorf("Source = %q, want %q", report.Source, "dependabot")
+	}
+
+	// With 1 high severity alert: score should be 95
+	// (100*40 + 85*30 + 100*20 + 100*10) / 100 = 95.5 -> 95
+	if report.ScoreValue() < 90 || report.ScoreValue() > 100 {
+		t.Errorf("Score = %d, expected between 90-100 for single high severity", report.Score)
 	}
 }
 
-func TestClient_FetchAlerts_Pagination(t *testing.T) {
+func TestSource_Fetch_NoAlerts(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(AlertsResponse{})
+	}))
+	defer server.Close()
+
+	t.Setenv("GITHUB_TOKEN", "test-token")
+	t.Setenv("GITHUB_API_URL", server.URL)
+
+	s := sources.Get("dependabot")
+	opts := sources.Options{
+		Project:   "owner/repo",
+		Threshold: 75,
+	}
+
+	report, err := s.Fetch(context.Background(), opts)
+	if err != nil {
+		t.Fatalf("Fetch() error = %v", err)
+	}
+
+	if report.ScoreValue() != 100 {
+		t.Errorf("Score = %d, want 100 for no alerts", report.ScoreValue())
+	}
+}
+
+func TestSource_Fetch_MixedSeverities(t *testing.T) {
+	alerts := AlertsResponse{
+		{Number: 1, SecurityAdvisory: SecurityAdvisory{Severity: "critical"}},
+		{Number: 2, SecurityAdvisory: SecurityAdvisory{Severity: "high"}},
+		{Number: 3, SecurityAdvisory: SecurityAdvisory{Severity: "medium"}},
+		{Number: 4, SecurityAdvisory: SecurityAdvisory{Severity: "low"}},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(alerts)
+	}))
+	defer server.Close()
+
+	t.Setenv("GITHUB_TOKEN", "test-token")
+	t.Setenv("GITHUB_API_URL", server.URL)
+
+	s := sources.Get("dependabot")
+	opts := sources.Options{
+		Project:   "owner/repo",
+		Threshold: 75,
+	}
+
+	report, err := s.Fetch(context.Background(), opts)
+	if err != nil {
+		t.Fatalf("Fetch() error = %v", err)
+	}
+
+	// (75*40 + 85*30 + 95*20 + 98*10) / 100 = 84.3 -> 84
+	if report.ScoreValue() != 84 {
+		t.Errorf("Score = %d, want 84", report.ScoreValue())
+	}
+
+	if len(report.Factors) != 4 {
+		t.Errorf("len(Factors) = %d, want 4", len(report.Factors))
+	}
+}
+
+func TestSource_Fetch_Pagination(t *testing.T) {
 	// Build 100 alerts for page 1, 50 for page 2
 	page1Alerts := make(AlertsResponse, 100)
 	for i := range page1Alerts {
@@ -186,135 +248,30 @@ func TestClient_FetchAlerts_Pagination(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClientWithHTTP(server.URL, "test-token", server.Client())
-	result, err := client.FetchAlerts(context.Background(), "owner", "repo")
-	if err != nil {
-		t.Fatalf("FetchAlerts() error = %v", err)
-	}
-
-	if len(result) != 150 {
-		t.Errorf("len(result) = %d, want 150", len(result))
-	}
-	if requestCount != 2 {
-		t.Errorf("requestCount = %d, want 2", requestCount)
-	}
-}
-
-func TestClient_FetchAlerts_SinglePage(t *testing.T) {
-	// Fewer than 100 alerts should not paginate
-	alerts := make(AlertsResponse, 42)
-	for i := range alerts {
-		alerts[i] = Alert{Number: i + 1, SecurityAdvisory: SecurityAdvisory{Severity: "high"}}
-	}
-
-	var requestCount int
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		requestCount++
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(alerts)
-	}))
-	defer server.Close()
-
-	client := NewClientWithHTTP(server.URL, "test-token", server.Client())
-	result, err := client.FetchAlerts(context.Background(), "owner", "repo")
-	if err != nil {
-		t.Fatalf("FetchAlerts() error = %v", err)
-	}
-
-	if len(result) != 42 {
-		t.Errorf("len(result) = %d, want 42", len(result))
-	}
-	if requestCount != 1 {
-		t.Errorf("requestCount = %d, want 1 (should not paginate)", requestCount)
-	}
-}
-
-func TestClient_AlertsURL(t *testing.T) {
-	tests := []struct {
-		name    string
-		baseURL string
-		owner   string
-		repo    string
-		want    string
-	}{
-		{"default", "", "owner", "repo", "https://github.com/owner/repo/security/dependabot"},
-		{"explicit github", "https://api.github.com", "my-org", "my-repo", "https://github.com/my-org/my-repo/security/dependabot"},
-		{"ghes", "https://api.github.example.com", "corp", "app", "https://github.example.com/corp/app/security/dependabot"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			client := NewClient(tt.baseURL, "token", 0)
-			got := client.AlertsURL(tt.owner, tt.repo)
-			if got != tt.want {
-				t.Errorf("AlertsURL() = %q, want %q", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestSource_Name(t *testing.T) {
-	s := &Source{}
-	if s.Name() != sourceName {
-		t.Errorf("Name() = %q, want %q", s.Name(), sourceName)
-	}
-}
-
-func defaultOpts() sources.Options {
-	return sources.Options{
-		Project:   "owner/repo",
-		Threshold: 75,
-	}
-}
-
-func TestSource_Fetch_Success(t *testing.T) {
-	// Create a mock server
-	alerts := AlertsResponse{
-		{Number: 1, SecurityAdvisory: SecurityAdvisory{Severity: "high", GHSAID: "GHSA-1234"}},
-	}
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(alerts)
-	}))
-	defer server.Close()
-
-	// Set environment variables for the test
 	t.Setenv("GITHUB_TOKEN", "test-token")
 	t.Setenv("GITHUB_API_URL", server.URL)
 
-	s := &Source{}
+	s := sources.Get("dependabot")
 	opts := sources.Options{
 		Project:   "owner/repo",
 		Threshold: 75,
 	}
 
-	report, err := s.Fetch(context.Background(), opts)
+	_, err := s.Fetch(context.Background(), opts)
 	if err != nil {
 		t.Fatalf("Fetch() error = %v", err)
 	}
 
-	if report == nil {
-		t.Fatal("expected non-nil report")
-	}
-
-	if report.Source != sourceName {
-		t.Errorf("Source = %q, want %q", report.Source, sourceName)
-	}
-
-	// With 1 high severity alert: score should be 93
-	// (100*40 + 85*30 + 100*20 + 100*10) / 100 = 95.5 -> 95
-	if report.ScoreValue() < 90 || report.ScoreValue() > 100 {
-		t.Errorf("Score = %d, expected between 90-100 for single high severity", report.Score)
+	if requestCount != 2 {
+		t.Errorf("requestCount = %d, want 2", requestCount)
 	}
 }
 
 func TestSource_Fetch_MissingToken(t *testing.T) {
-	// Ensure no token environment variables are set
 	t.Setenv("DEPENDABOT_TOKEN", "")
 	t.Setenv("GITHUB_TOKEN", "")
 
-	s := &Source{}
+	s := sources.Get("dependabot")
 	opts := sources.Options{
 		Project:   "owner/repo",
 		Threshold: 75,
@@ -329,7 +286,7 @@ func TestSource_Fetch_MissingToken(t *testing.T) {
 func TestSource_Fetch_InvalidProject(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "test-token")
 
-	s := &Source{}
+	s := sources.Get("dependabot")
 	opts := sources.Options{
 		Project:   "invalid-format", // missing slash
 		Threshold: 75,
@@ -342,18 +299,16 @@ func TestSource_Fetch_InvalidProject(t *testing.T) {
 }
 
 func TestSource_Fetch_WithTitle(t *testing.T) {
-	alerts := AlertsResponse{}
-
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(alerts)
+		_ = json.NewEncoder(w).Encode(AlertsResponse{})
 	}))
 	defer server.Close()
 
 	t.Setenv("GITHUB_TOKEN", "test-token")
 	t.Setenv("GITHUB_API_URL", server.URL)
 
-	s := &Source{}
+	s := sources.Get("dependabot")
 	opts := sources.Options{
 		Project:   "owner/repo",
 		Threshold: 75,
@@ -367,5 +322,69 @@ func TestSource_Fetch_WithTitle(t *testing.T) {
 
 	if report.Title != "Custom Title" {
 		t.Errorf("Title = %q, want %q", report.Title, "Custom Title")
+	}
+}
+
+func TestSource_Fetch_DefaultTitle(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(AlertsResponse{})
+	}))
+	defer server.Close()
+
+	t.Setenv("GITHUB_TOKEN", "test-token")
+	t.Setenv("GITHUB_API_URL", server.URL)
+
+	s := sources.Get("dependabot")
+	opts := sources.Options{
+		Project:   "owner/repo",
+		Threshold: 75,
+	}
+
+	report, err := s.Fetch(context.Background(), opts)
+	if err != nil {
+		t.Fatalf("Fetch() error = %v", err)
+	}
+
+	if report.Title != "owner/repo" {
+		t.Errorf("Title = %q, want %q", report.Title, "owner/repo")
+	}
+}
+
+func TestSource_Fetch_FactorURLs(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(AlertsResponse{})
+	}))
+	defer server.Close()
+
+	t.Setenv("GITHUB_TOKEN", "test-token")
+	t.Setenv("GITHUB_API_URL", server.URL)
+
+	s := sources.Get("dependabot")
+	opts := sources.Options{
+		Project:   "myorg/myrepo",
+		Threshold: 75,
+	}
+
+	report, err := s.Fetch(context.Background(), opts)
+	if err != nil {
+		t.Fatalf("Fetch() error = %v", err)
+	}
+
+	if len(report.Factors) == 0 {
+		t.Fatal("expected at least one factor")
+	}
+
+	// All factors should have URLs containing the security path
+	// (URL host depends on test server, but path is consistent)
+	expectedPath := "/myorg/myrepo/security/dependabot"
+	for _, f := range report.Factors {
+		if f.URL == "" {
+			t.Errorf("Factor URL is empty")
+		}
+		if !strings.Contains(f.URL, expectedPath) {
+			t.Errorf("Factor URL = %q, want to contain %q", f.URL, expectedPath)
+		}
 	}
 }

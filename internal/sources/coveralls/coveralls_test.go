@@ -8,171 +8,74 @@ import (
 	"testing"
 
 	"github.com/boinger/confvis/internal/sources"
+	"github.com/boinger/confvis/internal/sources/coverage"
 )
 
-// mockFetcher implements Fetcher for testing.
-type mockFetcher struct {
-	report   *ReportResponse
-	fetchErr error
+// getCoverageSource is a test helper that safely asserts the source type.
+func getCoverageSource(t *testing.T) *coverage.CoverageSource {
+	t.Helper()
+	s := sources.Get("coveralls")
+	if s == nil {
+		t.Fatal("coveralls source not registered")
+	}
+	cs, ok := s.(*coverage.CoverageSource)
+	if !ok {
+		t.Fatalf("coveralls source is not *coverage.CoverageSource, got %T", s)
+	}
+	return cs
 }
 
-func (m *mockFetcher) FetchReport(_ context.Context, _, _ string) (*ReportResponse, error) {
-	return m.report, m.fetchErr
-}
-
-func (m *mockFetcher) ReportURL(service, ownerRepo string) string {
-	return "https://coveralls.io/" + service + "/" + ownerRepo
-}
-
-func TestSource_FetchWithClient(t *testing.T) {
+func TestExtractCoverage(t *testing.T) {
 	tests := []struct {
-		name      string
-		coverage  float64
-		wantScore int
+		name     string
+		coverage float64
+		want     float64
 	}{
-		{
-			name:      "100% coverage",
-			coverage:  100.0,
-			wantScore: 100,
-		},
-		{
-			name:      "0% coverage",
-			coverage:  0.0,
-			wantScore: 0,
-		},
-		{
-			name:      "85.5% coverage rounds to 86",
-			coverage:  85.5,
-			wantScore: 86,
-		},
-		{
-			name:      "85.4% coverage rounds to 85",
-			coverage:  85.4,
-			wantScore: 85,
-		},
-		{
-			name:      "50.5% coverage rounds to 51",
-			coverage:  50.5,
-			wantScore: 51,
-		},
+		{"100% coverage", 100.0, 100.0},
+		{"0% coverage", 0.0, 0.0},
+		{"85.5% coverage", 85.5, 85.5},
+		{"50.123% coverage", 50.123, 50.123},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := &Source{}
-			mock := &mockFetcher{
-				report: &ReportResponse{CoveredPercent: tt.coverage},
-			}
-
-			report, err := s.FetchWithClient(context.Background(), mock, defaultOpts(), "github")
+			resp := ReportResponse{CoveredPercent: tt.coverage}
+			data, err := json.Marshal(resp)
 			if err != nil {
-				t.Fatalf("FetchWithClient() error = %v", err)
+				t.Fatalf("Marshal() error = %v", err)
 			}
 
-			if report.ScoreValue() != tt.wantScore {
-				t.Errorf("Score = %d, want %d", report.Score, tt.wantScore)
+			got, err := extractCoverage(data)
+			if err != nil {
+				t.Fatalf("extractCoverage() error = %v", err)
 			}
 
-			if report.Source != sourceName {
-				t.Errorf("Source = %q, want %q", report.Source, sourceName)
-			}
-
-			if len(report.Factors) != 1 {
-				t.Errorf("len(Factors) = %d, want 1", len(report.Factors))
+			if got != tt.want {
+				t.Errorf("extractCoverage() = %f, want %f", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestSource_FetchWithClient_Title(t *testing.T) {
-	s := &Source{}
-	mock := &mockFetcher{
-		report: &ReportResponse{CoveredPercent: 80},
-	}
-
-	opts := sources.Options{
-		Project:   "owner/repo",
-		Threshold: 75,
-		Title:     "Custom Title",
-	}
-
-	report, err := s.FetchWithClient(context.Background(), mock, opts, "github")
-	if err != nil {
-		t.Fatalf("FetchWithClient() error = %v", err)
-	}
-
-	if report.Title != "Custom Title" {
-		t.Errorf("Title = %q, want %q", report.Title, "Custom Title")
+func TestExtractCoverage_InvalidJSON(t *testing.T) {
+	_, err := extractCoverage([]byte("invalid json"))
+	if err == nil {
+		t.Error("expected error for invalid JSON")
 	}
 }
 
-func TestSource_FetchWithClient_DefaultTitle(t *testing.T) {
-	s := &Source{}
-	mock := &mockFetcher{
-		report: &ReportResponse{CoveredPercent: 80},
+func TestSource_Registration(t *testing.T) {
+	s := sources.Get("coveralls")
+	if s == nil {
+		t.Error("coveralls source not registered")
 	}
-
-	opts := sources.Options{
-		Project:   "owner/repo",
-		Threshold: 75,
-	}
-
-	report, err := s.FetchWithClient(context.Background(), mock, opts, "github")
-	if err != nil {
-		t.Fatalf("FetchWithClient() error = %v", err)
-	}
-
-	if report.Title != "owner/repo" {
-		t.Errorf("Title = %q, want %q", report.Title, "owner/repo")
+	if s.Name() != "coveralls" {
+		t.Errorf("Name() = %q, want %q", s.Name(), "coveralls")
 	}
 }
 
-func TestSource_FetchWithClient_URL(t *testing.T) {
-	s := &Source{}
-	mock := &mockFetcher{
-		report: &ReportResponse{CoveredPercent: 80},
-	}
-
-	opts := sources.Options{
-		Project:   "myorg/myrepo",
-		Threshold: 75,
-	}
-
-	report, err := s.FetchWithClient(context.Background(), mock, opts, "github")
-	if err != nil {
-		t.Fatalf("FetchWithClient() error = %v", err)
-	}
-
-	if len(report.Factors) != 1 {
-		t.Fatalf("len(Factors) = %d, want 1", len(report.Factors))
-	}
-
-	wantURL := "https://coveralls.io/github/myorg/myrepo"
-	if report.Factors[0].URL != wantURL {
-		t.Errorf("Factor URL = %q, want %q", report.Factors[0].URL, wantURL)
-	}
-}
-
-func TestSource_Name(t *testing.T) {
-	s := &Source{}
-	if s.Name() != sourceName {
-		t.Errorf("Name() = %q, want %q", s.Name(), sourceName)
-	}
-}
-
-func defaultOpts() sources.Options {
-	return sources.Options{
-		Project:   "owner/repo",
-		Threshold: 75,
-	}
-}
-
-func TestClient_FetchReport(t *testing.T) {
-	report := ReportResponse{
-		RepoName:       "owner/repo",
-		CoveredPercent: 85.5,
-		CoverageChange: 2.5,
-	}
+func TestSource_Fetch_Success(t *testing.T) {
+	report := ReportResponse{CoveredPercent: 85.5}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/github/owner/repo.json" {
@@ -183,18 +86,33 @@ func TestClient_FetchReport(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClientWithHTTP(server.URL, "", server.Client())
-	result, err := client.FetchReport(context.Background(), "github", "owner/repo")
-	if err != nil {
-		t.Fatalf("FetchReport() error = %v", err)
+	// Get the source and use the test helper
+	s := getCoverageSource(t)
+	opts := sources.Options{
+		Project:   "owner/repo",
+		Threshold: 75,
 	}
 
-	if result.CoveredPercent != 85.5 {
-		t.Errorf("CoveredPercent = %f, want 85.5", result.CoveredPercent)
+	result, err := s.FetchWithTestClient(context.Background(), opts, server.URL, "", server.Client())
+	if err != nil {
+		t.Fatalf("FetchWithTestClient() error = %v", err)
+	}
+
+	// 85.5 rounds to 86
+	if result.ScoreValue() != 86 {
+		t.Errorf("Score = %d, want 86", result.ScoreValue())
+	}
+
+	if result.Source != "coveralls" {
+		t.Errorf("Source = %q, want %q", result.Source, "coveralls")
+	}
+
+	if len(result.Factors) != 1 {
+		t.Errorf("len(Factors) = %d, want 1", len(result.Factors))
 	}
 }
 
-func TestClient_FetchReport_WithToken(t *testing.T) {
+func TestSource_Fetch_WithToken(t *testing.T) {
 	var receivedAuth string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		receivedAuth = r.Header.Get("Authorization")
@@ -203,10 +121,15 @@ func TestClient_FetchReport_WithToken(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClientWithHTTP(server.URL, "test-token", server.Client())
-	_, err := client.FetchReport(context.Background(), "github", "owner/repo")
+	s := getCoverageSource(t)
+	opts := sources.Options{
+		Project:   "owner/repo",
+		Threshold: 75,
+	}
+
+	_, err := s.FetchWithTestClient(context.Background(), opts, server.URL, "test-token", server.Client())
 	if err != nil {
-		t.Fatalf("FetchReport() error = %v", err)
+		t.Fatalf("FetchWithTestClient() error = %v", err)
 	}
 
 	if receivedAuth != "Bearer test-token" {
@@ -214,63 +137,202 @@ func TestClient_FetchReport_WithToken(t *testing.T) {
 	}
 }
 
-func TestClient_FetchReport_InvalidProject(t *testing.T) {
-	client := NewClient("", 0)
-	_, err := client.FetchReport(context.Background(), "github", "invalid-format")
+func TestSource_Fetch_InvalidProject(t *testing.T) {
+	s := getCoverageSource(t)
+	opts := sources.Options{
+		Project:   "invalid-format", // missing slash
+		Threshold: 75,
+	}
+
+	_, err := s.FetchWithTestClient(context.Background(), opts, "http://example.com", "", http.DefaultClient)
 	if err == nil {
 		t.Error("expected error for invalid project format")
 	}
 }
 
-func TestClient_ReportURL(t *testing.T) {
-	tests := []struct {
-		name     string
-		service  string
-		ownerRepo string
-		want     string
-	}{
-		{"github", "github", "owner/repo", "https://coveralls.io/github/owner/repo"},
-		{"gitlab", "gitlab", "owner/repo", "https://coveralls.io/gitlab/owner/repo"},
-		{"bitbucket", "bitbucket", "owner/repo", "https://coveralls.io/bitbucket/owner/repo"},
-		{"invalid", "github", "invalid", ""},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			client := NewClient("", 0)
-			got := client.ReportURL(tt.service, tt.ownerRepo)
-			if got != tt.want {
-				t.Errorf("ReportURL() = %q, want %q", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestSource_Fetch_Success(t *testing.T) {
-	report := ReportResponse{CoveredPercent: 80}
-
+func TestSource_Fetch_ZeroCoverage(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(report)
+		_ = json.NewEncoder(w).Encode(ReportResponse{CoveredPercent: 0})
 	}))
 	defer server.Close()
 
-	// Override the default base URL for testing
-	// Since we can't easily inject the URL, test using FetchWithClient instead
-	s := &Source{}
-	client := NewClientWithHTTP(server.URL, "", server.Client())
-
+	s := getCoverageSource(t)
 	opts := sources.Options{
 		Project:   "owner/repo",
 		Threshold: 75,
 	}
 
-	result, err := s.FetchWithClient(context.Background(), client, opts, "github")
+	result, err := s.FetchWithTestClient(context.Background(), opts, server.URL, "", server.Client())
 	if err != nil {
-		t.Fatalf("FetchWithClient() error = %v", err)
+		t.Fatalf("FetchWithTestClient() error = %v", err)
 	}
 
-	if result.ScoreValue() != 80 {
-		t.Errorf("Score = %d, want 80", result.Score)
+	if result.ScoreValue() != 0 {
+		t.Errorf("Score = %d, want 0", result.ScoreValue())
+	}
+}
+
+func TestSource_Fetch_FullCoverage(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(ReportResponse{CoveredPercent: 100})
+	}))
+	defer server.Close()
+
+	s := getCoverageSource(t)
+	opts := sources.Options{
+		Project:   "owner/repo",
+		Threshold: 75,
+	}
+
+	result, err := s.FetchWithTestClient(context.Background(), opts, server.URL, "", server.Client())
+	if err != nil {
+		t.Fatalf("FetchWithTestClient() error = %v", err)
+	}
+
+	if result.ScoreValue() != 100 {
+		t.Errorf("Score = %d, want 100", result.ScoreValue())
+	}
+}
+
+func TestSource_Fetch_WithTitle(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(ReportResponse{CoveredPercent: 80})
+	}))
+	defer server.Close()
+
+	s := getCoverageSource(t)
+	opts := sources.Options{
+		Project:   "owner/repo",
+		Threshold: 75,
+		Title:     "Custom Title",
+	}
+
+	result, err := s.FetchWithTestClient(context.Background(), opts, server.URL, "", server.Client())
+	if err != nil {
+		t.Fatalf("FetchWithTestClient() error = %v", err)
+	}
+
+	if result.Title != "Custom Title" {
+		t.Errorf("Title = %q, want %q", result.Title, "Custom Title")
+	}
+}
+
+func TestSource_Fetch_DefaultTitle(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(ReportResponse{CoveredPercent: 80})
+	}))
+	defer server.Close()
+
+	s := getCoverageSource(t)
+	opts := sources.Options{
+		Project:   "owner/repo",
+		Threshold: 75,
+	}
+
+	result, err := s.FetchWithTestClient(context.Background(), opts, server.URL, "", server.Client())
+	if err != nil {
+		t.Fatalf("FetchWithTestClient() error = %v", err)
+	}
+
+	if result.Title != "owner/repo" {
+		t.Errorf("Title = %q, want %q", result.Title, "owner/repo")
+	}
+}
+
+func TestSource_Fetch_FactorURL(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(ReportResponse{CoveredPercent: 80})
+	}))
+	defer server.Close()
+
+	s := getCoverageSource(t)
+	opts := sources.Options{
+		Project:   "myorg/myrepo",
+		Threshold: 75,
+	}
+
+	result, err := s.FetchWithTestClient(context.Background(), opts, server.URL, "", server.Client())
+	if err != nil {
+		t.Fatalf("FetchWithTestClient() error = %v", err)
+	}
+
+	if len(result.Factors) != 1 {
+		t.Fatalf("len(Factors) = %d, want 1", len(result.Factors))
+	}
+
+	expectedURL := "https://coveralls.io/github/myorg/myrepo"
+	if result.Factors[0].URL != expectedURL {
+		t.Errorf("Factor URL = %q, want %q", result.Factors[0].URL, expectedURL)
+	}
+}
+
+func TestSource_Fetch_RoundingBehavior(t *testing.T) {
+	tests := []struct {
+		name     string
+		coverage float64
+		want     int
+	}{
+		{"rounds up from .5", 85.5, 86},
+		{"rounds up from .6", 85.6, 86},
+		{"rounds down from .4", 85.4, 85},
+		{"rounds down from .1", 85.1, 85},
+		{"exact integer", 90.0, 90},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				_ = json.NewEncoder(w).Encode(ReportResponse{CoveredPercent: tt.coverage})
+			}))
+			defer server.Close()
+
+			s := getCoverageSource(t)
+			opts := sources.Options{
+				Project:   "owner/repo",
+				Threshold: 75,
+			}
+
+			result, err := s.FetchWithTestClient(context.Background(), opts, server.URL, "", server.Client())
+			if err != nil {
+				t.Fatalf("FetchWithTestClient() error = %v", err)
+			}
+
+			if result.ScoreValue() != tt.want {
+				t.Errorf("Score = %d, want %d for coverage %f", result.ScoreValue(), tt.want, tt.coverage)
+			}
+		})
+	}
+}
+
+func TestSource_Fetch_GitLabService(t *testing.T) {
+	var receivedPath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedPath = r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(ReportResponse{CoveredPercent: 80})
+	}))
+	defer server.Close()
+
+	s := getCoverageSource(t)
+	opts := sources.Options{
+		Project:   "owner/repo",
+		Threshold: 75,
+		Extra:     map[string]string{"service": "gitlab"},
+	}
+
+	_, err := s.FetchWithTestClient(context.Background(), opts, server.URL, "", server.Client())
+	if err != nil {
+		t.Fatalf("FetchWithTestClient() error = %v", err)
+	}
+
+	expectedPath := "/gitlab/owner/repo.json"
+	if receivedPath != expectedPath {
+		t.Errorf("path = %q, want %q", receivedPath, expectedPath)
 	}
 }

@@ -1,90 +1,58 @@
 package codeql
 
 import (
-	"context"
-	"time"
+	"encoding/json"
+	"net/url"
+	"strings"
 
-	"github.com/boinger/confvis/internal/confidence"
 	"github.com/boinger/confvis/internal/sources"
 	"github.com/boinger/confvis/internal/sources/githubalerts"
-	"github.com/boinger/confvis/internal/sources/repoparse"
 	"github.com/boinger/confvis/internal/sources/scoring"
 )
 
-const sourceName = "codeql"
-
-// Fetcher defines the interface for fetching CodeQL data.
-type Fetcher interface {
-	FetchAlerts(ctx context.Context, owner, repo, toolName string) (AlertsResponse, error)
-	AlertsURL(owner, repo string) string
-}
-
-// Environment variable names for configuration.
-const (
-	EnvToken  = "CODEQL_TOKEN" // #nosec G101 -- not a credential, just env var name
-	EnvAPIURL = "GITHUB_API_URL"
-)
-
-var configResolver = &sources.ConfigResolver{
-	SourceName:     sourceName,
-	TokenEnvVar:    EnvToken,
-	URLEnvVar:      EnvAPIURL,
-	TokenRequired:  false, // We handle token resolution manually for fallback
-	URLRequired:    false, // Has default
-	DefaultTimeout: 30 * time.Second,
-}
-
-// Source implements the sources.Source interface for CodeQL.
-type Source struct{}
-
 func init() {
-	sources.Register(&Source{})
+	sources.Register(githubalerts.NewSource(githubalerts.SourceConfig{
+		Name:         "codeql",
+		TokenEnvVar:  "CODEQL_TOKEN", // #nosec G101 -- not a credential, just env var name
+		EndpointPath: "code-scanning/alerts",
+		WebURLPath:   "security/code-scanning",
+	}, countAlerts, extraParams))
 }
 
-// Name returns the source identifier.
-func (s *Source) Name() string {
-	return sourceName
-}
-
-// Fetch retrieves code scanning alerts from CodeQL and converts them to a confidence report.
-func (s *Source) Fetch(ctx context.Context, opts sources.Options) (*confidence.Report, error) {
-	cfg, err := configResolver.Resolve(opts)
-	if err != nil {
-		return nil, err
-	}
-
-	token, err := githubalerts.ResolveTokenWithFallback(cfg, sourceName, EnvToken)
-	if err != nil {
-		return nil, err
-	}
-
-	owner, repo, err := repoparse.Parse(opts.Project)
-	if err != nil {
-		return nil, err
-	}
-
+// extraParams adds the optional tool_name filter parameter.
+func extraParams(opts sources.Options) url.Values {
 	toolName := sources.GetExtra(opts, "tool", "")
-	client := NewClient(cfg.URL, token, cfg.Timeout)
-
-	return s.FetchWithClient(ctx, client, opts, owner, repo, toolName)
+	if toolName == "" {
+		return nil
+	}
+	return url.Values{"tool_name": {toolName}}
 }
 
-// FetchWithClient retrieves code scanning alerts using the provided Fetcher.
-func (s *Source) FetchWithClient(ctx context.Context, fetcher Fetcher, opts sources.Options, owner, repo, toolName string) (*confidence.Report, error) {
-	alerts, err := fetcher.FetchAlerts(ctx, owner, repo, toolName)
-	if err != nil {
-		return nil, err
+// countAlerts extracts severity counts from CodeQL alerts JSON.
+// CodeQL alerts have a security_severity_level field (critical, high, medium, low).
+// If that's not set, we fall back to the rule severity (error->high, warning->medium, note->low).
+func countAlerts(data []byte) (scoring.SeverityCounts, error) {
+	var alerts AlertsResponse
+	if err := json.Unmarshal(data, &alerts); err != nil {
+		return scoring.SeverityCounts{}, err
 	}
 
-	counts := countAlertsBySeverity(alerts)
-	title := githubalerts.ResolveTitle(opts.Title, owner, repo)
-
-	factors := scoring.BuildVulnFactors(
-		scoring.SeverityCounts{Critical: counts.Critical, High: counts.High, Medium: counts.Medium, Low: counts.Low},
-		githubalerts.Penalties(),
-		githubalerts.Weights(),
-		fetcher.AlertsURL(owner, repo),
-	)
-
-	return scoring.BuildReport(title, sourceName, opts.Threshold, factors), nil
+	var counts scoring.SeverityCounts
+	for _, alert := range alerts {
+		// Prefer security_severity_level if available
+		severity := strings.ToLower(alert.Rule.SecuritySeverityLevel)
+		if severity == "" {
+			// Fall back to rule severity
+			switch strings.ToLower(alert.Rule.Severity) {
+			case "error":
+				severity = "high"
+			case "warning":
+				severity = "medium"
+			default:
+				severity = "low"
+			}
+		}
+		scoring.CountSeverity(&counts, severity, "codeql", true)
+	}
+	return counts, nil
 }

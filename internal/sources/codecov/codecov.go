@@ -1,67 +1,29 @@
 package codecov
 
 import (
-	"context"
-	"time"
+	"encoding/json"
+	"fmt"
 
-	"github.com/boinger/confvis/internal/confidence"
 	"github.com/boinger/confvis/internal/sources"
 	"github.com/boinger/confvis/internal/sources/coverage"
 )
 
-const sourceName = "codecov"
-
-// Fetcher defines the interface for fetching Codecov data.
-type Fetcher interface {
-	FetchReport(ctx context.Context, service, ownerRepo string) (*ReportResponse, error)
-	ReportURL(service, ownerRepo string) string
-}
-
-// Environment variable names for configuration.
-const (
-	EnvToken = "CODECOV_TOKEN" // #nosec G101 -- not a credential, just env var name
-)
-
-var configResolver = &sources.ConfigResolver{
-	SourceName:     sourceName,
-	TokenEnvVar:    EnvToken,
-	TokenRequired:  true,
-	DefaultTimeout: 30 * time.Second,
-}
-
-// Source implements the sources.Source interface for Codecov.
-type Source struct{}
-
 func init() {
-	sources.Register(&Source{})
+	sources.Register(coverage.NewSource(coverage.SourceConfig{
+		Name:          "codecov",
+		TokenEnvVar:   "CODECOV_TOKEN", // #nosec G101 -- not a credential, just env var name
+		TokenRequired: true,
+		BaseURL:       "https://api.codecov.io",
+		BuildAPIPath:  func(service, owner, repo string) string { return fmt.Sprintf("/api/v2/%s/%s/repos/%s/report/", service, owner, repo) },
+		BuildWebURL:   func(service, owner, repo string) string { return fmt.Sprintf("https://app.codecov.io/%s/%s/%s", service, owner, repo) },
+	}, extractCoverage))
 }
 
-// Name returns the source identifier.
-func (s *Source) Name() string {
-	return sourceName
-}
-
-// Fetch retrieves coverage metrics from Codecov and converts them to a confidence report.
-func (s *Source) Fetch(ctx context.Context, opts sources.Options) (*confidence.Report, error) {
-	cfg, err := configResolver.Resolve(opts)
-	if err != nil {
-		return nil, err
+// extractCoverage extracts the coverage percentage from Codecov API response.
+func extractCoverage(data []byte) (float64, error) {
+	var resp ReportResponse
+	if err := json.Unmarshal(data, &resp); err != nil {
+		return 0, err
 	}
-
-	service := coverage.ResolveService(opts)
-	client := NewClient(cfg.Token, cfg.Timeout)
-
-	return s.FetchWithClient(ctx, client, opts, service)
-}
-
-// FetchWithClient retrieves coverage metrics using the provided Fetcher.
-// This allows injecting mock clients for testing.
-func (s *Source) FetchWithClient(ctx context.Context, fetcher Fetcher, opts sources.Options, service string) (*confidence.Report, error) {
-	report, err := fetcher.FetchReport(ctx, service, opts.Project)
-	if err != nil {
-		return nil, err
-	}
-
-	title := sources.ResolveTitle(opts.Title, opts.Project)
-	return coverage.BuildReport(title, sourceName, opts.Threshold, report.Totals.Coverage, fetcher.ReportURL(service, opts.Project)), nil
+	return resp.Totals.Coverage, nil
 }
