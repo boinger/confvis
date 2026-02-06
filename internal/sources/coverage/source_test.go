@@ -324,3 +324,171 @@ func TestCoverageSource_createClient_WithToken(t *testing.T) {
 		t.Error("createClient returned nil")
 	}
 }
+
+func TestCoverageSource_FetchWithTestClient(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/github/owner/repo" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]float64{"coverage": 92.5})
+	}))
+	defer server.Close()
+
+	cfg := SourceConfig{
+		Name:          "test-coverage",
+		TokenEnvVar:   "TEST_TOKEN",
+		TokenRequired: false,
+		BaseURL:       server.URL,
+		BuildAPIPath: func(service, owner, repo string) string {
+			return fmt.Sprintf("/%s/%s/%s", service, owner, repo)
+		},
+		BuildWebURL: func(service, owner, repo string) string {
+			return fmt.Sprintf("https://example.com/%s/%s/%s", service, owner, repo)
+		},
+	}
+	extractor := func(data []byte) (float64, error) {
+		var resp map[string]float64
+		if err := json.Unmarshal(data, &resp); err != nil {
+			return 0, err
+		}
+		return resp["coverage"], nil
+	}
+
+	s := NewSource(cfg, extractor)
+
+	opts := sources.Options{
+		Project:   "owner/repo",
+		Threshold: 75,
+	}
+
+	report, err := s.FetchWithTestClient(context.Background(), opts, server.URL, "test-token", server.Client())
+	if err != nil {
+		t.Fatalf("FetchWithTestClient() error = %v", err)
+	}
+
+	if report.ScoreValue() != 93 {
+		t.Errorf("Score = %d, want 93", report.ScoreValue())
+	}
+
+	if report.Source != "test-coverage" {
+		t.Errorf("Source = %q, want %q", report.Source, "test-coverage")
+	}
+}
+
+func TestCoverageSource_FetchWithTestClient_NoToken(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]float64{"coverage": 80})
+	}))
+	defer server.Close()
+
+	cfg := SourceConfig{
+		Name:    "test-coverage",
+		BaseURL: server.URL,
+		BuildAPIPath: func(service, owner, repo string) string {
+			return fmt.Sprintf("/%s/%s/%s", service, owner, repo)
+		},
+		BuildWebURL: func(service, owner, repo string) string {
+			return fmt.Sprintf("https://example.com/%s/%s/%s", service, owner, repo)
+		},
+	}
+	extractor := func(data []byte) (float64, error) {
+		var resp map[string]float64
+		if err := json.Unmarshal(data, &resp); err != nil {
+			return 0, err
+		}
+		return resp["coverage"], nil
+	}
+
+	s := NewSource(cfg, extractor)
+	opts := sources.Options{Project: "owner/repo"}
+
+	report, err := s.FetchWithTestClient(context.Background(), opts, server.URL, "", server.Client())
+	if err != nil {
+		t.Fatalf("FetchWithTestClient() error = %v", err)
+	}
+
+	if report.ScoreValue() != 80 {
+		t.Errorf("Score = %d, want 80", report.ScoreValue())
+	}
+}
+
+func TestCoverageSource_FetchWithTestClient_InvalidProject(t *testing.T) {
+	cfg := SourceConfig{
+		Name:    "test-coverage",
+		BaseURL: "https://example.com",
+		BuildAPIPath: func(service, owner, repo string) string {
+			return fmt.Sprintf("/%s/%s/%s", service, owner, repo)
+		},
+		BuildWebURL: func(service, owner, repo string) string {
+			return fmt.Sprintf("https://example.com/%s/%s/%s", service, owner, repo)
+		},
+	}
+	extractor := func(data []byte) (float64, error) { return 0, nil }
+
+	s := NewSource(cfg, extractor)
+	opts := sources.Options{Project: "no-slash"}
+
+	_, err := s.FetchWithTestClient(context.Background(), opts, "https://example.com", "", nil)
+	if err == nil {
+		t.Error("expected error for invalid project format")
+	}
+}
+
+func TestCoverageSource_FetchWithTestClient_ExtractorError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]float64{"coverage": 80})
+	}))
+	defer server.Close()
+
+	cfg := SourceConfig{
+		Name:    "test-coverage",
+		BaseURL: server.URL,
+		BuildAPIPath: func(service, owner, repo string) string {
+			return fmt.Sprintf("/%s/%s/%s", service, owner, repo)
+		},
+		BuildWebURL: func(service, owner, repo string) string {
+			return fmt.Sprintf("https://example.com/%s/%s/%s", service, owner, repo)
+		},
+	}
+	extractor := func(data []byte) (float64, error) {
+		return 0, fmt.Errorf("extractor error")
+	}
+
+	s := NewSource(cfg, extractor)
+	opts := sources.Options{Project: "owner/repo"}
+
+	_, err := s.FetchWithTestClient(context.Background(), opts, server.URL, "", server.Client())
+	if err == nil {
+		t.Error("expected error from extractor")
+	}
+}
+
+func TestCoverageSource_FetchWithTestClient_APIError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	cfg := SourceConfig{
+		Name:    "test-coverage",
+		BaseURL: server.URL,
+		BuildAPIPath: func(service, owner, repo string) string {
+			return fmt.Sprintf("/%s/%s/%s", service, owner, repo)
+		},
+		BuildWebURL: func(service, owner, repo string) string {
+			return fmt.Sprintf("https://example.com/%s/%s/%s", service, owner, repo)
+		},
+	}
+	extractor := func(data []byte) (float64, error) { return 0, nil }
+
+	s := NewSource(cfg, extractor)
+	opts := sources.Options{Project: "owner/repo"}
+
+	_, err := s.FetchWithTestClient(context.Background(), opts, server.URL, "token", server.Client())
+	if err == nil {
+		t.Error("expected error for API failure")
+	}
+}

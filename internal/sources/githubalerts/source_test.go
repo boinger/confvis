@@ -359,3 +359,153 @@ func TestAlertsSource_Fetch_DefaultTitle(t *testing.T) {
 		t.Errorf("Title = %q, want %q", report.Title, "myorg/myrepo")
 	}
 }
+
+func TestAlertsSource_Fetch_APIError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	t.Setenv("GITHUB_TOKEN", "test-token")
+	t.Setenv("GITHUB_API_URL", server.URL)
+
+	cfg := SourceConfig{
+		Name:         "test-alerts",
+		TokenEnvVar:  "TEST_ALERTS_TOKEN",
+		EndpointPath: "test/alerts",
+		WebURLPath:   "security/test",
+	}
+	counter := func(data []byte) (scoring.SeverityCounts, error) {
+		return scoring.SeverityCounts{}, nil
+	}
+
+	s := NewSource(cfg, counter, nil)
+
+	opts := sources.Options{
+		Project: "owner/repo",
+	}
+
+	_, err := s.Fetch(context.Background(), opts)
+	if err == nil {
+		t.Error("expected error for API failure")
+	}
+}
+
+func TestNewClientWithHTTP(t *testing.T) {
+	config := Config{
+		EndpointPath: "test/alerts",
+		WebURLPath:   "security/test",
+	}
+	httpClient := &http.Client{}
+	client := NewClientWithHTTP("https://api.github.com", "test-token", httpClient, config)
+
+	if client == nil {
+		t.Fatal("NewClientWithHTTP returned nil")
+	}
+
+	if client.Config.EndpointPath != "test/alerts" {
+		t.Errorf("EndpointPath = %q, want %q", client.Config.EndpointPath, "test/alerts")
+	}
+
+	if client.Config.WebURLPath != "security/test" {
+		t.Errorf("WebURLPath = %q, want %q", client.Config.WebURLPath, "security/test")
+	}
+}
+
+func TestNewClientWithHTTP_CustomURL(t *testing.T) {
+	config := Config{
+		EndpointPath: "code-scanning/alerts",
+		WebURLPath:   "security/code-scanning",
+	}
+	httpClient := &http.Client{}
+	client := NewClientWithHTTP("https://github.example.com/api/v3", "token", httpClient, config)
+
+	if client == nil {
+		t.Fatal("NewClientWithHTTP returned nil")
+	}
+
+	endpoint := client.BuildEndpoint("org", "repo", url.Values{"state": {"open"}})
+	if endpoint == "" {
+		t.Error("BuildEndpoint returned empty string")
+	}
+}
+
+func TestAlertsSource_Fetch_WithSourceSpecificToken(t *testing.T) {
+	var receivedAuth string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedAuth = r.Header.Get("Authorization")
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode([]map[string]interface{}{})
+	}))
+	defer server.Close()
+
+	t.Setenv("TEST_ALERTS_TOKEN", "source-specific-token")
+	t.Setenv("GITHUB_TOKEN", "fallback-token")
+	t.Setenv("GITHUB_API_URL", server.URL)
+
+	cfg := SourceConfig{
+		Name:         "test-alerts",
+		TokenEnvVar:  "TEST_ALERTS_TOKEN",
+		EndpointPath: "test/alerts",
+		WebURLPath:   "security/test",
+	}
+	counter := func(data []byte) (scoring.SeverityCounts, error) {
+		return scoring.SeverityCounts{}, nil
+	}
+
+	s := NewSource(cfg, counter, nil)
+
+	opts := sources.Options{
+		Project: "owner/repo",
+	}
+
+	_, err := s.Fetch(context.Background(), opts)
+	if err != nil {
+		t.Fatalf("Fetch() error = %v", err)
+	}
+
+	if receivedAuth != "Bearer source-specific-token" {
+		t.Errorf("Authorization = %q, want %q", receivedAuth, "Bearer source-specific-token")
+	}
+}
+
+func TestAlertsSource_Fetch_ExtraParamsNil(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Verify no extra params beyond the standard ones
+		if r.URL.Query().Get("tool_name") != "" {
+			t.Error("unexpected tool_name parameter")
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode([]map[string]interface{}{})
+	}))
+	defer server.Close()
+
+	t.Setenv("GITHUB_TOKEN", "test-token")
+	t.Setenv("GITHUB_API_URL", server.URL)
+
+	cfg := SourceConfig{
+		Name:         "test-alerts",
+		TokenEnvVar:  "TEST_ALERTS_TOKEN",
+		EndpointPath: "test/alerts",
+		WebURLPath:   "security/test",
+	}
+	counter := func(data []byte) (scoring.SeverityCounts, error) {
+		return scoring.SeverityCounts{}, nil
+	}
+
+	// extraParams returns nil values
+	extraParams := func(_ sources.Options) url.Values {
+		return nil
+	}
+
+	s := NewSource(cfg, counter, extraParams)
+
+	opts := sources.Options{
+		Project: "owner/repo",
+	}
+
+	_, err := s.Fetch(context.Background(), opts)
+	if err != nil {
+		t.Fatalf("Fetch() error = %v", err)
+	}
+}
