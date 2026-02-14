@@ -273,6 +273,10 @@ func LoadGitHubEnv() (*GitHubEnv, error) {
 }
 
 // CommentMarker is the hidden HTML comment used to identify confvis comments.
+// Known limitation: if a user edits a confvis PR comment and removes this
+// marker, confvis will create a duplicate comment on the next run rather than
+// updating the existing one. This is by design — reliable identification
+// without external state requires the marker to be present in the comment body.
 const CommentMarker = "<!-- confvis-comment -->"
 
 // CommentOptions configures comment posting.
