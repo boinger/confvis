@@ -3,9 +3,11 @@ package httpclient
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -320,7 +322,7 @@ func TestClient_Get_InvalidJSON(t *testing.T) {
 }
 
 func TestClient_Get_NetworkError(t *testing.T) {
-	client := New(Config{BaseURL: "http://localhost:1"})
+	client := New(Config{BaseURL: "http://localhost:1", MaxRetries: -1})
 
 	var result map[string]interface{}
 	err := client.Get(context.Background(), "http://localhost:1/test", &result)
@@ -375,5 +377,250 @@ func TestClient_BaseURL(t *testing.T) {
 
 	if got := client.BaseURL(); got != "https://api.example.com" {
 		t.Errorf("BaseURL() = %q, want %q", got, "https://api.example.com")
+	}
+}
+
+// newTestClient creates a client with minimal backoff for fast tests.
+func newTestClient(server *httptest.Server) *Client {
+	return New(Config{
+		BaseURL:        server.URL,
+		MaxRetries:     3,
+		InitialBackoff: 1 * time.Millisecond,
+	})
+}
+
+func TestClient_Get_Retry_TransientThenSuccess(t *testing.T) {
+	var attempts atomic.Int32
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		n := attempts.Add(1)
+		if n <= 2 {
+			w.WriteHeader(http.StatusBadGateway)
+			_, _ = fmt.Fprint(w, "bad gateway")
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(testResponse{Message: "ok", Value: 1})
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	var result testResponse
+	err := client.Get(context.Background(), server.URL+"/test", &result)
+	if err != nil {
+		t.Fatalf("Get() error = %v, want success after retries", err)
+	}
+
+	if result.Message != "ok" {
+		t.Errorf("result.Message = %q, want %q", result.Message, "ok")
+	}
+	if got := attempts.Load(); got != 3 {
+		t.Errorf("attempts = %d, want 3", got)
+	}
+}
+
+func TestClient_Get_Retry_AllFail(t *testing.T) {
+	var attempts atomic.Int32
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		attempts.Add(1)
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = fmt.Fprint(w, "service unavailable")
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	var result map[string]interface{}
+	err := client.Get(context.Background(), server.URL+"/test", &result)
+	if err == nil {
+		t.Fatal("expected error after all retries exhausted")
+	}
+
+	if !strings.Contains(err.Error(), "503") {
+		t.Errorf("error should contain 503: %v", err)
+	}
+
+	// 1 initial + 3 retries = 4 total attempts
+	if got := attempts.Load(); got != 4 {
+		t.Errorf("attempts = %d, want 4", got)
+	}
+}
+
+func TestClient_Get_Retry_429WithRetryAfter(t *testing.T) {
+	var attempts atomic.Int32
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		n := attempts.Add(1)
+		if n == 1 {
+			w.Header().Set("Retry-After", "1") // 1 second — but we use small backoff in test
+			w.WriteHeader(http.StatusTooManyRequests)
+			_, _ = fmt.Fprint(w, "rate limited")
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(testResponse{Message: "ok", Value: 2})
+	}))
+	defer server.Close()
+
+	// Use very small backoff; Retry-After=1s will still be respected
+	// but we test the mechanism, not the actual sleep duration
+	client := New(Config{
+		BaseURL:        server.URL,
+		MaxRetries:     2,
+		InitialBackoff: 1 * time.Millisecond,
+	})
+
+	start := time.Now()
+	var result testResponse
+	err := client.Get(context.Background(), server.URL+"/test", &result)
+	elapsed := time.Since(start)
+	if err != nil {
+		t.Fatalf("Get() error = %v, want success after retry", err)
+	}
+
+	if result.Message != "ok" {
+		t.Errorf("result.Message = %q, want %q", result.Message, "ok")
+	}
+	if got := attempts.Load(); got != 2 {
+		t.Errorf("attempts = %d, want 2", got)
+	}
+
+	// Verify Retry-After was respected (should have waited ~1s)
+	if elapsed < 900*time.Millisecond {
+		t.Errorf("elapsed = %v, want >= 900ms (Retry-After: 1)", elapsed)
+	}
+}
+
+func TestClient_Get_Retry_NonRetryableStatus(t *testing.T) {
+	var attempts atomic.Int32
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		attempts.Add(1)
+		http.Error(w, "forbidden", http.StatusForbidden)
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	var result map[string]interface{}
+	err := client.Get(context.Background(), server.URL+"/test", &result)
+	if err == nil {
+		t.Fatal("expected error for 403")
+	}
+
+	// Should NOT retry a 403 — only 1 attempt
+	if got := attempts.Load(); got != 1 {
+		t.Errorf("attempts = %d, want 1 (no retry for 403)", got)
+	}
+}
+
+func TestClient_Get_Retry_DisabledWithNegativeOne(t *testing.T) {
+	var attempts atomic.Int32
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		attempts.Add(1)
+		w.WriteHeader(http.StatusBadGateway)
+		_, _ = fmt.Fprint(w, "bad gateway")
+	}))
+	defer server.Close()
+
+	client := New(Config{
+		BaseURL:        server.URL,
+		MaxRetries:     -1,
+		InitialBackoff: 1 * time.Millisecond,
+	})
+
+	var result map[string]interface{}
+	err := client.Get(context.Background(), server.URL+"/test", &result)
+	if err == nil {
+		t.Fatal("expected error for 502 with retries disabled")
+	}
+
+	// No retries — exactly 1 attempt
+	if got := attempts.Load(); got != 1 {
+		t.Errorf("attempts = %d, want 1 (retries disabled)", got)
+	}
+}
+
+func TestClient_Get_Retry_ContextCancelStopsRetry(t *testing.T) {
+	var attempts atomic.Int32
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		attempts.Add(1)
+		w.WriteHeader(http.StatusBadGateway)
+		_, _ = fmt.Fprint(w, "bad gateway")
+	}))
+	defer server.Close()
+
+	client := New(Config{
+		BaseURL:        server.URL,
+		MaxRetries:     5,
+		InitialBackoff: 100 * time.Millisecond,
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+
+	var result map[string]interface{}
+	err := client.Get(ctx, server.URL+"/test", &result)
+	if err == nil {
+		t.Fatal("expected error when context expires during retry")
+	}
+
+	// Should have attempted at most 2 times (first attempt + maybe one retry
+	// before context deadline)
+	if got := attempts.Load(); got > 2 {
+		t.Errorf("attempts = %d, want <= 2 (context should have stopped retries)", got)
+	}
+}
+
+func TestClient_Get_Retry_DefaultConfig(t *testing.T) {
+	client := New(Config{})
+	if client.maxRetries != DefaultMaxRetries {
+		t.Errorf("maxRetries = %d, want %d", client.maxRetries, DefaultMaxRetries)
+	}
+	if client.initialBackoff != DefaultInitialBackoff {
+		t.Errorf("initialBackoff = %v, want %v", client.initialBackoff, DefaultInitialBackoff)
+	}
+}
+
+func TestParseRetryAfter_Seconds(t *testing.T) {
+	d := parseRetryAfter("5")
+	if d != 5*time.Second {
+		t.Errorf("parseRetryAfter(\"5\") = %v, want 5s", d)
+	}
+}
+
+func TestParseRetryAfter_Zero(t *testing.T) {
+	d := parseRetryAfter("0")
+	if d != 0 {
+		t.Errorf("parseRetryAfter(\"0\") = %v, want 0", d)
+	}
+}
+
+func TestParseRetryAfter_Invalid(t *testing.T) {
+	d := parseRetryAfter("not-a-number")
+	if d != 0 {
+		t.Errorf("parseRetryAfter(\"not-a-number\") = %v, want 0", d)
+	}
+}
+
+func TestIsRetryable(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"nil error", nil, false},
+		{"plain error", fmt.Errorf("plain"), false},
+		{"retryable error", &retryableError{err: fmt.Errorf("transient")}, true},
+		{"wrapped retryable", fmt.Errorf("wrap: %w", &retryableError{err: fmt.Errorf("inner")}), true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isRetryable(tt.err); got != tt.want {
+				t.Errorf("isRetryable() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
