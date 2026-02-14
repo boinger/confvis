@@ -70,8 +70,8 @@ func (s *CoverageSource) Fetch(ctx context.Context, opts sources.Options) (*conf
 	client := s.createClient(cfg.Token, cfg.Timeout)
 	endpoint := s.config.BaseURL + s.config.BuildAPIPath(service, owner, repo)
 
-	var rawResponse json.RawMessage
-	if err := client.Get(ctx, endpoint, &rawResponse); err != nil {
+	rawResponse, err := httpclient.Get[json.RawMessage](client, ctx, endpoint)
+	if err != nil {
 		return nil, err
 	}
 
@@ -125,8 +125,8 @@ func (s *CoverageSource) FetchWithTestClient(ctx context.Context, opts sources.O
 
 	endpoint := baseURL + s.config.BuildAPIPath(service, owner, repo)
 
-	var rawResponse json.RawMessage
-	if err := client.Get(ctx, endpoint, &rawResponse); err != nil {
+	rawResponse, err := httpclient.Get[json.RawMessage](client, ctx, endpoint)
+	if err != nil {
 		return nil, err
 	}
 

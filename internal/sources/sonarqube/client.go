@@ -61,8 +61,8 @@ func (c *Client) FetchMeasures(ctx context.Context, project, branch string) (*Me
 
 	endpoint := fmt.Sprintf("%s/api/measures/component?%s", c.baseURL, params.Encode())
 
-	var result MeasuresResponse
-	if err := c.http.Get(ctx, endpoint, &result); err != nil {
+	result, err := httpclient.Get[MeasuresResponse](c.http, ctx, endpoint)
+	if err != nil {
 		return nil, fmt.Errorf("fetching measures: %w", err)
 	}
 

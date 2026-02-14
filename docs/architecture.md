@@ -127,7 +127,8 @@ Shared git helper functions used by baseline and history packages:
 - `WriteRef()` - Atomic blob write with optional compare-and-swap (CAS)
 - `ErrRefConflict` / `ZeroSHA` - CAS error sentinel and create-only constant
 - `RefExists()` / `IsGitRepo()` - Basic git state queries
-- Centralizes git plumbing (hash-object, update-ref, cat-file) in one place
+- `GetCurrentCommit()` / `GetCurrentBranch()` - Current HEAD metadata
+- Centralizes git plumbing (hash-object, update-ref, rev-parse, cat-file) in one place
 
 ### `internal/baseline`
 
@@ -156,6 +157,7 @@ Modular framework for fetching metrics from external systems:
 ### `internal/sources/httpclient`
 
 Common HTTP client used by API-based sources:
+- Generic `Get[T]()` function for type-safe JSON decoding (compile-time type safety via Go generics)
 - Configurable authentication: Bearer, Token, Basic, or None
 - Custom Accept headers and extra headers (e.g., API version)
 - Centralized error handling and JSON decoding
@@ -287,8 +289,7 @@ client := httpclient.New(httpclient.Config{
     // InitialBackoff: 500*time.Millisecond, // faster backoff
 })
 
-var result ResponseType
-err := client.Get(ctx, endpoint, &result) // retries transient failures automatically
+result, err := httpclient.Get[ResponseType](client, ctx, endpoint) // retries transient failures automatically
 ```
 
 **Configuration Resolver** (`internal/sources/config.go`):

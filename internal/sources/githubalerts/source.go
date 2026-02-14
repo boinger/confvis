@@ -9,6 +9,7 @@ import (
 
 	"github.com/boinger/confvis/internal/confidence"
 	"github.com/boinger/confvis/internal/sources"
+	"github.com/boinger/confvis/internal/sources/httpclient"
 	"github.com/boinger/confvis/internal/sources/repoparse"
 	"github.com/boinger/confvis/internal/sources/scoring"
 )
@@ -121,8 +122,8 @@ func (s *AlertsSource) fetchAllAlerts(ctx context.Context, client *Client, owner
 
 		endpoint := client.BuildEndpoint(owner, repo, params)
 
-		var pageAlerts []json.RawMessage
-		if err := client.HTTP.Get(ctx, endpoint, &pageAlerts); err != nil {
+		pageAlerts, err := httpclient.Get[[]json.RawMessage](client.HTTP, ctx, endpoint)
+		if err != nil {
 			return nil, err
 		}
 

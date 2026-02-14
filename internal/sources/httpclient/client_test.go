@@ -69,8 +69,7 @@ func TestClient_Get_Success(t *testing.T) {
 
 	client := New(Config{BaseURL: server.URL})
 
-	var result testResponse
-	err := client.Get(context.Background(), server.URL+"/test", &result)
+	result, err := Get[testResponse](client, context.Background(), server.URL+"/test")
 	if err != nil {
 		t.Fatalf("Get() error = %v", err)
 	}
@@ -102,8 +101,7 @@ func TestClient_Get_AuthBearer(t *testing.T) {
 		AuthType: AuthBearer,
 	})
 
-	var result map[string]interface{}
-	err := client.Get(context.Background(), server.URL+"/test", &result)
+	_, err := Get[map[string]interface{}](client, context.Background(), server.URL+"/test")
 	if err != nil {
 		t.Fatalf("Get() error = %v", err)
 	}
@@ -128,8 +126,7 @@ func TestClient_Get_AuthToken(t *testing.T) {
 		AuthType: AuthToken,
 	})
 
-	var result map[string]interface{}
-	err := client.Get(context.Background(), server.URL+"/test", &result)
+	_, err := Get[map[string]interface{}](client, context.Background(), server.URL+"/test")
 	if err != nil {
 		t.Fatalf("Get() error = %v", err)
 	}
@@ -160,8 +157,7 @@ func TestClient_Get_AuthBasic(t *testing.T) {
 		AuthType: AuthBasic,
 	})
 
-	var result map[string]interface{}
-	err := client.Get(context.Background(), server.URL+"/test", &result)
+	_, err := Get[map[string]interface{}](client, context.Background(), server.URL+"/test")
 	if err != nil {
 		t.Fatalf("Get() error = %v", err)
 	}
@@ -186,8 +182,7 @@ func TestClient_Get_AuthNone(t *testing.T) {
 		AuthType: AuthNone,
 	})
 
-	var result map[string]interface{}
-	err := client.Get(context.Background(), server.URL+"/test", &result)
+	_, err := Get[map[string]interface{}](client, context.Background(), server.URL+"/test")
 	if err != nil {
 		t.Fatalf("Get() error = %v", err)
 	}
@@ -211,8 +206,7 @@ func TestClient_Get_NoToken(t *testing.T) {
 		AuthType: AuthBearer, // Even with AuthBearer, no header if no token
 	})
 
-	var result map[string]interface{}
-	err := client.Get(context.Background(), server.URL+"/test", &result)
+	_, err := Get[map[string]interface{}](client, context.Background(), server.URL+"/test")
 	if err != nil {
 		t.Fatalf("Get() error = %v", err)
 	}
@@ -238,8 +232,7 @@ func TestClient_Get_AcceptHeader(t *testing.T) {
 		Accept:  customAccept,
 	})
 
-	var result map[string]interface{}
-	err := client.Get(context.Background(), server.URL+"/test", &result)
+	_, err := Get[map[string]interface{}](client, context.Background(), server.URL+"/test")
 	if err != nil {
 		t.Fatalf("Get() error = %v", err)
 	}
@@ -270,8 +263,7 @@ func TestClient_Get_ExtraHeaders(t *testing.T) {
 		},
 	})
 
-	var result map[string]interface{}
-	err := client.Get(context.Background(), server.URL+"/test", &result)
+	_, err := Get[map[string]interface{}](client, context.Background(), server.URL+"/test")
 	if err != nil {
 		t.Fatalf("Get() error = %v", err)
 	}
@@ -285,8 +277,7 @@ func TestClient_Get_HTTPError(t *testing.T) {
 
 	client := New(Config{BaseURL: server.URL})
 
-	var result map[string]interface{}
-	err := client.Get(context.Background(), server.URL+"/test", &result)
+	_, err := Get[map[string]interface{}](client, context.Background(), server.URL+"/test")
 	if err == nil {
 		t.Fatal("expected error for 404 response")
 	}
@@ -310,8 +301,7 @@ func TestClient_Get_InvalidJSON(t *testing.T) {
 
 	client := New(Config{BaseURL: server.URL})
 
-	var result map[string]interface{}
-	err := client.Get(context.Background(), server.URL+"/test", &result)
+	_, err := Get[map[string]interface{}](client, context.Background(), server.URL+"/test")
 	if err == nil {
 		t.Fatal("expected error for invalid JSON")
 	}
@@ -324,8 +314,7 @@ func TestClient_Get_InvalidJSON(t *testing.T) {
 func TestClient_Get_NetworkError(t *testing.T) {
 	client := New(Config{BaseURL: "http://localhost:1", MaxRetries: -1})
 
-	var result map[string]interface{}
-	err := client.Get(context.Background(), "http://localhost:1/test", &result)
+	_, err := Get[map[string]interface{}](client, context.Background(), "http://localhost:1/test")
 	if err == nil {
 		t.Fatal("expected error for network failure")
 	}
@@ -338,8 +327,7 @@ func TestClient_Get_NetworkError(t *testing.T) {
 func TestClient_Get_InvalidURL(t *testing.T) {
 	client := New(Config{})
 
-	var result map[string]interface{}
-	err := client.Get(context.Background(), "://invalid-url", &result)
+	_, err := Get[map[string]interface{}](client, context.Background(), "://invalid-url")
 	if err == nil {
 		t.Fatal("expected error for invalid URL")
 	}
@@ -365,8 +353,7 @@ func TestClient_Get_ContextCanceled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Cancel immediately
 
-	var result map[string]interface{}
-	err := client.Get(ctx, server.URL+"/test", &result)
+	_, err := Get[map[string]interface{}](client, ctx, server.URL+"/test")
 	if err == nil {
 		t.Fatal("expected error for canceled context")
 	}
@@ -405,8 +392,7 @@ func TestClient_Get_Retry_TransientThenSuccess(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server)
-	var result testResponse
-	err := client.Get(context.Background(), server.URL+"/test", &result)
+	result, err := Get[testResponse](client, context.Background(), server.URL+"/test")
 	if err != nil {
 		t.Fatalf("Get() error = %v, want success after retries", err)
 	}
@@ -430,8 +416,7 @@ func TestClient_Get_Retry_AllFail(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server)
-	var result map[string]interface{}
-	err := client.Get(context.Background(), server.URL+"/test", &result)
+	_, err := Get[map[string]interface{}](client, context.Background(), server.URL+"/test")
 	if err == nil {
 		t.Fatal("expected error after all retries exhausted")
 	}
@@ -471,8 +456,7 @@ func TestClient_Get_Retry_429WithRetryAfter(t *testing.T) {
 	})
 
 	start := time.Now()
-	var result testResponse
-	err := client.Get(context.Background(), server.URL+"/test", &result)
+	result, err := Get[testResponse](client, context.Background(), server.URL+"/test")
 	elapsed := time.Since(start)
 	if err != nil {
 		t.Fatalf("Get() error = %v, want success after retry", err)
@@ -501,8 +485,7 @@ func TestClient_Get_Retry_NonRetryableStatus(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server)
-	var result map[string]interface{}
-	err := client.Get(context.Background(), server.URL+"/test", &result)
+	_, err := Get[map[string]interface{}](client, context.Background(), server.URL+"/test")
 	if err == nil {
 		t.Fatal("expected error for 403")
 	}
@@ -529,8 +512,7 @@ func TestClient_Get_Retry_DisabledWithNegativeOne(t *testing.T) {
 		InitialBackoff: 1 * time.Millisecond,
 	})
 
-	var result map[string]interface{}
-	err := client.Get(context.Background(), server.URL+"/test", &result)
+	_, err := Get[map[string]interface{}](client, context.Background(), server.URL+"/test")
 	if err == nil {
 		t.Fatal("expected error for 502 with retries disabled")
 	}
@@ -560,8 +542,7 @@ func TestClient_Get_Retry_ContextCancelStopsRetry(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
 
-	var result map[string]interface{}
-	err := client.Get(ctx, server.URL+"/test", &result)
+	_, err := Get[map[string]interface{}](client, ctx, server.URL+"/test")
 	if err == nil {
 		t.Fatal("expected error when context expires during retry")
 	}
@@ -624,8 +605,7 @@ func TestClient_Get_ResponseHook(t *testing.T) {
 		},
 	})
 
-	var result map[string]interface{}
-	if err := client.Get(context.Background(), server.URL+"/test", &result); err != nil {
+	if _, err := Get[map[string]interface{}](client, context.Background(), server.URL+"/test"); err != nil {
 		t.Fatalf("Get() error = %v", err)
 	}
 
@@ -654,8 +634,7 @@ func TestClient_Get_ResponseHook_NotCalledOnError(t *testing.T) {
 		},
 	})
 
-	var result map[string]interface{}
-	_ = client.Get(context.Background(), server.URL+"/test", &result)
+	_, _ = Get[map[string]interface{}](client, context.Background(), server.URL+"/test")
 
 	if hookCalled {
 		t.Error("OnResponse hook should not be called on error responses")

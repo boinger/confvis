@@ -257,3 +257,75 @@ func TestReadRefContent_NotExists(t *testing.T) {
 		t.Errorf("ReadRefContent() = %q, want nil for non-existent ref", string(got))
 	}
 }
+
+// setupGitRepoWithCommit creates a temporary git repo with an initial commit.
+func setupGitRepoWithCommit(t *testing.T, branch string) string {
+	t.Helper()
+
+	args := []string{"init"}
+	if branch != "" {
+		args = append(args, "-b", branch)
+	}
+
+	tmpDir := t.TempDir()
+
+	cmd := exec.Command("git", args...)
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git init failed: %v", err)
+	}
+
+	cmd = exec.Command("git", "config", "user.email", "test@example.com")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git config email failed: %v", err)
+	}
+
+	cmd = exec.Command("git", "config", "user.name", "Test User")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git config name failed: %v", err)
+	}
+
+	testFile := tmpDir + "/test.txt"
+	if err := os.WriteFile(testFile, []byte("test"), 0o644); err != nil {
+		t.Fatalf("failed to write test file: %v", err)
+	}
+
+	cmd = exec.Command("git", "add", "test.txt")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git add failed: %v", err)
+	}
+
+	cmd = exec.Command("git", "commit", "-m", "Initial commit")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git commit failed: %v", err)
+	}
+
+	return tmpDir
+}
+
+func TestGetCurrentCommit(t *testing.T) {
+	repoDir := setupGitRepoWithCommit(t, "")
+	withDir(t, repoDir)
+
+	commit := GetCurrentCommit()
+	if commit == "" {
+		t.Error("expected non-empty commit hash")
+	}
+	if len(commit) != 40 {
+		t.Errorf("expected 40-character commit hash, got %d characters: %s", len(commit), commit)
+	}
+}
+
+func TestGetCurrentBranch(t *testing.T) {
+	repoDir := setupGitRepoWithCommit(t, "main")
+	withDir(t, repoDir)
+
+	branch := GetCurrentBranch()
+	if branch != "main" {
+		t.Errorf("expected branch 'main', got %q", branch)
+	}
+}

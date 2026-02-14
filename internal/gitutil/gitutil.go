@@ -43,6 +43,43 @@ func ResolveGitPath() string {
 	return gitPath
 }
 
+// GetCurrentCommit returns the current git commit hash, or empty string if not in a repo.
+func GetCurrentCommit() string {
+	ctx, cancel := context.WithTimeout(context.Background(), CommandTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, ResolveGitPath(), "rev-parse", "HEAD") //#nosec G204 -- git path resolved via exec.LookPath, args are internal
+	var stdout bytes.Buffer
+	cmd.Stdout = &stdout
+
+	if err := cmd.Run(); err != nil {
+		return ""
+	}
+
+	return strings.TrimSpace(stdout.String())
+}
+
+// GetCurrentBranch returns the current git branch name, or empty string if not on a branch.
+func GetCurrentBranch() string {
+	ctx, cancel := context.WithTimeout(context.Background(), CommandTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, ResolveGitPath(), "rev-parse", "--abbrev-ref", "HEAD") //#nosec G204 -- git path resolved via exec.LookPath, args are internal
+	var stdout bytes.Buffer
+	cmd.Stdout = &stdout
+
+	if err := cmd.Run(); err != nil {
+		return ""
+	}
+
+	branch := strings.TrimSpace(stdout.String())
+	// "HEAD" means detached head state
+	if branch == "HEAD" {
+		return ""
+	}
+	return branch
+}
+
 // IsGitRepo checks if the current directory is inside a git repository.
 func IsGitRepo() bool {
 	ctx, cancel := context.WithTimeout(context.Background(), CommandTimeout)

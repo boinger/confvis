@@ -83,8 +83,8 @@ func (c *Client) FetchRuns(ctx context.Context, ownerRepo string, opts FetchRuns
 				c.baseURL, owner, repo, params.Encode())
 		}
 
-		var result WorkflowRunsResponse
-		if err := c.http.Get(ctx, endpoint, &result); err != nil {
+		result, err := httpclient.Get[WorkflowRunsResponse](c.http, ctx, endpoint)
+		if err != nil {
 			return nil, err
 		}
 

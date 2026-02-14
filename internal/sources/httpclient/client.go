@@ -115,10 +115,20 @@ func NewWithHTTPClient(cfg Config, httpClient *http.Client) *Client {
 	}
 }
 
-// Get performs an HTTP GET request and decodes the JSON response.
+// Get performs a typed HTTP GET request and decodes the JSON response into T.
+func Get[T any](c *Client, ctx context.Context, endpoint string) (T, error) {
+	var result T
+	if err := c.get(ctx, endpoint, &result); err != nil {
+		var zero T
+		return zero, err
+	}
+	return result, nil
+}
+
+// get performs an HTTP GET request and decodes the JSON response.
 // Transient failures (429, 502, 503, 504, network errors) are retried
 // with exponential backoff. The Retry-After header is respected when present.
-func (c *Client) Get(ctx context.Context, endpoint string, result interface{}) error {
+func (c *Client) get(ctx context.Context, endpoint string, result interface{}) error {
 	var lastErr error
 
 	for attempt := range c.maxRetries + 1 {

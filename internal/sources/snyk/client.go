@@ -63,8 +63,8 @@ func (c *Client) FetchProject(ctx context.Context, orgID, projectID string) (*Pr
 	endpoint := fmt.Sprintf("%s/rest/orgs/%s/projects/%s?%s",
 		c.baseURL, url.PathEscape(orgID), url.PathEscape(projectID), params.Encode())
 
-	var result ProjectResponse
-	if err := c.http.Get(ctx, endpoint, &result); err != nil {
+	result, err := httpclient.Get[ProjectResponse](c.http, ctx, endpoint)
+	if err != nil {
 		return nil, err
 	}
 

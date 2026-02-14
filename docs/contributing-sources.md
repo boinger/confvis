@@ -275,8 +275,8 @@ func NewClientWithHTTP(baseURL, token string, httpClient *http.Client) *Client {
 func (c *Client) FetchMetrics(ctx context.Context, projectID string) (*APIResponse, error) {
     endpoint := fmt.Sprintf("%s/projects/%s/metrics", c.baseURL, projectID)
 
-    var result APIResponse
-    if err := c.http.Get(ctx, endpoint, &result); err != nil {
+    result, err := httpclient.Get[APIResponse](c.http, ctx, endpoint)
+    if err != nil {
         return nil, err
     }
 

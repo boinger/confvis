@@ -2,13 +2,9 @@
 package baseline
 
 import (
-	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
-	"strings"
 	"time"
 
 	"github.com/boinger/confvis/internal/confidence"
@@ -20,9 +16,6 @@ const DefaultBaselineRef = "refs/confvis/baseline"
 
 // DefaultBaselineFile is the default file path for storing baselines.
 const DefaultBaselineFile = ".confvis-baseline.json"
-
-// gitCmdRevParse is the git rev-parse subcommand.
-const gitCmdRevParse = "rev-parse"
 
 // Baseline extends a confidence Report with save metadata.
 type Baseline struct {
@@ -37,8 +30,8 @@ func NewBaseline(report *confidence.Report) *Baseline {
 	return &Baseline{
 		Report:  *report,
 		SavedAt: time.Now().UTC().Format(time.RFC3339),
-		Commit:  GetCurrentCommit(),
-		Branch:  GetCurrentBranch(),
+		Commit:  gitutil.GetCurrentCommit(),
+		Branch:  gitutil.GetCurrentBranch(),
 	}
 }
 
@@ -125,43 +118,6 @@ func (f *FileStorage) Write(path string, b *Baseline) error {
 	}
 
 	return nil
-}
-
-// GetCurrentCommit returns the current git commit hash, or empty string if not in a repo.
-func GetCurrentCommit() string {
-	ctx, cancel := context.WithTimeout(context.Background(), gitutil.CommandTimeout)
-	defer cancel()
-
-	cmd := exec.CommandContext(ctx, gitutil.ResolveGitPath(), gitCmdRevParse, "HEAD") //#nosec G204 -- git path resolved via exec.LookPath, args are internal
-	var stdout bytes.Buffer
-	cmd.Stdout = &stdout
-
-	if err := cmd.Run(); err != nil {
-		return ""
-	}
-
-	return strings.TrimSpace(stdout.String())
-}
-
-// GetCurrentBranch returns the current git branch name, or empty string if not on a branch.
-func GetCurrentBranch() string {
-	ctx, cancel := context.WithTimeout(context.Background(), gitutil.CommandTimeout)
-	defer cancel()
-
-	cmd := exec.CommandContext(ctx, gitutil.ResolveGitPath(), gitCmdRevParse, "--abbrev-ref", "HEAD") //#nosec G204 -- git path resolved via exec.LookPath, args are internal
-	var stdout bytes.Buffer
-	cmd.Stdout = &stdout
-
-	if err := cmd.Run(); err != nil {
-		return ""
-	}
-
-	branch := strings.TrimSpace(stdout.String())
-	// "HEAD" means detached head state
-	if branch == "HEAD" {
-		return ""
-	}
-	return branch
 }
 
 // ReadFromGitRef reads a baseline from a git ref using the default storage.
