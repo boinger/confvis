@@ -53,24 +53,16 @@ func newGitRefStorage() *GitRefStorage {
 // Read reads a baseline from a git ref.
 // Returns nil, nil if the ref doesn't exist (not an error condition).
 func (g *GitRefStorage) Read(ref string) (*Baseline, error) {
-	if !gitutil.RefExists(ref) {
+	content, err := gitutil.ReadRefContent(ref)
+	if err != nil {
+		return nil, fmt.Errorf("reading baseline ref %s: %w", ref, err)
+	}
+	if content == nil {
 		return nil, nil //nolint:nilnil // nil baseline with no error means "not found"
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), gitutil.CommandTimeout)
-	defer cancel()
-
-	cmd := exec.CommandContext(ctx, gitutil.ResolveGitPath(), "cat-file", "-p", ref) //#nosec G204 -- git path resolved via exec.LookPath, args are internal
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("reading git ref %s: %w: %s", ref, err, stderr.String())
-	}
-
 	var baseline Baseline
-	if err := json.Unmarshal(stdout.Bytes(), &baseline); err != nil {
+	if err := json.Unmarshal(content, &baseline); err != nil {
 		return nil, fmt.Errorf("parsing baseline from ref %s: %w", ref, err)
 	}
 
@@ -79,35 +71,14 @@ func (g *GitRefStorage) Read(ref string) (*Baseline, error) {
 
 // Write writes a baseline to a git ref.
 func (g *GitRefStorage) Write(ref string, b *Baseline) error {
-	ctx, cancel := context.WithTimeout(context.Background(), gitutil.CommandTimeout)
-	defer cancel()
-
 	content, err := json.MarshalIndent(b, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshaling baseline: %w", err)
 	}
 	content = append(content, '\n')
 
-	// Create a blob object with the content
-	cmd := exec.CommandContext(ctx, gitutil.ResolveGitPath(), "hash-object", "-w", "--stdin") //#nosec G204 -- git path resolved via exec.LookPath, args are internal
-	cmd.Stdin = bytes.NewReader(content)
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("creating git blob: %w: %s", err, stderr.String())
-	}
-
-	sha := strings.TrimSpace(stdout.String())
-
-	// Update the ref to point to the blob
-	cmd = exec.CommandContext(ctx, gitutil.ResolveGitPath(), "update-ref", ref, sha) //#nosec G204 -- git path resolved via exec.LookPath, args are internal
-	stderr.Reset()
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("updating git ref %s: %w: %s", ref, err, stderr.String())
+	if err := gitutil.WriteRef(ref, content, ""); err != nil {
+		return fmt.Errorf("writing baseline to ref %s: %w", ref, err)
 	}
 
 	return nil

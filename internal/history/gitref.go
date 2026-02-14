@@ -2,10 +2,8 @@ package history
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
-	"os/exec"
 	"strings"
 
 	"github.com/boinger/confvis/internal/gitutil"
@@ -36,78 +34,58 @@ func newGitRefStorage() *GitRefStorage {
 // ReadFromRef reads history from a git ref.
 // Returns an empty history if the ref doesn't exist.
 func (g *GitRefStorage) ReadFromRef(ref string) (*History, error) {
-	// Check if the ref exists - if not, return empty history (not an error)
-	if !gitutil.RefExists(ref) {
+	content, err := gitutil.ReadRefContent(ref)
+	if err != nil {
+		return nil, fmt.Errorf("reading history ref %s: %w", ref, err)
+	}
+	if content == nil {
 		return &History{}, nil
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), gitutil.CommandTimeout)
-	defer cancel()
-
-	// Read the content from the ref
-	cmd := exec.CommandContext(ctx, gitutil.ResolveGitPath(), "cat-file", "-p", ref) //#nosec G204 -- git path resolved via exec.LookPath, args are internal
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("reading git ref %s: %w: %s", ref, err, stderr.String())
-	}
-
-	// Parse the JSON lines content
-	return parseHistoryContent(stdout.String())
+	return parseHistoryContent(string(content))
 }
 
 // WriteToRef writes history to a git ref.
 // Creates or updates the ref to point to a blob containing the history.
 func (g *GitRefStorage) WriteToRef(ref string, h *History) error {
-	ctx, cancel := context.WithTimeout(context.Background(), gitutil.CommandTimeout)
-	defer cancel()
-
-	// Serialize history to JSON lines
 	content, err := serializeHistory(h)
 	if err != nil {
 		return fmt.Errorf("serializing history: %w", err)
 	}
 
-	// Create a blob object with the content
-	cmd := exec.CommandContext(ctx, gitutil.ResolveGitPath(), "hash-object", "-w", "--stdin") //#nosec G204 -- git path resolved via exec.LookPath, args are internal
-	cmd.Stdin = strings.NewReader(content)
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("creating git blob: %w: %s", err, stderr.String())
-	}
-
-	sha := strings.TrimSpace(stdout.String())
-
-	// Update the ref to point to the blob
-	cmd = exec.CommandContext(ctx, gitutil.ResolveGitPath(), "update-ref", ref, sha) //#nosec G204 -- git path resolved via exec.LookPath, args are internal
-	stderr.Reset()
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("updating git ref %s: %w: %s", ref, err, stderr.String())
+	if err := gitutil.WriteRef(ref, []byte(content), ""); err != nil {
+		return fmt.Errorf("writing history to ref %s: %w", ref, err)
 	}
 
 	return nil
 }
 
-// AppendToRef reads existing history from a ref, appends an entry, and writes back.
+// AppendToRef reads existing history from a ref, appends an entry, and writes
+// back atomically using compare-and-swap. Returns gitutil.ErrRefConflict if
+// a concurrent writer modified the ref between read and write.
 func (g *GitRefStorage) AppendToRef(ref string, entry Entry) error {
-	// Read existing history
+	oldSHA, exists := gitutil.ReadRef(ref)
+	if !exists {
+		oldSHA = gitutil.ZeroSHA
+	}
+
 	h, err := g.ReadFromRef(ref)
 	if err != nil {
 		return fmt.Errorf("reading existing history: %w", err)
 	}
 
-	// Append the new entry
 	h.Entries = append(h.Entries, entry)
 
-	// Write back
-	return g.WriteToRef(ref, h)
+	content, err := serializeHistory(h)
+	if err != nil {
+		return fmt.Errorf("serializing history: %w", err)
+	}
+
+	if err := gitutil.WriteRef(ref, []byte(content), oldSHA); err != nil {
+		return fmt.Errorf("appending to history ref %s: %w", ref, err)
+	}
+
+	return nil
 }
 
 // parseHistoryContent parses JSON lines content into a History.
