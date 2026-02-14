@@ -8,7 +8,11 @@ confvis/
 ├── internal/
 │   ├── cli/                # Command definitions (cobra)
 │   │   ├── root.go         # Root command setup
-│   │   ├── gauge.go        # gauge subcommand
+│   │   ├── gauge.go        # gauge subcommand (command, deps, orchestration)
+│   │   ├── gauge_format.go # gauge output formatting (json, text, markdown, github-comment)
+│   │   ├── gauge_badge.go  # gauge SVG badge generation (gauge, flat, sparkline)
+│   │   ├── gauge_history.go # gauge history/baseline loading and storage
+│   │   ├── gauge_threshold.go # gauge per-factor threshold parsing and checking
 │   │   ├── generate.go     # generate subcommand
 │   │   ├── aggregate.go    # aggregate subcommand
 │   │   ├── fetch.go        # fetch subcommand (external sources)
