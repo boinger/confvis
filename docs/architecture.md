@@ -27,6 +27,8 @@ confvis/
 │   │   └── history.go      # JSON lines format handling
 │   ├── baseline/           # Baseline storage for regression detection
 │   │   └── baseline.go     # Git ref and file storage
+│   ├── gitutil/            # Shared git helper functions
+│   │   └── gitutil.go      # Ref read/write with compare-and-swap
 │   ├── checks/             # CI platform check integrations
 │   │   └── github.go       # GitHub Checks API client
 │   └── sources/            # External source modules
@@ -118,11 +120,20 @@ HTML dashboard generation:
 - Renders full report with factor breakdown
 - Embeds the gauge SVG inline
 
+### `internal/gitutil`
+
+Shared git helper functions used by baseline and history packages:
+- `ReadRef()` / `ReadRefContent()` - Read git ref SHAs and blob content
+- `WriteRef()` - Atomic blob write with optional compare-and-swap (CAS)
+- `ErrRefConflict` / `ZeroSHA` - CAS error sentinel and create-only constant
+- `RefExists()` / `IsGitRepo()` - Basic git state queries
+- Centralizes git plumbing (hash-object, update-ref, cat-file) in one place
+
 ### `internal/baseline`
 
 Baseline storage for regression detection in CI/CD:
 - `Baseline` - Extends Report with save metadata (timestamp, commit, branch)
-- Git ref storage - Stores baselines in git refs without commits
+- Git ref storage - Stores baselines in git refs via `gitutil.WriteRef()`
 - File storage - Alternative for non-git environments
 - Used by `confvis baseline save/show` and `--compare-baseline`
 
@@ -148,8 +159,11 @@ Common HTTP client used by API-based sources:
 - Configurable authentication: Bearer, Token, Basic, or None
 - Custom Accept headers and extra headers (e.g., API version)
 - Centralized error handling and JSON decoding
+- Automatic retry with exponential backoff for transient failures (429, 502, 503, 504, network errors)
+- Respects `Retry-After` headers; configurable retry count and initial backoff
+- Optional `ResponseHook` callback for inspecting response headers (e.g., rate-limit awareness)
 - `NormalizeBaseURL()` helper for consistent URL handling
-- `GitHubConfig()` and `GitHubConfigWithVersion()` for GitHub API clients
+- `GitHubConfig()` and `GitHubConfigWithVersion()` for GitHub API clients (includes rate-limit warning hook)
 - Reduces duplication across source clients
 
 ### `internal/sources/repoparse`
@@ -268,10 +282,13 @@ client := httpclient.New(httpclient.Config{
     AuthType: httpclient.AuthBearer, // or AuthToken, AuthBasic, AuthNone
     Accept:   "application/json",
     Timeout:  30 * time.Second,
+    // Retry defaults: 3 attempts, 1s initial backoff. Override with:
+    // MaxRetries:     -1,               // disable retries
+    // InitialBackoff: 500*time.Millisecond, // faster backoff
 })
 
 var result ResponseType
-err := client.Get(ctx, endpoint, &result)
+err := client.Get(ctx, endpoint, &result) // retries transient failures automatically
 ```
 
 **Configuration Resolver** (`internal/sources/config.go`):
