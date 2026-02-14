@@ -47,6 +47,10 @@ var retryableStatusCodes = map[int]bool{
 	http.StatusGatewayTimeout:     true, // 504
 }
 
+// ResponseHook is called after each successful HTTP response (status 200).
+// It receives the response headers and can inspect rate-limit or other metadata.
+type ResponseHook func(headers http.Header)
+
 // Config holds configuration for the HTTP client.
 type Config struct {
 	BaseURL        string
@@ -57,6 +61,7 @@ type Config struct {
 	Timeout        time.Duration
 	MaxRetries     int           // Max retry attempts (0 = use default; -1 = disable)
 	InitialBackoff time.Duration // Starting backoff before first retry (0 = use default)
+	OnResponse     ResponseHook  // Optional callback after successful responses
 }
 
 // Client is a configurable HTTP client for API requests.
@@ -69,6 +74,7 @@ type Client struct {
 	httpClient     *http.Client
 	maxRetries     int
 	initialBackoff time.Duration
+	onResponse     ResponseHook
 }
 
 // New creates a new HTTP client with the given configuration.
@@ -105,6 +111,7 @@ func NewWithHTTPClient(cfg Config, httpClient *http.Client) *Client {
 		httpClient:     httpClient,
 		maxRetries:     maxRetries,
 		initialBackoff: initialBackoff,
+		onResponse:     cfg.OnResponse,
 	}
 }
 
@@ -186,6 +193,10 @@ func (c *Client) doGet(ctx context.Context, endpoint string, result interface{})
 
 	if err := json.NewDecoder(resp.Body).Decode(result); err != nil {
 		return fmt.Errorf("decoding response: %w", err)
+	}
+
+	if c.onResponse != nil {
+		c.onResponse(resp.Header)
 	}
 
 	return nil

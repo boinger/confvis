@@ -604,6 +604,64 @@ func TestParseRetryAfter_Invalid(t *testing.T) {
 	}
 }
 
+func TestClient_Get_ResponseHook(t *testing.T) {
+	var hookCalled bool
+	var capturedHeaders http.Header
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("X-Custom-Info", "test-value")
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte("{}"))
+	}))
+	defer server.Close()
+
+	client := New(Config{
+		BaseURL:    server.URL,
+		MaxRetries: -1,
+		OnResponse: func(headers http.Header) {
+			hookCalled = true
+			capturedHeaders = headers
+		},
+	})
+
+	var result map[string]interface{}
+	if err := client.Get(context.Background(), server.URL+"/test", &result); err != nil {
+		t.Fatalf("Get() error = %v", err)
+	}
+
+	if !hookCalled {
+		t.Error("OnResponse hook was not called")
+	}
+	if capturedHeaders.Get("X-Custom-Info") != "test-value" {
+		t.Errorf("hook received X-Custom-Info = %q, want %q",
+			capturedHeaders.Get("X-Custom-Info"), "test-value")
+	}
+}
+
+func TestClient_Get_ResponseHook_NotCalledOnError(t *testing.T) {
+	var hookCalled bool
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "not found", http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	client := New(Config{
+		BaseURL:    server.URL,
+		MaxRetries: -1,
+		OnResponse: func(_ http.Header) {
+			hookCalled = true
+		},
+	})
+
+	var result map[string]interface{}
+	_ = client.Get(context.Background(), server.URL+"/test", &result)
+
+	if hookCalled {
+		t.Error("OnResponse hook should not be called on error responses")
+	}
+}
+
 func TestIsRetryable(t *testing.T) {
 	tests := []struct {
 		name string
