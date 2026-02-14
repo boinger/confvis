@@ -17,7 +17,13 @@ confvis/
 │   │   ├── aggregate.go    # aggregate subcommand
 │   │   ├── fetch.go        # fetch subcommand (external sources)
 │   │   ├── baseline.go     # baseline save/show subcommands
-│   │   └── check.go        # check github subcommand
+│   │   ├── check.go        # check github subcommand
+│   │   ├── comment.go      # comment parent command
+│   │   ├── comment_github.go # comment github subcommand
+│   │   ├── config.go       # config file and flag helpers
+│   │   ├── filesystem.go   # FileSystem interface
+│   │   ├── github_env.go   # shared GitHub env parsing
+│   │   └── report_loader.go # ReportLoader
 │   ├── confidence/         # Core data types and parsing
 │   │   ├── types.go        # Report, Factor structs
 │   │   └── parser.go       # JSON parsing logic
@@ -52,12 +58,19 @@ confvis/
 │       │   └── cmdrun.go   # Run() and FormatError()
 │       ├── sonarqube/      # SonarQube implementation
 │       ├── codecov/        # Codecov implementation
+│       ├── codeql/         # CodeQL implementation
+│       ├── coverage/       # Go coverage implementation
+│       ├── coveralls/      # Coveralls implementation
 │       ├── ghactions/      # GitHub Actions implementation
+│       ├── githubalerts/   # GitHub security alerts implementation
+│       ├── gitleaks/       # Gitleaks implementation
+│       ├── gosec/          # Gosec implementation
 │       ├── snyk/           # Snyk implementation
 │       ├── dependabot/     # GitHub Dependabot implementation
 │       ├── trivy/          # Trivy implementation
 │       ├── grype/          # Grype implementation
-│       └── semgrep/        # Semgrep implementation
+│       ├── semgrep/        # Semgrep implementation
+│       └── trufflehog/     # TruffleHog implementation
 └── testdata/               # Test fixtures
 ```
 

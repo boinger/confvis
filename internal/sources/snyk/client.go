@@ -10,6 +10,9 @@ import (
 	"github.com/boinger/confvis/internal/sources/httpclient"
 )
 
+// Compile-time interface compliance check.
+var _ Fetcher = (*Client)(nil)
+
 const defaultBaseURL = "https://api.snyk.io"
 
 // API version to use for Snyk REST API.

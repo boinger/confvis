@@ -13,6 +13,9 @@ import (
 	"github.com/boinger/confvis/internal/sources/repoparse"
 )
 
+// Compile-time interface compliance check.
+var _ Fetcher = (*Client)(nil)
+
 const githubAPIVersion = "2022-11-28"
 
 // Client is an HTTP client for the GitHub Actions API.

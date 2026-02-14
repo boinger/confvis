@@ -7,6 +7,9 @@ import (
 	"github.com/boinger/confvis/internal/sources/cmdrun"
 )
 
+// Compile-time interface compliance check.
+var _ Fetcher = (*Client)(nil)
+
 // DefaultCommand is the default gitleaks command.
 const DefaultCommand = "gitleaks"
 

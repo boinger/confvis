@@ -128,7 +128,7 @@ func Get[T any](c *Client, ctx context.Context, endpoint string) (T, error) {
 // get performs an HTTP GET request and decodes the JSON response.
 // Transient failures (429, 502, 503, 504, network errors) are retried
 // with exponential backoff. The Retry-After header is respected when present.
-func (c *Client) get(ctx context.Context, endpoint string, result interface{}) error {
+func (c *Client) get(ctx context.Context, endpoint string, result any) error {
 	var lastErr error
 
 	for attempt := range c.maxRetries + 1 {
@@ -154,7 +154,7 @@ func (c *Client) get(ctx context.Context, endpoint string, result interface{}) e
 }
 
 // doGet performs a single HTTP GET attempt.
-func (c *Client) doGet(ctx context.Context, endpoint string, result interface{}) (err error) {
+func (c *Client) doGet(ctx context.Context, endpoint string, result any) (err error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		return fmt.Errorf("creating request: %w", err)
