@@ -1,10 +1,16 @@
 # confvis  [![GitHub Marketplace](https://img.shields.io/badge/Marketplace-confvis-blue?logo=github)](https://github.com/marketplace/actions/confvis) [![Go Reference](https://pkg.go.dev/badge/github.com/boinger/confvis.svg)](https://pkg.go.dev/github.com/boinger/confvis)
 
-Why not:
+Most repos surface code health as a wall of independent pass/fail badges — CI, coverage, security, complexity, debt — each reporting in isolation. Nothing expresses which signals matter most or how they relate. You're left mentally weighting a dozen indicators every time you look at a README or PR.
+
+confvis replaces that with explicit weighted aggregation. You declare the factors that matter — coverage, security score, complexity, whatever your tools already produce — assign each a weight and threshold, and confvis computes a single composite score. The weighting is intentional and version-controlled, not implicit.
+
+The outputs — gauge badges, flat badges, sparkline history, HTML dashboards, GitHub PR checks — are a consequence of that scoring. Use `--fail-under` to gate CI on a minimum score, or `--fail-on-regression` to catch quality drift against a stored baseline.
+
+**One weighted assessment:**
 
 [![confvis](./badges/badge.svg)](./badges/dashboard/index.html)
 
-instead of:
+**Instead of interpreting all of these independently:**
 
 [![CI](https://github.com/boinger/confvis/actions/workflows/ci.yml/badge.svg)](https://github.com/boinger/confvis/actions/workflows/ci.yml)
 [![Coverage](https://codecov.io/gh/boinger/confvis/graph/badge.svg)](https://codecov.io/gh/boinger/confvis)
@@ -24,10 +30,6 @@ instead of:
 [![Gosec](https://img.shields.io/badge/gosec-passing-brightgreen?logo=go)](https://github.com/boinger/confvis/security)
 [![GitLeaks](https://img.shields.io/badge/gitleaks-passing-brightgreen?logo=git)](https://github.com/boinger/confvis/security)
 [![TruffleHog](https://img.shields.io/badge/trufflehog-passing-brightgreen?logo=git)](https://github.com/boinger/confvis/security)
-
-Generate visual confidence badges and dashboards from aggregated code metrics.
-
-confvis transforms JSON or YAML confidence reports into SVG gauge badges and HTML dashboards, in order to more easily visualize code quality, test coverage, security scores, or any metric you track.
 
 ## Installation
 
