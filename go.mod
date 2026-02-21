@@ -2,6 +2,8 @@ module github.com/boinger/confvis
 
 go 1.23.0
 
+toolchain go1.25.7
+
 require (
 	github.com/ajstarks/svgo v0.0.0-20211024235047-1546f124cd8b
 	github.com/spf13/cobra v1.10.2
