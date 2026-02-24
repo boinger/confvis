@@ -2,6 +2,7 @@ package gauge
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -396,6 +397,155 @@ func TestGenerateFlat_EdgeCases(t *testing.T) {
 			t.Error("output should handle long labels")
 		}
 	})
+}
+
+func TestGenerateFlat_IconRendering(t *testing.T) {
+	report := &confidence.Report{
+		Title:     "Coverage",
+		Score:     intPtr(85),
+		Threshold: 75,
+	}
+
+	var buf bytes.Buffer
+	err := GenerateFlat(&buf, report, FlatOptions{
+		Icon: "M7 0L14 7L7 14L0 7Z",
+	})
+	if err != nil {
+		t.Fatalf("GenerateFlat() error = %v", err)
+	}
+
+	svg := buf.String()
+
+	// Icon group should be positioned with translate(4,3)
+	if !strings.Contains(svg, `translate(4,3)`) {
+		t.Error("icon group should use translate(4,3)")
+	}
+
+	// Icon path data should be present
+	if !strings.Contains(svg, "M7 0L14 7L7 14L0 7Z") {
+		t.Error("icon SVG path data should be in output")
+	}
+
+	// Shadow copy with fill-opacity:0.3 and offset transform
+	if !strings.Contains(svg, "fill:#fff;fill-opacity:0.3") {
+		t.Error("icon should have shadow with fill-opacity:0.3")
+	}
+	if !strings.Contains(svg, `translate(0.5,0.5)`) {
+		t.Error("icon shadow should use translate(0.5,0.5)")
+	}
+
+	// Foreground icon fill
+	if !strings.Contains(svg, `fill:#fff"`) {
+		t.Error("icon foreground should use fill:#fff")
+	}
+}
+
+func TestGenerateFlat_IconWidthOffset(t *testing.T) {
+	report := &confidence.Report{
+		Title:     "CI",
+		Score:     intPtr(85),
+		Threshold: 75,
+	}
+
+	// Generate without icon
+	var bufNoIcon bytes.Buffer
+	err := GenerateFlat(&bufNoIcon, report, FlatOptions{})
+	if err != nil {
+		t.Fatalf("GenerateFlat() without icon error = %v", err)
+	}
+
+	// Generate with icon
+	var bufIcon bytes.Buffer
+	err = GenerateFlat(&bufIcon, report, FlatOptions{
+		Icon: "M7 0L14 7L7 14L0 7Z",
+	})
+	if err != nil {
+		t.Fatalf("GenerateFlat() with icon error = %v", err)
+	}
+
+	svgNoIcon := bufNoIcon.String()
+	svgIcon := bufIcon.String()
+
+	// Icon adds 16px (14px icon + 2px padding) to label section width,
+	// which increases total badge width by 16.
+	// Compute expected widths from the label "CI", score "85%", status "PASS".
+	label := "CI"
+	scoreText := "85%"
+	statusText := "PASS"
+
+	baseWidth := len(label)*7 + 12 + len(scoreText)*7 + 12 + len(statusText)*7 + 12
+	iconWidth := baseWidth + 16
+
+	noIconWidthAttr := fmt.Sprintf(`width="%d"`, baseWidth)
+	iconWidthAttr := fmt.Sprintf(`width="%d"`, iconWidth)
+
+	if !strings.Contains(svgNoIcon, noIconWidthAttr) {
+		t.Errorf("no-icon SVG should contain %s", noIconWidthAttr)
+	}
+	if !strings.Contains(svgIcon, iconWidthAttr) {
+		t.Errorf("icon SVG should contain %s (16px wider)", iconWidthAttr)
+	}
+}
+
+func TestGenerateFlat_WidthScaling(t *testing.T) {
+	tests := []struct {
+		name      string
+		label     string
+		score     int
+		threshold int
+		failLabel string
+		wantWidth int
+	}{
+		{
+			name:      "short label",
+			label:     "CI",
+			score:     85,
+			threshold: 75,
+			// label: 2*7+12=26, score "85%": 3*7+12=33, status "PASS": 4*7+12=40
+			wantWidth: 26 + 33 + 40,
+		},
+		{
+			name:      "long label",
+			label:     "Code Coverage Analysis",
+			score:     85,
+			threshold: 75,
+			// label: 22*7+12=166, score "85%": 33, status "PASS": 40
+			wantWidth: 166 + 33 + 40,
+		},
+		{
+			name:      "custom long fail label",
+			label:     "CI",
+			score:     30,
+			threshold: 75,
+			failLabel: "NEEDS IMPROVEMENT",
+			// label: 26, score "30%": 33, status "NEEDS IMPROVEMENT": 17*7+12=131
+			wantWidth: 26 + 33 + 131,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			report := &confidence.Report{
+				Title:     tt.label,
+				Score:     intPtr(tt.score),
+				Threshold: tt.threshold,
+				FailLabel: tt.failLabel,
+			}
+
+			var buf bytes.Buffer
+			err := GenerateFlat(&buf, report, FlatOptions{})
+			if err != nil {
+				t.Fatalf("GenerateFlat() error = %v", err)
+			}
+
+			svg := buf.String()
+			widthAttr := fmt.Sprintf(`width="%d"`, tt.wantWidth)
+
+			if !strings.Contains(svg, widthAttr) {
+				t.Errorf("SVG should contain %s", widthAttr)
+			}
+		})
+	}
 }
 
 func TestGenerateFlat_SVGStructure(t *testing.T) {
