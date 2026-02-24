@@ -74,6 +74,8 @@ jobs:
 
 ### With Threshold Enforcement
 
+> **Tip:** If you only need CI pass/fail gating without badge output, use `confvis gate` directly instead of the action. See [CLI Reference](cli-reference.md#confvis-gate).
+
 ```yaml
 - uses: boinger/confvis@v1
   with:

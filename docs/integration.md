@@ -62,6 +62,9 @@ jobs:
       - name: Generate badge
         run: confvis generate -c confidence.json -o ./badges --fail-under 75 -q
 
+      - name: Quality gate (CI-only alternative)
+        run: confvis gate -c confidence.json --fail-under 75 -q
+
       - name: Commit badge
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
@@ -213,6 +216,9 @@ jobs:
         if: github.ref == 'refs/heads/main'
         run: confvis baseline save -c confidence.json
 
+      - name: Quality gate (CI-only, no badge)
+        run: confvis gate -c confidence.json --compare-baseline --fail-on-regression
+
       - name: Generate badge with comparison
         run: |
           confvis gauge -c confidence.json \
@@ -269,9 +275,9 @@ confidence-check:
 	confvis gauge -c confidence.json -o /dev/null
 	@echo "Confidence check passed"
 
-# CI gate: fail if score drops below threshold
+# CI gate: fail if score drops below threshold (no badge output)
 confidence-ci:
-	confvis generate -c confidence.json -o ./badges --fail-under 75 -q
+	confvis gate -c confidence.json --fail-under 75 -q
 ```
 
 ## Aggregating Multiple Sources
@@ -332,7 +338,7 @@ Validate the confidence report before committing:
 
 if [ -f confidence.json ]; then
     # Validate JSON and optionally enforce minimum score
-    confvis gauge -c confidence.json -o /dev/null --fail-under 70 -q || {
+    confvis gate -c confidence.json --fail-under 70 -q || {
         echo "Error: confidence.json is invalid or score too low"
         exit 1
     }

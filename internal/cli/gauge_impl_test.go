@@ -2245,20 +2245,20 @@ func TestResolveHistoryStorage(t *testing.T) {
 }
 
 // ============================================================================
-// resolveBaseline Tests
+// resolveBaselineFromConfig Tests
 // ============================================================================
 
-func TestResolveBaseline(t *testing.T) {
+func TestResolveBaselineFromConfig(t *testing.T) {
 	tests := []struct {
 		name      string
-		deps      *GaugeDeps
+		cfg       BaselineConfig
 		wantNil   bool
 		wantScore int
 		wantErr   bool
 	}{
 		{
 			name: "baseline from file",
-			deps: &GaugeDeps{
+			cfg: BaselineConfig{
 				BaselineFile: "baseline.json",
 				BaselineFileReader: func(path string) (*baseline.Baseline, error) {
 					score := 80
@@ -2269,7 +2269,7 @@ func TestResolveBaseline(t *testing.T) {
 		},
 		{
 			name: "baseline from file error",
-			deps: &GaugeDeps{
+			cfg: BaselineConfig{
 				BaselineFile: "baseline.json",
 				BaselineFileReader: func(path string) (*baseline.Baseline, error) {
 					return nil, errors.New("file not found")
@@ -2279,7 +2279,7 @@ func TestResolveBaseline(t *testing.T) {
 		},
 		{
 			name: "baseline from git ref (default ref)",
-			deps: &GaugeDeps{
+			cfg: BaselineConfig{
 				IsGitRepo: func() bool { return true },
 				BaselineGitRefReader: func(ref string) (*baseline.Baseline, error) {
 					score := 75
@@ -2290,7 +2290,7 @@ func TestResolveBaseline(t *testing.T) {
 		},
 		{
 			name: "baseline from git ref (explicit ref)",
-			deps: &GaugeDeps{
+			cfg: BaselineConfig{
 				IsGitRepo:  func() bool { return true },
 				BaselineRef: "refs/custom/baseline",
 				BaselineGitRefReader: func(ref string) (*baseline.Baseline, error) {
@@ -2305,7 +2305,7 @@ func TestResolveBaseline(t *testing.T) {
 		},
 		{
 			name: "baseline git ref error",
-			deps: &GaugeDeps{
+			cfg: BaselineConfig{
 				IsGitRepo: func() bool { return true },
 				BaselineGitRefReader: func(ref string) (*baseline.Baseline, error) {
 					return nil, errors.New("ref not found")
@@ -2315,14 +2315,14 @@ func TestResolveBaseline(t *testing.T) {
 		},
 		{
 			name: "not in git repo and no file",
-			deps: &GaugeDeps{
+			cfg: BaselineConfig{
 				IsGitRepo: func() bool { return false },
 			},
 			wantNil: true,
 		},
 		{
 			name: "nil IsGitRepo and no file",
-			deps: &GaugeDeps{
+			cfg: BaselineConfig{
 				IsGitRepo: nil,
 			},
 			wantNil: true,
@@ -2331,7 +2331,9 @@ func TestResolveBaseline(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			b, err := resolveBaseline(tt.deps)
+			cfg := tt.cfg
+			cfg.CompareBaseline = true
+			report, _, err := LoadBaseline(cfg, 85)
 			if tt.wantErr {
 				if err == nil {
 					t.Fatal("expected error")
@@ -2339,19 +2341,19 @@ func TestResolveBaseline(t *testing.T) {
 				return
 			}
 			if err != nil {
-				t.Fatalf("resolveBaseline() error = %v", err)
+				t.Fatalf("LoadBaseline() error = %v", err)
 			}
 			if tt.wantNil {
-				if b != nil {
+				if report != nil {
 					t.Error("expected nil baseline")
 				}
 				return
 			}
-			if b == nil {
+			if report == nil {
 				t.Fatal("expected non-nil baseline")
 			}
-			if b.ScoreValue() != tt.wantScore {
-				t.Errorf("score = %d, want %d", b.ScoreValue(), tt.wantScore)
+			if report.ScoreValue() != tt.wantScore {
+				t.Errorf("score = %d, want %d", report.ScoreValue(), tt.wantScore)
 			}
 		})
 	}

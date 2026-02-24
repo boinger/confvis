@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-
-	"github.com/boinger/confvis/internal/confidence"
 )
 
 // parseFactorThresholds parses factor thresholds from CLI flags and config.
@@ -56,32 +54,4 @@ func parseFactorThresholdSpec(spec string) (string, int, error) {
 	}
 
 	return name, threshold, nil
-}
-
-// checkFactorThresholds validates that all factors meet their thresholds.
-// Thresholds are checked in this precedence order:
-// 1. CLI/config override (deps.FactorThresholds)
-// 2. Factor's own Threshold field
-// Returns (passed, failures) where failures lists factors that failed.
-func checkFactorThresholds(report *confidence.Report, overrides map[string]int) (bool, []string) {
-	var failures []string
-
-	for _, factor := range report.Factors {
-		// Determine effective threshold: override > factor.Threshold
-		threshold := factor.Threshold
-		if override, ok := overrides[factor.Name]; ok {
-			threshold = override
-		}
-
-		// Skip if no threshold is set
-		if threshold <= 0 {
-			continue
-		}
-
-		if factor.Score < threshold {
-			failures = append(failures, fmt.Sprintf("%s: %d < %d", factor.Name, factor.Score, threshold))
-		}
-	}
-
-	return len(failures) == 0, failures
 }

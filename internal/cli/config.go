@@ -66,6 +66,42 @@ func bindGaugeFlags(cmd *cobra.Command) {
 	must(viper.BindPFlag("gauge.baseline_file", cmd.Flags().Lookup("baseline-file")))
 }
 
+// getGateFailUnder returns the gate fail-under from CLI flag, then config/env fallback.
+// Gate doesn't use BindPFlag (would conflict with gauge's binding to the same viper key).
+func getGateFailUnder() int {
+	if gateFailUnder > 0 {
+		return gateFailUnder
+	}
+	return viper.GetInt("gauge.fail_under")
+}
+
+// getGateCompareBaseline returns compare-baseline from CLI flag, then config/env fallback.
+func getGateCompareBaseline() bool {
+	if gateCompareBaseline {
+		return true
+	}
+	return viper.GetBool("gauge.compare_baseline")
+}
+
+// getGateBaselineRef returns baseline ref from CLI flag, then config/env fallback.
+func getGateBaselineRef() string {
+	if gateBaselineRef != "" {
+		return gateBaselineRef
+	}
+	if v := viper.GetString("gauge.baseline_ref"); v != "" {
+		return v
+	}
+	return baseline.DefaultBaselineRef
+}
+
+// getGateBaselineFile returns baseline file from CLI flag, then config/env fallback.
+func getGateBaselineFile() string {
+	if gateBaselineFile != "" {
+		return gateBaselineFile
+	}
+	return viper.GetString("gauge.baseline_file")
+}
+
 // bindFetchFlags binds fetch command flags to viper configuration keys.
 func bindFetchFlags(cmd *cobra.Command) {
 	must(viper.BindPFlag("fetch.timeout", cmd.Flags().Lookup("timeout")))

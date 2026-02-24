@@ -133,23 +133,23 @@ See [CLI Reference](docs/cli-reference.md#configuration-file) for full documenta
 
 ## CI/CD Integration
 
-Use `--fail-under` to enforce minimum scores, or `--fail-on-regression` to detect quality degradation:
+Use `confvis gate` for CI-only pass/fail gating (no badge generation needed), or `confvis gauge` when you also want badge output:
 
 ```bash
-# Fail the build if score drops below 75
-confvis gauge -c confidence.json -o badge.svg --fail-under 75
+# CI gate: fail the build if score drops below 75
+confvis gate -c confidence.json --fail-under 75
 
 # Save baseline on main branch (stored in git ref, no files needed)
 confvis baseline save -c confidence.json
 
-# Compare against stored baseline on PRs
+# CI gate: fail on regression from stored baseline
+confvis gate -c confidence.json --fail-on-regression --compare-baseline
+
+# Or use gauge when you also need a badge
 confvis gauge -c confidence.json --compare-baseline --fail-on-regression -o badge.svg
 
-# Or compare against a specific baseline file
-confvis gauge -c confidence.json --compare baseline.json --fail-on-regression -o badge.svg
-
-# Quiet mode for clean CI logs
-confvis generate -c confidence.json -o ./output --fail-under 75 -q
+# Quiet mode for clean CI logs (exit code only)
+confvis gate -c confidence.json --fail-under 75 -q
 ```
 
 Supports stdin/stdout for pipeline workflows:
@@ -242,6 +242,25 @@ Example sparkline (this repo's score trend):
 ![Trend](./badges/sparkline.svg)
 
 Color styles: `github` (default), `minimal`, `corporate`, `high-contrast`
+
+### `confvis gate`
+
+CI gate: check thresholds and exit non-zero on failure. No badge generation — purpose-built for CI pass/fail gating.
+
+```bash
+# Fail if score below threshold
+confvis gate -c confidence.json --fail-under 85
+
+# Fail on regression from baseline
+confvis gate -c confidence.json --fail-on-regression --compare-baseline
+
+# Combined: threshold + regression + per-factor
+confvis gate -c confidence.json --fail-under 75 \
+  --fail-on-regression --compare-baseline \
+  --factor-threshold "Coverage:80"
+```
+
+At least one threshold flag is required (`--fail-under`, `--fail-on-regression`, or `--factor-threshold`). Use `-q` for exit-code-only output, or `-v` for per-factor breakdown.
 
 ### `confvis aggregate`
 

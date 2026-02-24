@@ -11,8 +11,11 @@ confvis/
 │   │   ├── gauge.go        # gauge subcommand (command, deps, orchestration)
 │   │   ├── gauge_format.go # gauge output formatting (json, text, markdown, github-comment)
 │   │   ├── gauge_badge.go  # gauge SVG badge generation (gauge, flat, sparkline)
-│   │   ├── gauge_history.go # gauge history/baseline loading and storage
-│   │   ├── gauge_threshold.go # gauge per-factor threshold parsing and checking
+│   │   ├── gauge_history.go # gauge history loading and storage
+│   │   ├── gauge_threshold.go # gauge per-factor threshold parsing
+│   │   ├── gate.go         # gate subcommand (CI pass/fail gating)
+│   │   ├── threshold.go    # shared threshold checking (used by gauge and gate)
+│   │   ├── baseline_loader.go # shared baseline loading (used by gauge and gate)
 │   │   ├── generate.go     # generate subcommand
 │   │   ├── aggregate.go    # aggregate subcommand
 │   │   ├── fetch.go        # fetch subcommand (external sources)
@@ -89,17 +92,17 @@ confvis/
       │   Report        │
       └────────┬────────┘
                │
-     ┌─────────┼─────────┐
-     │         │         │
-     ▼         ▼         ▼
- ┌───────┐ ┌───────────┐ ┌────────┐
- │ gauge │ │ dashboard │ │ checks │
- └───┬───┘ └─────┬─────┘ └───┬────┘
-     │           │           │
-     ▼           ▼           ▼
- ┌───────┐ ┌───────────┐ ┌────────────┐
- │  SVG  │ │   HTML    │ │ GitHub API │
- └───────┘ └───────────┘ └────────────┘
+     ┌─────────┼─────────┬──────────┐
+     │         │         │          │
+     ▼         ▼         ▼          ▼
+ ┌───────┐ ┌───────────┐ ┌────────┐ ┌──────┐
+ │ gauge │ │ dashboard │ │ checks │ │ gate │
+ └───┬───┘ └─────┬─────┘ └───┬────┘ └──┬───┘
+     │           │           │          │
+     ▼           ▼           ▼          ▼
+ ┌───────┐ ┌───────────┐ ┌────────────┐ ┌───────────┐
+ │  SVG  │ │   HTML    │ │ GitHub API │ │ exit code │
+ └───────┘ └───────────┘ └────────────┘ └───────────┘
 ```
 
 ## Package Responsibilities

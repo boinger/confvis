@@ -439,6 +439,103 @@ confvis gauge -c confidence.json -o badge.svg --emit-json /tmp/metadata.json
 
 ---
 
+### `confvis gate`
+
+CI gate: check thresholds and exit non-zero on failure. Unlike `gauge`, this command produces no badge — it is purpose-built for CI pass/fail gating.
+
+```bash
+confvis gate -c <config> --fail-under <N> [flags]
+```
+
+#### Required Flags
+
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--config` | `-c` | Path to confidence report (JSON/YAML), or `-` for stdin |
+
+At least one threshold flag is also required:
+
+| Flag | Description |
+|------|-------------|
+| `--fail-under` | Exit non-zero if score is below this value |
+| `--fail-on-regression` | Exit non-zero if score decreased from baseline |
+| `--factor-threshold` | Per-factor threshold in `Name:threshold` format (can be repeated) |
+
+#### Optional Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--input-format` | auto | Input format: `auto`, `json`, or `yaml` |
+| `--compare` | | Path to baseline report JSON for comparison |
+| `--compare-baseline` | false | Auto-fetch baseline from ref/file and compare |
+| `--baseline-ref` | refs/confvis/baseline | Git ref for baseline storage |
+| `--baseline-file` | | File path for baseline |
+
+#### Output
+
+Default output (to stdout):
+```
+Score: 92/100
+Threshold: 85 ✓
+Baseline: 90 → 92 (+2) ✓
+```
+
+Failure output (exit code 1):
+```
+Score: 78/100
+Threshold: 85 ✗
+```
+
+`--quiet`: No output, just exit code.
+
+`--verbose`: Adds per-factor breakdown:
+```
+Score: 92/100
+  Coverage:    88 (weight 25)
+  Security:    96 (weight 25)
+  CI:          94 (weight 15)
+Threshold: 85 ✓
+Baseline: 90 → 92 (+2) ✓
+```
+
+#### Examples
+
+```bash
+# Basic threshold gate
+confvis gate -c confidence.json --fail-under 85
+
+# Regression gate (requires baseline)
+confvis gate -c confidence.json --fail-on-regression --compare-baseline
+
+# Combined: threshold + regression + per-factor
+confvis gate -c confidence.json --fail-under 75 \
+  --fail-on-regression --compare-baseline \
+  --factor-threshold "Coverage:80" --factor-threshold "Security:90"
+
+# Quiet mode for clean CI logs (exit code only)
+confvis gate -c confidence.json --fail-under 85 -q
+
+# Verbose mode with factor breakdown
+confvis gate -c confidence.json --fail-under 85 -v
+
+# Read from stdin
+cat confidence.json | confvis gate -c - --fail-under 80
+
+# Compare against specific baseline file
+confvis gate -c confidence.json --fail-on-regression --compare baseline.json
+```
+
+#### CI/CD Usage
+
+`gate` is the preferred command for CI pipelines that only need pass/fail gating without badge generation:
+
+```yaml
+- name: Quality gate
+  run: confvis gate -c confidence.json --fail-under 85 --fail-on-regression --compare-baseline
+```
+
+---
+
 ### `confvis baseline`
 
 Manage confidence baselines for regression detection. Baselines are saved confidence scores
@@ -517,9 +614,13 @@ confvis baseline save -c confidence.json --dry-run
   if: github.ref == 'refs/heads/main'
   run: confvis baseline save -c confidence.json
 
-# Compare against baseline on PRs
+# Compare against baseline on PRs (with badge output)
 - name: Check for regressions
   run: confvis gauge -c confidence.json --compare-baseline --fail-on-regression -o badge.svg
+
+# Or use gate for CI-only gating (no badge)
+- name: Quality gate
+  run: confvis gate -c confidence.json --fail-on-regression --compare-baseline
 ```
 
 ---
@@ -971,10 +1072,16 @@ comment:
 ### CI/CD Usage
 
 ```bash
+# CI gate only (no badge output)
+confvis gate -c confidence.json --fail-under 75
+
+# CI gate with regression check
+confvis gate -c confidence.json --fail-under 75 --fail-on-regression --compare-baseline
+
 # Generate badge, fail build if config is invalid
 confvis gauge -c confidence.json -o badge.svg || exit 1
 
-# Fail if score drops below 75
+# Fail if score drops below 75 (with badge output)
 confvis gauge -c confidence.json -o badge.svg --fail-under 75
 
 # Fail if specific factors drop below thresholds (quality gates)

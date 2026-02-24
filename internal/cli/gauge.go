@@ -199,7 +199,7 @@ func gaugeImpl(deps *GaugeDeps) error {
 		return err
 	}
 
-	baselineReport, delta, err := loadBaselineForComparison(deps, report.ScoreValue())
+	baselineReport, delta, err := LoadBaseline(baselineConfigFromGaugeDeps(deps), report.ScoreValue())
 	if err != nil {
 		return err
 	}
@@ -273,27 +273,47 @@ func writeGaugeOutput(deps *GaugeDeps, report, baselineReport *confidence.Report
 
 // checkGaugeThresholds checks fail-under, regression, and per-factor thresholds.
 func checkGaugeThresholds(deps *GaugeDeps, report *confidence.Report, baselineReport *confidence.Report, delta int) {
-	if deps.FailUnder > 0 && report.ScoreValue() < deps.FailUnder {
+	result := CheckThresholds(report, baselineReport, delta, ThresholdConfig{
+		FailUnder:        deps.FailUnder,
+		FailOnRegression: deps.FailOnRegression,
+		FactorThresholds: deps.FactorThresholds,
+	})
+
+	if !result.ScorePassed {
 		if !deps.Quiet {
 			_, _ = fmt.Fprintf(deps.Stderr, "Score %d is below threshold %d\n", report.ScoreValue(), deps.FailUnder)
 		}
 		deps.ExitFunc(1)
 	}
 
-	if deps.FailOnRegression && baselineReport != nil && delta < 0 {
+	if !result.BaselinePassed {
 		if !deps.Quiet {
 			_, _ = fmt.Fprintf(deps.Stderr, "Score regressed from %d to %d (%d)\n", baselineReport.ScoreValue(), report.ScoreValue(), delta)
 		}
 		deps.ExitFunc(1)
 	}
 
-	if passed, failures := checkFactorThresholds(report, deps.FactorThresholds); !passed {
+	if !result.FactorsPassed {
 		if !deps.Quiet {
-			for _, failure := range failures {
+			for _, failure := range result.FactorFailures {
 				_, _ = fmt.Fprintf(deps.Stderr, "Factor threshold failed: %s\n", failure)
 			}
 		}
 		deps.ExitFunc(1)
+	}
+}
+
+// baselineConfigFromGaugeDeps creates a BaselineConfig from GaugeDeps.
+func baselineConfigFromGaugeDeps(deps *GaugeDeps) BaselineConfig {
+	return BaselineConfig{
+		CompareBaseline:      deps.CompareBaseline,
+		Compare:              deps.Compare,
+		BaselineRef:          deps.BaselineRef,
+		BaselineFile:         deps.BaselineFile,
+		FS:                   deps.FS,
+		IsGitRepo:            deps.IsGitRepo,
+		BaselineGitRefReader: deps.BaselineGitRefReader,
+		BaselineFileReader:   deps.BaselineFileReader,
 	}
 }
 

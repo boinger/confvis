@@ -601,6 +601,7 @@ jobs:
         run: |
           confvis fetch sonarqube -p ${{ github.repository }} -o confidence.json
           confvis gauge -c confidence.json -o badge.svg --fail-under 75
+          # Or for CI gating without badge: confvis gate -c confidence.json --fail-under 75
 
       - name: Upload badge
         uses: actions/upload-artifact@v4
@@ -618,6 +619,7 @@ quality-badge:
     - go install github.com/boinger/confvis/cmd/confvis@latest
     - confvis fetch sonarqube -p $CI_PROJECT_PATH -o confidence.json
     - confvis gauge -c confidence.json -o badge.svg --fail-under 75
+    # Or for CI gating without badge: confvis gate -c confidence.json --fail-under 75
   artifacts:
     paths:
       - badge.svg
