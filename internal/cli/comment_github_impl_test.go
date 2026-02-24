@@ -8,7 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/boinger/confvis/internal/baseline"
 	"github.com/boinger/confvis/internal/checks"
+	"github.com/boinger/confvis/internal/confidence"
 )
 
 // ============================================================================
@@ -478,6 +480,205 @@ func TestCommentGitHubImpl_AutoDetectError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "loading GitHub environment") {
 		t.Errorf("error = %q, want to contain 'loading GitHub environment'", err.Error())
+	}
+}
+
+// ============================================================================
+// Baseline Tests
+// ============================================================================
+
+func TestCommentGitHubImpl_BaselineCompare(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Test", "score": 85, "threshold": 75}`)
+	fs.SetFileContent("baseline.json", `{"title": "Baseline", "score": 80, "threshold": 75}`)
+
+	var postedBody string
+	deps := defaultCommentGitHubDeps(fs)
+	deps.Mode = "create"
+	deps.Baseline = BaselineConfig{
+		Compare: "baseline.json",
+		FS:      fs,
+	}
+	deps.PostComment = func(_ context.Context, _ *checks.GitHubClient, _ checks.CommentOptions, body string) (*checks.CommentResponse, error) {
+		postedBody = body
+		return &checks.CommentResponse{ID: 1, HTMLURL: "https://github.com/owner/repo/pull/123#comment-1"}, nil
+	}
+
+	err := commentGitHubImpl(deps)
+	if err != nil {
+		t.Fatalf("commentGitHubImpl() error = %v", err)
+	}
+
+	if !strings.Contains(postedBody, "Change") {
+		t.Errorf("posted body should contain 'Change' row, got:\n%s", postedBody)
+	}
+	if !strings.Contains(postedBody, ":arrow_up:") {
+		t.Errorf("posted body should contain ':arrow_up:' for score increase, got:\n%s", postedBody)
+	}
+	if !strings.Contains(postedBody, "+5") {
+		t.Errorf("posted body should contain '+5' delta, got:\n%s", postedBody)
+	}
+}
+
+func TestCommentGitHubImpl_CompareBaseline_AutoFetch(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Test", "score": 90, "threshold": 75}`)
+
+	baselineScore := 80
+	var postedBody string
+	deps := defaultCommentGitHubDeps(fs)
+	deps.Mode = "create"
+	deps.Baseline = BaselineConfig{
+		CompareBaseline: true,
+		BaselineFile:    "bl.json",
+		BaselineFileReader: func(_ string) (*baseline.Baseline, error) {
+			return &baseline.Baseline{
+				Report: confidence.Report{Score: &baselineScore, Title: "BL", Threshold: 75},
+			}, nil
+		},
+	}
+	deps.PostComment = func(_ context.Context, _ *checks.GitHubClient, _ checks.CommentOptions, body string) (*checks.CommentResponse, error) {
+		postedBody = body
+		return &checks.CommentResponse{ID: 1, HTMLURL: "https://github.com/owner/repo/pull/123#comment-1"}, nil
+	}
+
+	err := commentGitHubImpl(deps)
+	if err != nil {
+		t.Fatalf("commentGitHubImpl() error = %v", err)
+	}
+
+	if !strings.Contains(postedBody, "+10") {
+		t.Errorf("posted body should contain '+10' delta, got:\n%s", postedBody)
+	}
+}
+
+func TestCommentGitHubImpl_BaselineRegression(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Test", "score": 70, "threshold": 75}`)
+	fs.SetFileContent("baseline.json", `{"title": "Baseline", "score": 85, "threshold": 75}`)
+
+	var postedBody string
+	deps := defaultCommentGitHubDeps(fs)
+	deps.Mode = "create"
+	deps.Baseline = BaselineConfig{
+		Compare: "baseline.json",
+		FS:      fs,
+	}
+	deps.PostComment = func(_ context.Context, _ *checks.GitHubClient, _ checks.CommentOptions, body string) (*checks.CommentResponse, error) {
+		postedBody = body
+		return &checks.CommentResponse{ID: 1, HTMLURL: "https://github.com/owner/repo/pull/123#comment-1"}, nil
+	}
+
+	err := commentGitHubImpl(deps)
+	if err != nil {
+		t.Fatalf("commentGitHubImpl() error = %v", err)
+	}
+
+	if !strings.Contains(postedBody, ":arrow_down:") {
+		t.Errorf("posted body should contain ':arrow_down:' for regression, got:\n%s", postedBody)
+	}
+	if !strings.Contains(postedBody, "-15") {
+		t.Errorf("posted body should contain '-15' delta, got:\n%s", postedBody)
+	}
+}
+
+func TestCommentGitHubImpl_BaselineNoChange(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Test", "score": 85, "threshold": 75}`)
+	fs.SetFileContent("baseline.json", `{"title": "Baseline", "score": 85, "threshold": 75}`)
+
+	var postedBody string
+	deps := defaultCommentGitHubDeps(fs)
+	deps.Mode = "create"
+	deps.Baseline = BaselineConfig{
+		Compare: "baseline.json",
+		FS:      fs,
+	}
+	deps.PostComment = func(_ context.Context, _ *checks.GitHubClient, _ checks.CommentOptions, body string) (*checks.CommentResponse, error) {
+		postedBody = body
+		return &checks.CommentResponse{ID: 1, HTMLURL: "https://github.com/owner/repo/pull/123#comment-1"}, nil
+	}
+
+	err := commentGitHubImpl(deps)
+	if err != nil {
+		t.Fatalf("commentGitHubImpl() error = %v", err)
+	}
+
+	if !strings.Contains(postedBody, ":left_right_arrow:") {
+		t.Errorf("posted body should contain ':left_right_arrow:' for no change, got:\n%s", postedBody)
+	}
+}
+
+func TestCommentGitHubImpl_BaselineError(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Test", "score": 85, "threshold": 75}`)
+
+	deps := defaultCommentGitHubDeps(fs)
+	deps.Baseline = BaselineConfig{
+		CompareBaseline: true,
+		BaselineFile:    "baseline.json",
+		BaselineFileReader: func(_ string) (*baseline.Baseline, error) {
+			return nil, errors.New("corrupted baseline")
+		},
+	}
+
+	err := commentGitHubImpl(deps)
+	if err == nil {
+		t.Fatal("expected error for corrupted baseline")
+	}
+	if !strings.Contains(err.Error(), "loading baseline") {
+		t.Errorf("error = %q, want to contain 'loading baseline'", err.Error())
+	}
+}
+
+func TestCommentGitHubImpl_DryRun_WithBaseline(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Test", "score": 85, "threshold": 75}`)
+	fs.SetFileContent("baseline.json", `{"title": "Baseline", "score": 80, "threshold": 75}`)
+
+	var stdout bytes.Buffer
+	deps := defaultCommentGitHubDeps(fs)
+	deps.Stdout = &stdout
+	deps.DryRun = true
+	deps.Baseline = BaselineConfig{
+		Compare: "baseline.json",
+		FS:      fs,
+	}
+
+	err := commentGitHubImpl(deps)
+	if err != nil {
+		t.Fatalf("commentGitHubImpl() error = %v", err)
+	}
+
+	output := stdout.String()
+	if !strings.Contains(output, "Baseline:") {
+		t.Errorf("dry-run output should contain 'Baseline:' line, got:\n%s", output)
+	}
+	if !strings.Contains(output, "80 -> 85 (+5)") {
+		t.Errorf("dry-run output should show baseline delta, got:\n%s", output)
+	}
+}
+
+func TestCommentGitHubImpl_NoBaseline_BackwardCompatible(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Test", "score": 85, "threshold": 75}`)
+
+	var postedBody string
+	deps := defaultCommentGitHubDeps(fs)
+	deps.Mode = "create"
+	// No baseline config set — zero value BaselineConfig
+	deps.PostComment = func(_ context.Context, _ *checks.GitHubClient, _ checks.CommentOptions, body string) (*checks.CommentResponse, error) {
+		postedBody = body
+		return &checks.CommentResponse{ID: 1, HTMLURL: "https://github.com/owner/repo/pull/123#comment-1"}, nil
+	}
+
+	err := commentGitHubImpl(deps)
+	if err != nil {
+		t.Fatalf("commentGitHubImpl() error = %v", err)
+	}
+
+	if strings.Contains(postedBody, "Change") {
+		t.Errorf("without baseline, body should not contain 'Change' row, got:\n%s", postedBody)
 	}
 }
 

@@ -974,6 +974,10 @@ confvis comment github -c <config> [flags]
 | `--mode` | update | Comment mode: `create`, `update`, or `replace` |
 | `--auto-detect` | true | Auto-detect values from GitHub Actions environment |
 | `--dry-run` | false | Preview comment without posting |
+| `--compare` | | Path to baseline report JSON for comparison |
+| `--compare-baseline` | false | Auto-fetch baseline from ref/file and compare |
+| `--baseline-ref` | refs/confvis/baseline | Git ref for baseline storage |
+| `--baseline-file` | | File path for baseline |
 
 ##### Comment Modes
 
@@ -1020,6 +1024,15 @@ confvis comment github -c confidence.json --dry-run
 
 # Pipe from fetch
 confvis fetch sonarqube -p myproject -o - | confvis comment github -c -
+
+# Compare against a baseline report
+confvis comment github -c confidence.json --compare baseline.json
+
+# Auto-fetch baseline from stored ref/file
+confvis comment github -c confidence.json --compare-baseline
+
+# Compare baseline stored in a file
+confvis comment github -c confidence.json --compare-baseline --baseline-file baseline.json
 ```
 
 ##### GitHub Actions Integration

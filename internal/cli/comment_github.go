@@ -11,8 +11,10 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"github.com/boinger/confvis/internal/baseline"
 	"github.com/boinger/confvis/internal/checks"
 	"github.com/boinger/confvis/internal/confidence"
+	"github.com/boinger/confvis/internal/gitutil"
 )
 
 const errCreatingComment = "creating comment: %w"
@@ -25,8 +27,12 @@ var (
 	commentGitHubToken      string
 	commentGitHubAPIURL     string
 	commentGitHubMode       string
-	commentGitHubAutoDetect bool
-	commentGitHubDryRun     bool
+	commentGitHubAutoDetect      bool
+	commentGitHubDryRun          bool
+	commentGitHubCompare         string
+	commentGitHubCompareBaseline bool
+	commentGitHubBaselineRef     string
+	commentGitHubBaselineFile    string
 )
 
 var commentGitHubCmd = &cobra.Command{
@@ -58,7 +64,13 @@ environment variables.`,
   confvis comment github -c confidence.json --mode replace
 
   # Preview without posting
-  confvis comment github -c confidence.json --dry-run`,
+  confvis comment github -c confidence.json --dry-run
+
+  # Compare against a baseline report
+  confvis comment github -c confidence.json --compare baseline.json
+
+  # Auto-fetch baseline from stored ref/file
+  confvis comment github -c confidence.json --compare-baseline`,
 	RunE: runCommentGitHub,
 }
 
@@ -72,6 +84,10 @@ func init() {
 	commentGitHubCmd.Flags().StringVar(&commentGitHubMode, "mode", "update", "comment mode: create, update, replace")
 	commentGitHubCmd.Flags().BoolVar(&commentGitHubAutoDetect, "auto-detect", true, "auto-detect values from GitHub Actions environment")
 	commentGitHubCmd.Flags().BoolVar(&commentGitHubDryRun, "dry-run", false, "preview comment without posting")
+	commentGitHubCmd.Flags().StringVar(&commentGitHubCompare, "compare", "", "path to baseline report JSON for comparison")
+	commentGitHubCmd.Flags().BoolVar(&commentGitHubCompareBaseline, "compare-baseline", false, "auto-fetch baseline from ref/file and compare")
+	commentGitHubCmd.Flags().StringVar(&commentGitHubBaselineRef, "baseline-ref", "", "git ref for baseline storage (default: refs/confvis/baseline)")
+	commentGitHubCmd.Flags().StringVar(&commentGitHubBaselineFile, "baseline-file", "", "file path for baseline")
 
 	if err := commentGitHubCmd.MarkFlagRequired("config"); err != nil {
 		panic(err)
@@ -107,6 +123,7 @@ type CommentGitHubDeps struct {
 	AutoDetect bool
 	DryRun     bool
 	Timeout    time.Duration
+	Baseline   BaselineConfig
 
 	// Functions for testability
 	FindComment       func(ctx context.Context, client *checks.GitHubClient, opts checks.CommentOptions) (*checks.CommentResponse, error)
@@ -135,6 +152,16 @@ func runCommentGitHub(_ *cobra.Command, _ []string) error {
 		AutoDetect:      commentGitHubAutoDetect,
 		DryRun:          commentGitHubDryRun,
 		Timeout:         30 * time.Second,
+		Baseline: BaselineConfig{
+			CompareBaseline:      getCommentGitHubCompareBaseline(),
+			Compare:              commentGitHubCompare,
+			BaselineRef:          getCommentGitHubBaselineRef(),
+			BaselineFile:         getCommentGitHubBaselineFile(),
+			FS:                   DefaultFileSystem,
+			IsGitRepo:            gitutil.IsGitRepo,
+			BaselineGitRefReader: baseline.ReadFromGitRef,
+			BaselineFileReader:   baseline.ReadFromFile,
+		},
 		FindComment:     defaultFindComment,
 		PostComment:     defaultPostComment,
 		UpdateComment:   defaultUpdateComment,
@@ -185,12 +212,19 @@ func commentGitHubImpl(deps *CommentGitHubDeps) error {
 		return err
 	}
 
+	// Load baseline for comparison (nil if no baseline flags set)
+	deps.Baseline.FS = deps.FS
+	baselineReport, _, err := LoadBaseline(deps.Baseline, report.ScoreValue())
+	if err != nil {
+		return err
+	}
+
 	// Generate comment body
-	commentBody := generateCommentBody(report)
+	commentBody := generateCommentBody(report, baselineReport)
 
 	// Dry-run mode: show what would happen without posting
 	if deps.DryRun {
-		outputCommentDryRun(deps, opts, report, commentBody)
+		outputCommentDryRun(deps, opts, report, baselineReport, commentBody)
 		return nil
 	}
 
@@ -298,23 +332,21 @@ func parseCommentConfig(deps *CommentGitHubDeps) (*confidence.Report, error) {
 	return loader.LoadReport()
 }
 
-func generateCommentBody(report *confidence.Report) string {
+func generateCommentBody(report *confidence.Report, baselineReport *confidence.Report) string {
 	var buf bytes.Buffer
 
 	// Write marker first (hidden)
 	buf.WriteString(checks.CommentMarker)
 	buf.WriteString("\n")
 
-	// Use the same format as github-comment in gauge
-	// Errors are ignored because bytes.Buffer.Write never fails
-	_ = writeGitHubCommentHeader(&buf, report)
-	_ = writeGitHubCommentFactors(&buf, report.Factors)
-	_ = writeGitHubCommentFooter(&buf, report.Version)
+	// Delegate to writeGitHubComment which handles header, baseline, factors, footer.
+	// When baselineReport is nil, writeGitHubCommentBaseline returns nil immediately.
+	_ = writeGitHubComment(&buf, report, baselineReport)
 
 	return buf.String()
 }
 
-func outputCommentDryRun(deps *CommentGitHubDeps, opts checks.CommentOptions, report *confidence.Report, body string) {
+func outputCommentDryRun(deps *CommentGitHubDeps, opts checks.CommentOptions, report *confidence.Report, baselineReport *confidence.Report, body string) {
 	status := "passed"
 	if !report.Passed() {
 		status = "failed"
@@ -326,6 +358,11 @@ func outputCommentDryRun(deps *CommentGitHubDeps, opts checks.CommentOptions, re
 	_, _ = fmt.Fprintf(deps.Stdout, "PR Number:  %d\n", opts.PR)
 	_, _ = fmt.Fprintf(deps.Stdout, "Mode:       %s\n", deps.Mode)
 	_, _ = fmt.Fprintf(deps.Stdout, "Status:     %s\n", status)
+	if baselineReport != nil {
+		delta := report.ScoreValue() - baselineReport.ScoreValue()
+		_, _ = fmt.Fprintf(deps.Stdout, "Baseline:   %d -> %d (%+d)\n",
+			baselineReport.ScoreValue(), report.ScoreValue(), delta)
+	}
 	_, _ = fmt.Fprintln(deps.Stdout)
 	_, _ = fmt.Fprintln(deps.Stdout, "Comment content:")
 	_, _ = fmt.Fprintln(deps.Stdout, "---")

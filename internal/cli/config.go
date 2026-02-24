@@ -102,6 +102,33 @@ func getGateBaselineFile() string {
 	return viper.GetString("gauge.baseline_file")
 }
 
+// getCommentGitHubCompareBaseline returns compare-baseline from CLI flag, then config/env fallback.
+func getCommentGitHubCompareBaseline() bool {
+	if commentGitHubCompareBaseline {
+		return true
+	}
+	return viper.GetBool("gauge.compare_baseline")
+}
+
+// getCommentGitHubBaselineRef returns baseline ref from CLI flag, then config/env fallback.
+func getCommentGitHubBaselineRef() string {
+	if commentGitHubBaselineRef != "" {
+		return commentGitHubBaselineRef
+	}
+	if v := viper.GetString("gauge.baseline_ref"); v != "" {
+		return v
+	}
+	return baseline.DefaultBaselineRef
+}
+
+// getCommentGitHubBaselineFile returns baseline file from CLI flag, then config/env fallback.
+func getCommentGitHubBaselineFile() string {
+	if commentGitHubBaselineFile != "" {
+		return commentGitHubBaselineFile
+	}
+	return viper.GetString("gauge.baseline_file")
+}
+
 // bindFetchFlags binds fetch command flags to viper configuration keys.
 func bindFetchFlags(cmd *cobra.Command) {
 	must(viper.BindPFlag("fetch.timeout", cmd.Flags().Lookup("timeout")))
