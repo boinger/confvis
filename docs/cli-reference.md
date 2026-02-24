@@ -224,7 +224,7 @@ confvis generate -c confidence.json -o ./output -q
 Generate an SVG gauge badge from a confidence report.
 
 ```bash
-confvis gauge -c <config> -o <output-file> [flags]
+confvis gauge -c <config> [-o <output-file>] [flags]
 ```
 
 #### Required Flags
@@ -232,12 +232,12 @@ confvis gauge -c <config> -o <output-file> [flags]
 | Flag | Short | Description |
 |------|-------|-------------|
 | `--config` | `-c` | Path to confidence report (JSON/YAML), or `-` for stdin |
-| `--output` | `-o` | Output SVG file path, or `-` for stdout |
 
 #### Optional Flags
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
+| `--output` | `-o` | - (stdout) | Output file path, or `-` for stdout |
 | `--input-format` | | auto | Input format: `auto`, `json`, or `yaml` (auto-detects from extension) |
 | `--format` | `-f` | svg | Output format: `svg`, `json`, `text`, `markdown`, or `github-comment` |
 | `--badge-type` | | gauge | Badge type: `gauge`, `flat`, or `sparkline` |

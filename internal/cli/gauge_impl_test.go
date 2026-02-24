@@ -29,7 +29,7 @@ func defaultGaugeDeps(fs *MockFileSystem) *GaugeDeps {
 		HistoryReader:    nil,
 		HistoryAppender:  nil,
 		Config:           "",
-		Output:           "",
+		Output:           "-",
 		Format:           "svg",
 		Style:            "github",
 		BadgeType:        "gauge",
@@ -87,6 +87,27 @@ func TestGaugeImpl_SVGOutputToStdout(t *testing.T) {
 
 	if !strings.Contains(stdout.String(), "<svg") {
 		t.Error("stdout should contain SVG content")
+	}
+}
+
+func TestGaugeImpl_DefaultStdout(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Test", "score": 85, "threshold": 75}`)
+
+	var stdout bytes.Buffer
+	deps := defaultGaugeDeps(fs)
+	deps.Stdout = &stdout
+	deps.Config = "config.json"
+	// Output not set — uses defaultGaugeDeps value of "-" (stdout),
+	// matching the flag default after removing MarkFlagRequired("output").
+
+	err := gaugeImpl(deps)
+	if err != nil {
+		t.Fatalf("gaugeImpl() error = %v", err)
+	}
+
+	if !strings.Contains(stdout.String(), "<svg") {
+		t.Error("stdout should contain SVG content when output defaults to stdout")
 	}
 }
 

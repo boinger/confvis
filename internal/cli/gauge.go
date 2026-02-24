@@ -51,7 +51,7 @@ var gaugeCmd = &cobra.Command{
 func init() {
 	gaugeCmd.Flags().StringVarP(&gaugeConfig, "config", "c", "", "path to confidence report (JSON/YAML), or - for stdin (required)")
 	gaugeCmd.Flags().StringVar(&gaugeInputFormat, "input-format", "auto", "input format: auto, json, or yaml (auto-detects from extension)")
-	gaugeCmd.Flags().StringVarP(&gaugeOutput, "output", "o", "", "output file path, or - for stdout (required)")
+	gaugeCmd.Flags().StringVarP(&gaugeOutput, "output", "o", "-", "output file path, or - for stdout (default: stdout)")
 	gaugeCmd.Flags().StringVarP(&gaugeFormat, "format", "f", "svg", "output format: svg, json, text, markdown, or github-comment")
 	// Note: defaults are set to 0/"" here; actual defaults come from config.go getters
 	gaugeCmd.Flags().IntVar(&gaugeWidth, "width", 0, "gauge width in pixels (svg only)")
@@ -82,10 +82,6 @@ func init() {
 	if err := gaugeCmd.MarkFlagRequired("config"); err != nil {
 		panic(err)
 	}
-	if err := gaugeCmd.MarkFlagRequired("output"); err != nil {
-		panic(err)
-	}
-
 	rootCmd.AddCommand(gaugeCmd)
 }
 
