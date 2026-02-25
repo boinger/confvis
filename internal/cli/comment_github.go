@@ -33,6 +33,8 @@ var (
 	commentGitHubCompareBaseline bool
 	commentGitHubBaselineRef     string
 	commentGitHubBaselineFile    string
+	commentGitHubGateFailUnder        int
+	commentGitHubGateFailOnRegression bool
 )
 
 var commentGitHubCmd = &cobra.Command{
@@ -88,6 +90,8 @@ func init() {
 	commentGitHubCmd.Flags().BoolVar(&commentGitHubCompareBaseline, "compare-baseline", false, "auto-fetch baseline from ref/file and compare")
 	commentGitHubCmd.Flags().StringVar(&commentGitHubBaselineRef, "baseline-ref", "", "git ref for baseline storage (default: refs/confvis/baseline)")
 	commentGitHubCmd.Flags().StringVar(&commentGitHubBaselineFile, "baseline-file", "", "file path for baseline")
+	commentGitHubCmd.Flags().IntVar(&commentGitHubGateFailUnder, "gate-fail-under", 0, "show warning if score is below this gate threshold")
+	commentGitHubCmd.Flags().BoolVar(&commentGitHubGateFailOnRegression, "gate-fail-on-regression", false, "show warning if score regressed from baseline")
 
 	if err := commentGitHubCmd.MarkFlagRequired("config"); err != nil {
 		panic(err)
@@ -125,6 +129,10 @@ type CommentGitHubDeps struct {
 	Timeout    time.Duration
 	Baseline   BaselineConfig
 
+	// Gate awareness — advisory warnings in comment body
+	GateFailUnder        int
+	GateFailOnRegression bool
+
 	// Functions for testability
 	FindComment       func(ctx context.Context, client *checks.GitHubClient, opts checks.CommentOptions) (*checks.CommentResponse, error)
 	PostComment       func(ctx context.Context, client *checks.GitHubClient, opts checks.CommentOptions, body string) (*checks.CommentResponse, error)
@@ -150,8 +158,10 @@ func runCommentGitHub(_ *cobra.Command, _ []string) error {
 		APIURL:          getCommentGitHubAPIURL(),
 		Mode:            getCommentGitHubMode(),
 		AutoDetect:      commentGitHubAutoDetect,
-		DryRun:          commentGitHubDryRun,
-		Timeout:         30 * time.Second,
+		DryRun:               commentGitHubDryRun,
+		Timeout:              30 * time.Second,
+		GateFailUnder:        commentGitHubGateFailUnder,
+		GateFailOnRegression: commentGitHubGateFailOnRegression,
 		Baseline: BaselineConfig{
 			CompareBaseline:      getCommentGitHubCompareBaseline(),
 			Compare:              commentGitHubCompare,
@@ -220,7 +230,7 @@ func commentGitHubImpl(deps *CommentGitHubDeps) error {
 	}
 
 	// Generate comment body
-	commentBody := generateCommentBody(report, baselineReport)
+	commentBody := generateCommentBody(report, baselineReport, deps.GateFailUnder, deps.GateFailOnRegression)
 
 	// Dry-run mode: show what would happen without posting
 	if deps.DryRun {
@@ -332,7 +342,7 @@ func parseCommentConfig(deps *CommentGitHubDeps) (*confidence.Report, error) {
 	return loader.LoadReport()
 }
 
-func generateCommentBody(report *confidence.Report, baselineReport *confidence.Report) string {
+func generateCommentBody(report *confidence.Report, baselineReport *confidence.Report, gateFailUnder int, gateFailOnRegression bool) string {
 	var buf bytes.Buffer
 
 	// Write marker first (hidden)
@@ -341,7 +351,7 @@ func generateCommentBody(report *confidence.Report, baselineReport *confidence.R
 
 	// Delegate to writeGitHubComment which handles header, baseline, factors, footer.
 	// When baselineReport is nil, writeGitHubCommentBaseline returns nil immediately.
-	_ = writeGitHubComment(&buf, report, baselineReport)
+	_ = writeGitHubComment(&buf, report, baselineReport, gateFailUnder, gateFailOnRegression)
 
 	return buf.String()
 }

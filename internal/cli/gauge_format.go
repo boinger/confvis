@@ -19,7 +19,7 @@ func writeFormatOutput(w io.Writer, format string, report *confidence.Report, ba
 	case "markdown":
 		return writeMarkdown(w, report, baselineReport, delta)
 	case "github-comment":
-		return writeGitHubComment(w, report, baselineReport)
+		return writeGitHubComment(w, report, baselineReport, 0, false)
 	}
 	return nil
 }
@@ -123,7 +123,11 @@ func writeMarkdown(w io.Writer, report *confidence.Report, baselineReport *confi
 }
 
 // writeGitHubComment generates GitHub-flavored markdown output for PR comments.
-func writeGitHubComment(w io.Writer, report *confidence.Report, baselineReport *confidence.Report) error {
+func writeGitHubComment(w io.Writer, report *confidence.Report, baselineReport *confidence.Report, gateFailUnder int, gateFailOnRegression bool) error {
+	if err := writeGateWarning(w, report, baselineReport, gateFailUnder, gateFailOnRegression); err != nil {
+		return err
+	}
+
 	if err := writeGitHubCommentHeader(w, report); err != nil {
 		return err
 	}
@@ -212,6 +216,28 @@ func writeGitHubCommentFactors(w io.Writer, factors []confidence.Factor) error {
 	}
 	_, err := fmt.Fprintln(w, "\n</details>")
 	return err
+}
+
+// writeGateWarning emits a GitHub warning banner if gate thresholds would fail.
+func writeGateWarning(w io.Writer, report *confidence.Report, baselineReport *confidence.Report, gateFailUnder int, gateFailOnRegression bool) error {
+	score := report.ScoreValue()
+
+	if gateFailUnder > 0 && score < gateFailUnder {
+		if _, err := fmt.Fprintf(w, "> [!WARNING]\n> **Confidence gate will fail:** score %d is below threshold %d\n\n", score, gateFailUnder); err != nil {
+			return err
+		}
+	}
+
+	if gateFailOnRegression && baselineReport != nil {
+		delta := score - baselineReport.ScoreValue()
+		if delta < 0 {
+			if _, err := fmt.Fprintf(w, "> [!WARNING]\n> **Confidence gate will fail:** score regressed by %d points from baseline\n\n", -delta); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 func writeGitHubCommentFooter(w io.Writer, version string) error {

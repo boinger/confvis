@@ -2039,7 +2039,7 @@ func TestWriteGitHubComment_WriteErrors(t *testing.T) {
 	// Test error at various write points through the function
 	for i := 0; i < 15; i++ {
 		w := &errWriter{n: i, err: errors.New("write failed")}
-		err := writeGitHubComment(w, report, nil)
+		err := writeGitHubComment(w, report, nil, 0, false)
 		if i < 12 && err == nil {
 			// The function has many writes; we expect errors for early failures
 			t.Errorf("expected error at write %d, got nil", i)

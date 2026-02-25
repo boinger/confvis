@@ -682,3 +682,138 @@ func TestCommentGitHubImpl_NoBaseline_BackwardCompatible(t *testing.T) {
 	}
 }
 
+// ============================================================================
+// Gate awareness tests
+// ============================================================================
+
+func TestCommentGitHubImpl_GateWarning_FailUnder(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Test", "score": 65, "threshold": 50}`)
+
+	var postedBody string
+	deps := defaultCommentGitHubDeps(fs)
+	deps.Mode = "create"
+	deps.GateFailUnder = 75
+	deps.PostComment = func(_ context.Context, _ *checks.GitHubClient, _ checks.CommentOptions, body string) (*checks.CommentResponse, error) {
+		postedBody = body
+		return &checks.CommentResponse{ID: 1, HTMLURL: "https://example.com"}, nil
+	}
+
+	err := commentGitHubImpl(deps)
+	if err != nil {
+		t.Fatalf("commentGitHubImpl() error = %v", err)
+	}
+
+	if !strings.Contains(postedBody, "Confidence gate will fail") {
+		t.Errorf("body should contain gate warning, got:\n%s", postedBody)
+	}
+	if !strings.Contains(postedBody, "score 65 is below threshold 75") {
+		t.Errorf("body should contain specific threshold info, got:\n%s", postedBody)
+	}
+}
+
+func TestCommentGitHubImpl_GateWarning_FailUnder_Passing(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Test", "score": 85, "threshold": 75}`)
+
+	var postedBody string
+	deps := defaultCommentGitHubDeps(fs)
+	deps.Mode = "create"
+	deps.GateFailUnder = 75
+	deps.PostComment = func(_ context.Context, _ *checks.GitHubClient, _ checks.CommentOptions, body string) (*checks.CommentResponse, error) {
+		postedBody = body
+		return &checks.CommentResponse{ID: 1, HTMLURL: "https://example.com"}, nil
+	}
+
+	err := commentGitHubImpl(deps)
+	if err != nil {
+		t.Fatalf("commentGitHubImpl() error = %v", err)
+	}
+
+	if strings.Contains(postedBody, "Confidence gate will fail") {
+		t.Errorf("body should NOT contain gate warning when score passes, got:\n%s", postedBody)
+	}
+}
+
+func TestCommentGitHubImpl_GateWarning_Regression(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Test", "score": 70, "threshold": 50}`)
+	fs.SetFileContent("baseline.json", `{"title": "Baseline", "score": 85, "threshold": 50}`)
+
+	var postedBody string
+	deps := defaultCommentGitHubDeps(fs)
+	deps.Mode = "create"
+	deps.GateFailOnRegression = true
+	deps.Baseline = BaselineConfig{
+		Compare: "baseline.json",
+		FS:      fs,
+	}
+	deps.PostComment = func(_ context.Context, _ *checks.GitHubClient, _ checks.CommentOptions, body string) (*checks.CommentResponse, error) {
+		postedBody = body
+		return &checks.CommentResponse{ID: 1, HTMLURL: "https://example.com"}, nil
+	}
+
+	err := commentGitHubImpl(deps)
+	if err != nil {
+		t.Fatalf("commentGitHubImpl() error = %v", err)
+	}
+
+	if !strings.Contains(postedBody, "Confidence gate will fail") {
+		t.Errorf("body should contain gate regression warning, got:\n%s", postedBody)
+	}
+	if !strings.Contains(postedBody, "regressed by 15 points") {
+		t.Errorf("body should contain regression delta, got:\n%s", postedBody)
+	}
+}
+
+func TestCommentGitHubImpl_GateWarning_NoRegression(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Test", "score": 90, "threshold": 75}`)
+	fs.SetFileContent("baseline.json", `{"title": "Baseline", "score": 85, "threshold": 75}`)
+
+	var postedBody string
+	deps := defaultCommentGitHubDeps(fs)
+	deps.Mode = "create"
+	deps.GateFailOnRegression = true
+	deps.Baseline = BaselineConfig{
+		Compare: "baseline.json",
+		FS:      fs,
+	}
+	deps.PostComment = func(_ context.Context, _ *checks.GitHubClient, _ checks.CommentOptions, body string) (*checks.CommentResponse, error) {
+		postedBody = body
+		return &checks.CommentResponse{ID: 1, HTMLURL: "https://example.com"}, nil
+	}
+
+	err := commentGitHubImpl(deps)
+	if err != nil {
+		t.Fatalf("commentGitHubImpl() error = %v", err)
+	}
+
+	if strings.Contains(postedBody, "Confidence gate will fail") {
+		t.Errorf("body should NOT contain gate warning when score improved, got:\n%s", postedBody)
+	}
+}
+
+func TestCommentGitHubImpl_GateWarning_NoFlags(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Test", "score": 50, "threshold": 75}`)
+
+	var postedBody string
+	deps := defaultCommentGitHubDeps(fs)
+	deps.Mode = "create"
+	// No gate flags set
+	deps.PostComment = func(_ context.Context, _ *checks.GitHubClient, _ checks.CommentOptions, body string) (*checks.CommentResponse, error) {
+		postedBody = body
+		return &checks.CommentResponse{ID: 1, HTMLURL: "https://example.com"}, nil
+	}
+
+	err := commentGitHubImpl(deps)
+	if err != nil {
+		t.Fatalf("commentGitHubImpl() error = %v", err)
+	}
+
+	if strings.Contains(postedBody, "WARNING") {
+		t.Errorf("body should NOT contain any warnings when no gate flags set, got:\n%s", postedBody)
+	}
+}
+

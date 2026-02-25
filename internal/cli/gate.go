@@ -158,7 +158,11 @@ func writeGitHubOutput(deps *GateDeps, score int, passed bool) {
 		_, _ = fmt.Fprintf(deps.Stderr, "Warning: could not write to GITHUB_OUTPUT: %v\n", err)
 		return
 	}
-	defer f.Close()
+	defer func() {
+		if cerr := f.Close(); cerr != nil {
+			_, _ = fmt.Fprintf(deps.Stderr, "Warning: could not close GITHUB_OUTPUT: %v\n", cerr)
+		}
+	}()
 
 	result := "pass"
 	if !passed {
