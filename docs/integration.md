@@ -63,7 +63,9 @@ jobs:
         run: confvis generate -c confidence.json -o ./badges --fail-under 75 -q
 
       - name: Quality gate (CI-only alternative)
+        id: gate
         run: confvis gate -c confidence.json --fail-under 75 -q
+        # Gate outputs are available as steps.gate.outputs.gate_result and steps.gate.outputs.gate_score
 
       - name: Commit badge
         uses: stefanzweifel/git-auto-commit-action@v5
@@ -217,7 +219,9 @@ jobs:
         run: confvis baseline save -c confidence.json
 
       - name: Quality gate (CI-only, no badge)
+        id: gate
         run: confvis gate -c confidence.json --compare-baseline --fail-on-regression
+        # Outputs: steps.gate.outputs.gate_result (pass|fail), steps.gate.outputs.gate_score
 
       - name: Generate badge with comparison
         run: |

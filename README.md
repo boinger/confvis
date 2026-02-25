@@ -58,6 +58,12 @@ cd confvis
 go build -o confvis ./cmd/confvis
 ```
 
+Verify your installation:
+
+```bash
+confvis --version
+```
+
 ## Quick Start
 
 ### 1. Fetch metrics from your tools
@@ -152,6 +158,8 @@ confvis gauge -c confidence.json --compare-baseline --fail-on-regression -o badg
 confvis gate -c confidence.json --fail-under 75 -q
 ```
 
+In GitHub Actions, `gate` automatically writes `gate_result=pass|fail` and `gate_score=<N>` to `$GITHUB_OUTPUT`, making results available to downstream steps without `continue-on-error`.
+
 Supports stdin/stdout for pipeline workflows:
 
 ```bash
@@ -225,8 +233,8 @@ Generate a gauge badge in various formats.
 confvis gauge -c confidence.json -o badge.svg [--format svg|json|text|markdown|github-comment] [--badge-type gauge|flat] [--style github|minimal|corporate|high-contrast] [--dark]
 ```
 
-Output formats:
-- `svg` (default): SVG gauge badge image
+Output formats (default: `text` for stdout, `svg` for files):
+- `svg`: SVG gauge badge image
 - `json`: Score metadata as JSON
 - `text`: Just the score number (for scripting)
 - `markdown`: Markdown table for PR comments

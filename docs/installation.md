@@ -59,16 +59,21 @@ Usage:
 
 Available Commands:
   aggregate   Aggregate multiple reports into a single dashboard
+  baseline    Manage confidence baselines
+  comment     Post confidence report as a comment
   completion  Generate the autocompletion script for the specified shell
   fetch       Fetch metrics from an external source
+  gate        CI gate: check thresholds and exit non-zero on failure
   gauge       Generate an SVG gauge badge
   generate    Generate badge and dashboard
   help        Help about any command
+  version     Print the version number
 
 Flags:
   -h, --help      help for confvis
   -q, --quiet     suppress non-error output
   -v, --verbose   verbose output
+      --version   version for confvis
 
 Use "confvis [command] --help" for more information about a command.
 ```

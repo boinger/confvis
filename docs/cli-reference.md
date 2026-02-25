@@ -162,6 +162,7 @@ Examples:
 |------|-------|-------------|
 | `--verbose` | `-v` | Enable verbose output |
 | `--quiet` | `-q` | Suppress non-error output (overrides `-v`) |
+| `--version` | | Print version and exit |
 | `--help` | `-h` | Show help |
 
 ## Commands
@@ -239,7 +240,7 @@ confvis gauge -c <config> [-o <output-file>] [flags]
 |------|-------|---------|-------------|
 | `--output` | `-o` | - (stdout) | Output file path, or `-` for stdout |
 | `--input-format` | | auto | Input format: `auto`, `json`, or `yaml` (auto-detects from extension) |
-| `--format` | `-f` | svg | Output format: `svg`, `json`, `text`, `markdown`, or `github-comment` |
+| `--format` | `-f` | text (stdout) / svg (files) | Output format: `svg`, `json`, `text`, `markdown`, or `github-comment` |
 | `--badge-type` | | gauge | Badge type: `gauge`, `flat`, or `sparkline` |
 | `--label` | | | Custom label for flat badge (defaults to report title) |
 | `--icon` | | | SVG path data for flat badge icon |
@@ -264,7 +265,7 @@ confvis gauge -c <config> [-o <output-file>] [flags]
 
 #### Output Formats
 
-- **svg** (default): SVG gauge badge image
+- **svg** (default for file output): SVG gauge badge image
 - **json**: JSON object with score data and metadata:
   ```json
   {
@@ -282,7 +283,7 @@ confvis gauge -c <config> [-o <output-file>] [flags]
   Note: `baseline` and `delta` fields are only present when using `--compare` or `--compare-baseline`.
 
   The `--emit-json` flag writes this same JSON format to a separate file, useful for CI/CD pipelines that need both SVG output and machine-readable metadata without running the command twice.
-- **text**: Plain text score number (useful for scripting). With `--compare`, shows delta: `85 (+5)`
+- **text** (default for stdout): Plain text score number (useful for scripting). With `--compare`, shows delta: `85 (+5)`
 - **markdown**: Markdown-formatted report for PR comments or wiki pages:
   ```markdown
   ## Code Quality: 85% (PASS)
@@ -345,11 +346,14 @@ confvis gauge -c confidence.json -o badge.svg --dark
 # Read from stdin
 cat confidence.json | confvis gauge -c - -o badge.svg
 
-# Write to stdout
+# Write to stdout (defaults to text format)
 confvis gauge -c confidence.json -o -
 
-# Pipe through (stdin to stdout)
-cat confidence.json | confvis gauge -c - -o - > badge.svg
+# Write SVG to stdout explicitly
+confvis gauge -c confidence.json -o - -f svg > badge.svg
+
+# Pipe through (stdin to stdout as SVG)
+cat confidence.json | confvis gauge -c - -o - -f svg > badge.svg
 
 # Fail if score below threshold (CI/CD)
 confvis gauge -c confidence.json -o badge.svg --fail-under 75
@@ -488,6 +492,8 @@ Threshold: 85 ✗
 
 `--quiet`: No output, just exit code.
 
+**GitHub Actions Output:** When `$GITHUB_OUTPUT` is set (automatic in GitHub Actions), gate writes `gate_result=pass|fail` and `gate_score=<N>` to the output file. Downstream steps can read these as `steps.<id>.outputs.gate_result` and `steps.<id>.outputs.gate_score`.
+
 `--verbose`: Adds per-factor breakdown:
 ```
 Score: 92/100
@@ -531,7 +537,12 @@ confvis gate -c confidence.json --fail-on-regression --compare baseline.json
 
 ```yaml
 - name: Quality gate
+  id: gate
   run: confvis gate -c confidence.json --fail-under 85 --fail-on-regression --compare-baseline
+
+- name: Use gate results
+  if: always()
+  run: echo "Result: ${{ steps.gate.outputs.gate_result }}, Score: ${{ steps.gate.outputs.gate_score }}"
 ```
 
 ---
@@ -978,6 +989,8 @@ confvis comment github -c <config> [flags]
 | `--compare-baseline` | false | Auto-fetch baseline from ref/file and compare |
 | `--baseline-ref` | refs/confvis/baseline | Git ref for baseline storage |
 | `--baseline-file` | | File path for baseline |
+| `--gate-fail-under` | 0 | Show warning banner if score is below this gate threshold (advisory only) |
+| `--gate-fail-on-regression` | false | Show warning banner if score regressed from baseline (advisory only) |
 
 ##### Comment Modes
 
@@ -1033,6 +1046,12 @@ confvis comment github -c confidence.json --compare-baseline
 
 # Compare baseline stored in a file
 confvis comment github -c confidence.json --compare-baseline --baseline-file baseline.json
+
+# Show gate warning in comment (advisory — doesn't change exit code)
+confvis comment github -c confidence.json --gate-fail-under 85
+
+# Show regression warning alongside baseline comparison
+confvis comment github -c confidence.json --compare-baseline --gate-fail-on-regression
 ```
 
 ##### GitHub Actions Integration
