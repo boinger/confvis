@@ -69,6 +69,7 @@ type GateDeps struct {
 	FailOnRegression bool
 	FactorThresholds map[string]int
 	Baseline         BaselineConfig
+	GitHubOutputFile string
 }
 
 func runGate(_ *cobra.Command, _ []string) error {
@@ -90,6 +91,7 @@ func runGate(_ *cobra.Command, _ []string) error {
 		FailUnder:        getGateFailUnder(),
 		FailOnRegression: gateFailOnRegression,
 		FactorThresholds: factorThresholds,
+		GitHubOutputFile: os.Getenv("GITHUB_OUTPUT"),
 		Baseline: BaselineConfig{
 			CompareBaseline:      getGateCompareBaseline(),
 			Compare:              gateCompare,
@@ -136,11 +138,35 @@ func gateImpl(deps *GateDeps) error {
 		writeGateSummary(deps.Stdout, report, baselineReport, delta, deps, result)
 	}
 
+	writeGitHubOutput(deps, report.ScoreValue(), result.Passed())
+
 	if !result.Passed() {
 		deps.ExitFunc(1)
 	}
 
 	return nil
+}
+
+// writeGitHubOutput writes gate results to $GITHUB_OUTPUT for downstream Actions steps.
+func writeGitHubOutput(deps *GateDeps, score int, passed bool) {
+	if deps.GitHubOutputFile == "" {
+		return
+	}
+
+	f, err := os.OpenFile(deps.GitHubOutputFile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o644)
+	if err != nil {
+		_, _ = fmt.Fprintf(deps.Stderr, "Warning: could not write to GITHUB_OUTPUT: %v\n", err)
+		return
+	}
+	defer f.Close()
+
+	result := "pass"
+	if !passed {
+		result = "fail"
+	}
+	if _, err := fmt.Fprintf(f, "gate_result=%s\ngate_score=%d\n", result, score); err != nil {
+		_, _ = fmt.Fprintf(deps.Stderr, "Warning: could not write to GITHUB_OUTPUT: %v\n", err)
+	}
 }
 
 // writeGateSummary writes the gate command output.

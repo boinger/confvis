@@ -30,7 +30,7 @@ func defaultGaugeDeps(fs *MockFileSystem) *GaugeDeps {
 		HistoryAppender:  nil,
 		Config:           "",
 		Output:           "-",
-		Format:           "svg",
+		Format:           "",
 		Style:            "github",
 		BadgeType:        "gauge",
 		Label:            "",
@@ -79,6 +79,7 @@ func TestGaugeImpl_SVGOutputToStdout(t *testing.T) {
 	deps.Stdout = &stdout
 	deps.Config = "config.json"
 	deps.Output = "-"
+	deps.Format = "svg"
 
 	err := gaugeImpl(deps)
 	if err != nil {
@@ -90,6 +91,77 @@ func TestGaugeImpl_SVGOutputToStdout(t *testing.T) {
 	}
 }
 
+// ============================================================================
+// Format auto-default tests
+// ============================================================================
+
+func TestGaugeImpl_FormatDefault_StdoutDefaultsToText(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Test", "score": 85, "threshold": 75}`)
+
+	var stdout bytes.Buffer
+	deps := defaultGaugeDeps(fs)
+	deps.Stdout = &stdout
+	deps.Config = "config.json"
+	deps.Output = "-"
+	// Format left as "" — should auto-default to text for stdout
+
+	err := gaugeImpl(deps)
+	if err != nil {
+		t.Fatalf("gaugeImpl() error = %v", err)
+	}
+
+	output := stdout.String()
+	if !strings.Contains(output, "85") {
+		t.Errorf("text output should contain score, got: %s", output)
+	}
+	if strings.Contains(output, "<svg") {
+		t.Error("stdout with no explicit format should produce text, not SVG")
+	}
+}
+
+func TestGaugeImpl_FormatDefault_FileDefaultsToSVG(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Test", "score": 85, "threshold": 75}`)
+
+	deps := defaultGaugeDeps(fs)
+	deps.Config = "config.json"
+	deps.Output = "/output/badge.svg"
+	// Format left as "" — should auto-default to svg for file output
+
+	err := gaugeImpl(deps)
+	if err != nil {
+		t.Fatalf("gaugeImpl() error = %v", err)
+	}
+
+	output := fs.GetFileContent("/output/badge.svg")
+	if !strings.Contains(output, "<svg") {
+		t.Error("file output with no explicit format should produce SVG")
+	}
+}
+
+func TestGaugeImpl_FormatDefault_ExplicitFormatAlwaysHonored(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Test", "score": 85, "threshold": 75}`)
+
+	var stdout bytes.Buffer
+	deps := defaultGaugeDeps(fs)
+	deps.Stdout = &stdout
+	deps.Config = "config.json"
+	deps.Output = "-"
+	deps.Format = "json" // Explicit format should override any default
+
+	err := gaugeImpl(deps)
+	if err != nil {
+		t.Fatalf("gaugeImpl() error = %v", err)
+	}
+
+	output := stdout.String()
+	if !strings.Contains(output, `"score": 85`) {
+		t.Error("explicit json format should be honored for stdout output")
+	}
+}
+
 func TestGaugeImpl_DefaultStdout(t *testing.T) {
 	fs := NewMockFileSystem()
 	fs.SetFileContent("config.json", `{"title": "Test", "score": 85, "threshold": 75}`)
@@ -98,6 +170,7 @@ func TestGaugeImpl_DefaultStdout(t *testing.T) {
 	deps := defaultGaugeDeps(fs)
 	deps.Stdout = &stdout
 	deps.Config = "config.json"
+	deps.Format = "svg"
 	// Output not set — uses defaultGaugeDeps value of "-" (stdout),
 	// matching the flag default after removing MarkFlagRequired("output").
 
@@ -188,6 +261,7 @@ func TestGaugeImpl_FlatBadgeType(t *testing.T) {
 	deps.Stdout = &stdout
 	deps.Config = "config.json"
 	deps.Output = "-"
+	deps.Format = "svg"
 	deps.BadgeType = "flat"
 
 	err := gaugeImpl(deps)
@@ -210,6 +284,7 @@ func TestGaugeImpl_SparklineBadgeType(t *testing.T) {
 	deps.Stdout = &stdout
 	deps.Config = "config.json"
 	deps.Output = "-"
+	deps.Format = "svg"
 	deps.BadgeType = "sparkline"
 
 	err := gaugeImpl(deps)
@@ -232,6 +307,7 @@ func TestGaugeImpl_DarkMode(t *testing.T) {
 	deps.Stdout = &stdout
 	deps.Config = "config.json"
 	deps.Output = "-"
+	deps.Format = "svg"
 	deps.Dark = true
 
 	err := gaugeImpl(deps)
@@ -254,6 +330,7 @@ func TestGaugeImpl_CustomDimensions(t *testing.T) {
 	deps.Stdout = &stdout
 	deps.Config = "config.json"
 	deps.Output = "-"
+	deps.Format = "svg"
 	deps.Width = 300
 	deps.Height = 180
 
@@ -279,6 +356,7 @@ func TestGaugeImpl_StdinInput(t *testing.T) {
 	deps.Stdout = &stdout
 	deps.Config = "-"
 	deps.Output = "-"
+	deps.Format = "svg"
 
 	err := gaugeImpl(deps)
 	if err != nil {
@@ -541,6 +619,7 @@ func TestGaugeImpl_CustomColorThresholds(t *testing.T) {
 	deps.Stdout = &stdout
 	deps.Config = "config.json"
 	deps.Output = "-"
+	deps.Format = "svg"
 	deps.GreenAbove = 90
 	deps.YellowAbove = 70
 
@@ -565,6 +644,7 @@ func TestGaugeImpl_CustomLabel(t *testing.T) {
 	deps.Stdout = &stdout
 	deps.Config = "config.json"
 	deps.Output = "-"
+	deps.Format = "svg"
 	deps.BadgeType = "flat"
 	deps.Label = "Custom Label"
 
@@ -617,6 +697,7 @@ func TestGaugeImpl_StyleMinimal(t *testing.T) {
 	deps.Stdout = &stdout
 	deps.Config = "config.json"
 	deps.Output = "-"
+	deps.Format = "svg"
 	deps.Style = "minimal"
 
 	err := gaugeImpl(deps)
@@ -1593,6 +1674,7 @@ func TestGaugeImpl_SparklineDefaultDimensions(t *testing.T) {
 	deps.Stdout = &stdout
 	deps.Config = "config.json"
 	deps.Output = "-"
+	deps.Format = "svg"
 	deps.BadgeType = "sparkline"
 	// Width and Height default to 200 and 120, sparkline should override to 120 and 28
 
@@ -1616,6 +1698,7 @@ func TestGaugeImpl_FlatBadgeWithCustomLabel(t *testing.T) {
 	deps.Stdout = &stdout
 	deps.Config = "config.json"
 	deps.Output = "-"
+	deps.Format = "svg"
 	deps.BadgeType = "flat"
 	deps.Label = "" // Empty label should use report title
 
@@ -1664,6 +1747,7 @@ func TestGaugeImpl_SparklineCustomDimensions(t *testing.T) {
 	deps.Stdout = &stdout
 	deps.Config = "config.json"
 	deps.Output = "-"
+	deps.Format = "svg"
 	deps.BadgeType = "sparkline"
 	deps.Width = 150  // Custom width != 200
 	deps.Height = 50  // Custom height != 120

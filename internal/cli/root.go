@@ -22,6 +22,12 @@ It reads JSON confidence reports and produces:
 - HTML dashboards with detailed factor breakdowns`,
 }
 
+// SetVersion sets the version string displayed by --version.
+// Called from main with the value injected by goreleaser ldflags.
+func SetVersion(v string) {
+	rootCmd.Version = v
+}
+
 // Execute runs the root command.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {

@@ -57,7 +57,7 @@ func TestGauge_StdinSupport(t *testing.T) {
 func TestGauge_StdoutSupport(t *testing.T) {
 	bin := buildBinary(t)
 
-	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample.json", "-o", "-")
+	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample.json", "-o", "-", "-f", "svg")
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -77,7 +77,7 @@ func TestGauge_StdinAndStdout(t *testing.T) {
 		t.Fatalf("reading sample.json: %v", err)
 	}
 
-	cmd := exec.Command(bin, "gauge", "-c", "-", "-o", "-")
+	cmd := exec.Command(bin, "gauge", "-c", "-", "-o", "-", "-f", "svg")
 	cmd.Stdin = bytes.NewReader(sampleJSON)
 
 	output, err := cmd.CombinedOutput()
@@ -319,7 +319,7 @@ func TestGauge_CustomThresholds_CLI(t *testing.T) {
 	// With default thresholds (75, 50), score 85 is green (#1a7f37) for the arc
 	// With --green-above 90, score 85 should be yellow (#9a6700) for the arc
 	// Note: PASS/FAIL indicator color is separate from arc color
-	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample.json", "-o", "-", "--green-above", "90", "--yellow-above", "70")
+	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample.json", "-o", "-", "-f", "svg", "--green-above", "90", "--yellow-above", "70")
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -347,7 +347,7 @@ func TestGauge_CustomThresholds_JSON(t *testing.T) {
 		}
 	}`
 
-	cmd := exec.Command(bin, "gauge", "-c", "-", "-o", "-")
+	cmd := exec.Command(bin, "gauge", "-c", "-", "-o", "-", "-f", "svg")
 	cmd.Stdin = strings.NewReader(jsonWithThresholds)
 
 	output, err := cmd.CombinedOutput()
@@ -377,7 +377,7 @@ func TestGauge_CustomThresholds_CLIOverridesJSON(t *testing.T) {
 	}`
 
 	// CLI overrides to make score 85 green
-	cmd := exec.Command(bin, "gauge", "-c", "-", "-o", "-", "--green-above", "80", "--yellow-above", "50")
+	cmd := exec.Command(bin, "gauge", "-c", "-", "-o", "-", "-f", "svg", "--green-above", "80", "--yellow-above", "50")
 	cmd.Stdin = strings.NewReader(jsonWithThresholds)
 
 	output, err := cmd.CombinedOutput()
@@ -395,7 +395,7 @@ func TestGauge_CustomThresholds_CLIOverridesJSON(t *testing.T) {
 func TestGauge_StyleMinimal(t *testing.T) {
 	bin := buildBinary(t)
 
-	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample.json", "-o", "-", "--style", "minimal")
+	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample.json", "-o", "-", "-f", "svg", "--style", "minimal")
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -412,7 +412,7 @@ func TestGauge_StyleMinimal(t *testing.T) {
 func TestGauge_StyleHighContrast(t *testing.T) {
 	bin := buildBinary(t)
 
-	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample.json", "-o", "-", "--style", "high-contrast")
+	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample.json", "-o", "-", "-f", "svg", "--style", "high-contrast")
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -429,7 +429,7 @@ func TestGauge_StyleHighContrast(t *testing.T) {
 func TestGauge_StyleCorporateDark(t *testing.T) {
 	bin := buildBinary(t)
 
-	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample.json", "-o", "-", "--style", "corporate", "--dark")
+	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample.json", "-o", "-", "-f", "svg", "--style", "corporate", "--dark")
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -516,7 +516,7 @@ func TestGauge_CustomPassLabel(t *testing.T) {
 		"passLabel": "APPROVED"
 	}`
 
-	cmd := exec.Command(bin, "gauge", "-c", "-", "-o", "-")
+	cmd := exec.Command(bin, "gauge", "-c", "-", "-o", "-", "-f", "svg")
 	cmd.Stdin = strings.NewReader(jsonCustomLabel)
 
 	output, err := cmd.CombinedOutput()
@@ -539,7 +539,7 @@ func TestGauge_CustomFailLabel(t *testing.T) {
 		"failLabel": "NEEDS WORK"
 	}`
 
-	cmd := exec.Command(bin, "gauge", "-c", "-", "-o", "-")
+	cmd := exec.Command(bin, "gauge", "-c", "-", "-o", "-", "-f", "svg")
 	cmd.Stdin = strings.NewReader(jsonCustomLabel)
 
 	output, err := cmd.CombinedOutput()
@@ -840,7 +840,7 @@ func TestGauge_FailOnRegression_Message(t *testing.T) {
 func TestGauge_FlatBadge(t *testing.T) {
 	bin := buildBinary(t)
 
-	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample.json", "-o", "-", "--badge-type", "flat")
+	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample.json", "-o", "-", "-f", "svg", "--badge-type", "flat")
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -869,7 +869,7 @@ func TestGauge_FlatBadge(t *testing.T) {
 func TestGauge_FlatBadge_CustomLabel(t *testing.T) {
 	bin := buildBinary(t)
 
-	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample.json", "-o", "-", "--badge-type", "flat", "--label", "Quality")
+	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample.json", "-o", "-", "-f", "svg", "--badge-type", "flat", "--label", "Quality")
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -893,7 +893,7 @@ func TestGauge_FlatBadge_Failing(t *testing.T) {
 	// Use inline JSON without factor thresholds to avoid factor threshold failures
 	failingJSON := `{"title": "Failing Report", "score": 50, "threshold": 75}`
 
-	cmd := exec.Command(bin, "gauge", "-c", "-", "-o", "-", "--badge-type", "flat")
+	cmd := exec.Command(bin, "gauge", "-c", "-", "-o", "-", "-f", "svg", "--badge-type", "flat")
 	cmd.Stdin = strings.NewReader(failingJSON)
 
 	output, err := cmd.CombinedOutput()
@@ -915,7 +915,7 @@ func TestGauge_FlatBadge_Failing(t *testing.T) {
 func TestGauge_FlatBadge_DarkMode(t *testing.T) {
 	bin := buildBinary(t)
 
-	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample.json", "-o", "-", "--badge-type", "flat", "--dark")
+	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample.json", "-o", "-", "-f", "svg", "--badge-type", "flat", "--dark")
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -1021,7 +1021,7 @@ func TestGenerate_YAMLInput(t *testing.T) {
 func TestGauge_Sparkline(t *testing.T) {
 	bin := buildBinary(t)
 
-	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample.json", "-o", "-", "--badge-type", "sparkline")
+	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample.json", "-o", "-", "-f", "svg", "--badge-type", "sparkline")
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -1051,7 +1051,7 @@ func TestGauge_Sparkline_WithHistory(t *testing.T) {
 		t.Fatalf("writing history file: %v", err)
 	}
 
-	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample.json", "-o", "-", "--badge-type", "sparkline", "--history-file", historyPath)
+	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample.json", "-o", "-", "-f", "svg", "--badge-type", "sparkline", "--history-file", historyPath)
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -1096,7 +1096,7 @@ func TestGauge_Sparkline_HistoryCount(t *testing.T) {
 	}
 
 	// Test with custom history count
-	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample.json", "-o", "-", "--badge-type", "sparkline", "--history-file", historyPath, "--history-count", "5")
+	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample.json", "-o", "-", "-f", "svg", "--badge-type", "sparkline", "--history-file", historyPath, "--history-count", "5")
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -1115,7 +1115,7 @@ func TestGauge_BadgeType_Sparkline_Invalid(t *testing.T) {
 	tmpDir := t.TempDir()
 	historyPath := filepath.Join(tmpDir, "nonexistent", "history.jsonl")
 
-	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample.json", "-o", "-", "--badge-type", "sparkline", "--history-file", historyPath)
+	cmd := exec.Command(bin, "gauge", "-c", "../../testdata/sample.json", "-o", "-", "-f", "svg", "--badge-type", "sparkline", "--history-file", historyPath)
 
 	// This should fail because the directory doesn't exist
 	err := cmd.Run()
@@ -1157,7 +1157,7 @@ func TestGauge_Sparkline_HistoryRef(t *testing.T) {
 	}
 
 	// Run with --history-ref
-	cmd = exec.Command(bin, "gauge", "-c", "report.json", "-o", "-", "--badge-type", "sparkline", "--history-ref", "refs/confvis/test-history")
+	cmd = exec.Command(bin, "gauge", "-c", "report.json", "-o", "-", "-f", "svg", "--badge-type", "sparkline", "--history-ref", "refs/confvis/test-history")
 	cmd.Dir = tmpDir
 
 	output, err := cmd.CombinedOutput()
@@ -1177,7 +1177,7 @@ func TestGauge_Sparkline_HistoryRef(t *testing.T) {
 	}
 
 	// Run again to verify history is read and appended
-	cmd = exec.Command(bin, "gauge", "-c", "report.json", "-o", "-", "--badge-type", "sparkline", "--history-ref", "refs/confvis/test-history")
+	cmd = exec.Command(bin, "gauge", "-c", "report.json", "-o", "-", "-f", "svg", "--badge-type", "sparkline", "--history-ref", "refs/confvis/test-history")
 	cmd.Dir = tmpDir
 
 	output, err = cmd.CombinedOutput()
@@ -1239,7 +1239,7 @@ func TestGauge_Sparkline_HistoryAuto_InGitRepo(t *testing.T) {
 	}
 
 	// Run with --history-auto (should use git ref since we're in a repo)
-	cmd = exec.Command(bin, "gauge", "-c", "report.json", "-o", "-", "--badge-type", "sparkline", "--history-auto")
+	cmd = exec.Command(bin, "gauge", "-c", "report.json", "-o", "-", "-f", "svg", "--badge-type", "sparkline", "--history-auto")
 	cmd.Dir = tmpDir
 
 	output, err := cmd.CombinedOutput()
@@ -1272,7 +1272,7 @@ func TestGauge_Sparkline_HistoryAuto_NotInGitRepo(t *testing.T) {
 	}
 
 	// Run with --history-auto (should use file since we're not in a repo)
-	cmd := exec.Command(bin, "gauge", "-c", "report.json", "-o", "-", "--badge-type", "sparkline", "--history-auto")
+	cmd := exec.Command(bin, "gauge", "-c", "report.json", "-o", "-", "-f", "svg", "--badge-type", "sparkline", "--history-auto")
 	cmd.Dir = tmpDir
 
 	output, err := cmd.CombinedOutput()

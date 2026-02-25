@@ -3,6 +3,8 @@ package cli
 import (
 	"bytes"
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -527,4 +529,91 @@ func TestGateImpl_CompareBaseline_AutoFetch(t *testing.T) {
 	if !strings.Contains(output, "Baseline: 80 → 85 (+5) ✓") {
 		t.Errorf("output should contain baseline comparison, got: %s", output)
 	}
+}
+
+// ============================================================================
+// $GITHUB_OUTPUT
+// ============================================================================
+
+func TestGateImpl_GitHubOutput_Pass(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Test", "score": 85, "threshold": 75}`)
+
+	tmpFile := filepath.Join(t.TempDir(), "github_output")
+	if err := os.WriteFile(tmpFile, nil, 0o644); err != nil {
+		t.Fatalf("creating temp file: %v", err)
+	}
+
+	deps := defaultGateDeps(fs)
+	deps.Config = "config.json"
+	deps.FailUnder = 80
+	deps.GitHubOutputFile = tmpFile
+
+	err := gateImpl(deps)
+	if err != nil {
+		t.Fatalf("gateImpl() error = %v", err)
+	}
+
+	data, err := os.ReadFile(tmpFile)
+	if err != nil {
+		t.Fatalf("reading github output: %v", err)
+	}
+
+	content := string(data)
+	if !strings.Contains(content, "gate_result=pass") {
+		t.Errorf("GITHUB_OUTPUT should contain gate_result=pass, got: %s", content)
+	}
+	if !strings.Contains(content, "gate_score=85") {
+		t.Errorf("GITHUB_OUTPUT should contain gate_score=85, got: %s", content)
+	}
+}
+
+func TestGateImpl_GitHubOutput_Fail(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Test", "score": 50, "threshold": 75}`)
+
+	tmpFile := filepath.Join(t.TempDir(), "github_output")
+	if err := os.WriteFile(tmpFile, nil, 0o644); err != nil {
+		t.Fatalf("creating temp file: %v", err)
+	}
+
+	deps := defaultGateDeps(fs)
+	deps.Config = "config.json"
+	deps.FailUnder = 75
+	deps.GitHubOutputFile = tmpFile
+	deps.ExitFunc = func(int) {} // Don't actually exit
+
+	err := gateImpl(deps)
+	if err != nil {
+		t.Fatalf("gateImpl() error = %v", err)
+	}
+
+	data, err := os.ReadFile(tmpFile)
+	if err != nil {
+		t.Fatalf("reading github output: %v", err)
+	}
+
+	content := string(data)
+	if !strings.Contains(content, "gate_result=fail") {
+		t.Errorf("GITHUB_OUTPUT should contain gate_result=fail, got: %s", content)
+	}
+	if !strings.Contains(content, "gate_score=50") {
+		t.Errorf("GITHUB_OUTPUT should contain gate_score=50, got: %s", content)
+	}
+}
+
+func TestGateImpl_GitHubOutput_Unset(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Test", "score": 85, "threshold": 75}`)
+
+	deps := defaultGateDeps(fs)
+	deps.Config = "config.json"
+	deps.FailUnder = 80
+	// GitHubOutputFile left empty — should be a no-op
+
+	err := gateImpl(deps)
+	if err != nil {
+		t.Fatalf("gateImpl() error = %v", err)
+	}
+	// No assertion on file — just verify no panic or error
 }

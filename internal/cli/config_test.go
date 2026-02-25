@@ -33,7 +33,7 @@ gauge:
 	}
 
 	// Run from temp dir to pick up config
-	cmd := exec.Command(bin, "gauge", "-c", "report.json", "-o", "-")
+	cmd := exec.Command(bin, "gauge", "-c", "report.json", "-o", "-", "-f", "svg")
 	cmd.Dir = tmpDir
 
 	output, err := cmd.CombinedOutput()
@@ -69,7 +69,7 @@ gauge:
 	}
 
 	// Run from temp dir to pick up config
-	cmd := exec.Command(bin, "gauge", "-c", "report.json", "-o", "-")
+	cmd := exec.Command(bin, "gauge", "-c", "report.json", "-o", "-", "-f", "svg")
 	cmd.Dir = tmpDir
 
 	output, err := cmd.CombinedOutput()
@@ -105,7 +105,7 @@ gauge:
 	}
 
 	// Run with --style flag to override config
-	cmd := exec.Command(bin, "gauge", "-c", "report.json", "-o", "-", "--style", "high-contrast")
+	cmd := exec.Command(bin, "gauge", "-c", "report.json", "-o", "-", "-f", "svg", "--style", "high-contrast")
 	cmd.Dir = tmpDir
 
 	output, err := cmd.CombinedOutput()
@@ -141,7 +141,7 @@ gauge:
 	}
 
 	// Run with environment variable to override config
-	cmd := exec.Command(bin, "gauge", "-c", "report.json", "-o", "-")
+	cmd := exec.Command(bin, "gauge", "-c", "report.json", "-o", "-", "-f", "svg")
 	cmd.Dir = tmpDir
 	cmd.Env = append(os.Environ(), "CONFVIS_GAUGE_STYLE=high-contrast")
 
@@ -168,7 +168,7 @@ func TestConfig_FlagOverridesEnv(t *testing.T) {
 	}
 
 	// Run with both env and flag - flag should win
-	cmd := exec.Command(bin, "gauge", "-c", "report.json", "-o", "-", "--style", "high-contrast")
+	cmd := exec.Command(bin, "gauge", "-c", "report.json", "-o", "-", "-f", "svg", "--style", "high-contrast")
 	cmd.Dir = tmpDir
 	cmd.Env = append(os.Environ(), "CONFVIS_GAUGE_STYLE=minimal")
 
@@ -205,7 +205,7 @@ gauge:
 	}
 
 	// Run from temp dir to pick up config
-	cmd := exec.Command(bin, "gauge", "-c", "report.json", "-o", "-")
+	cmd := exec.Command(bin, "gauge", "-c", "report.json", "-o", "-", "-f", "svg")
 	cmd.Dir = tmpDir
 
 	err := cmd.Run()
@@ -244,7 +244,7 @@ gauge:
 	}
 
 	// Run from temp dir to pick up config
-	cmd := exec.Command(bin, "gauge", "-c", "report.json", "-o", "-")
+	cmd := exec.Command(bin, "gauge", "-c", "report.json", "-o", "-", "-f", "svg")
 	cmd.Dir = tmpDir
 
 	output, err := cmd.CombinedOutput()
@@ -280,7 +280,7 @@ gauge:
 	}
 
 	// Run from temp dir to pick up config
-	cmd := exec.Command(bin, "gauge", "-c", "report.json", "-o", "-")
+	cmd := exec.Command(bin, "gauge", "-c", "report.json", "-o", "-", "-f", "svg")
 	cmd.Dir = tmpDir
 
 	output, err := cmd.CombinedOutput()
@@ -317,7 +317,7 @@ gauge:
 	}
 
 	// Run from temp dir to pick up config
-	cmd := exec.Command(bin, "gauge", "-c", "report.json", "-o", "-")
+	cmd := exec.Command(bin, "gauge", "-c", "report.json", "-o", "-", "-f", "svg")
 	cmd.Dir = tmpDir
 
 	output, err := cmd.CombinedOutput()
@@ -343,7 +343,7 @@ func TestConfig_NoConfigFile(t *testing.T) {
 	}
 
 	// Run from temp dir (no config file present)
-	cmd := exec.Command(bin, "gauge", "-c", "report.json", "-o", "-")
+	cmd := exec.Command(bin, "gauge", "-c", "report.json", "-o", "-", "-f", "svg")
 	cmd.Dir = tmpDir
 
 	output, err := cmd.CombinedOutput()
@@ -390,7 +390,7 @@ fetch:
 	}
 
 	// Verify gauge still works (config loading doesn't break)
-	cmd := exec.Command(bin, "gauge", "-c", "report.json", "-o", "-")
+	cmd := exec.Command(bin, "gauge", "-c", "report.json", "-o", "-", "-f", "svg")
 	cmd.Dir = tmpDir
 
 	output, err := cmd.CombinedOutput()
@@ -426,7 +426,7 @@ gauge:
 	}
 
 	// Run from temp dir to pick up config
-	cmd := exec.Command(bin, "gauge", "-c", "report.json", "-o", "-")
+	cmd := exec.Command(bin, "gauge", "-c", "report.json", "-o", "-", "-f", "svg")
 	cmd.Dir = tmpDir
 
 	output, err := cmd.CombinedOutput()
@@ -483,7 +483,7 @@ gauge:
 	}
 
 	// Run from temp dir (should pick up home dir config)
-	cmd := exec.Command(bin, "gauge", "-c", "report.json", "-o", "-")
+	cmd := exec.Command(bin, "gauge", "-c", "report.json", "-o", "-", "-f", "svg")
 	cmd.Dir = tmpDir
 
 	output, err := cmd.CombinedOutput()
@@ -549,7 +549,7 @@ gauge:
 	}
 
 	// Run from temp dir (should use current dir config, not home dir)
-	cmd := exec.Command(bin, "gauge", "-c", "report.json", "-o", "-")
+	cmd := exec.Command(bin, "gauge", "-c", "report.json", "-o", "-", "-f", "svg")
 	cmd.Dir = tmpDir
 
 	output, err := cmd.CombinedOutput()

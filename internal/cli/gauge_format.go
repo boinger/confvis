@@ -136,7 +136,11 @@ func writeGitHubComment(w io.Writer, report *confidence.Report, baselineReport *
 		return err
 	}
 
-	return writeGitHubCommentFooter(w, report.Version)
+	version := rootCmd.Version
+	if version == "" {
+		version = report.Version
+	}
+	return writeGitHubCommentFooter(w, version)
 }
 
 func writeGitHubCommentHeader(w io.Writer, report *confidence.Report) error {

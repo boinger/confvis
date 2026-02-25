@@ -217,7 +217,7 @@ func TestFetch_SonarQube_PipeToGauge(t *testing.T) {
 	}
 
 	// Pipe to gauge
-	gaugeCmd := exec.Command(bin, "gauge", "-c", "-", "-o", "-")
+	gaugeCmd := exec.Command(bin, "gauge", "-c", "-", "-o", "-", "-f", "svg")
 	gaugeCmd.Stdin = strings.NewReader(string(fetchOutput))
 
 	gaugeOutput, err := gaugeCmd.CombinedOutput()

@@ -52,7 +52,7 @@ func init() {
 	gaugeCmd.Flags().StringVarP(&gaugeConfig, "config", "c", "", "path to confidence report (JSON/YAML), or - for stdin (required)")
 	gaugeCmd.Flags().StringVar(&gaugeInputFormat, "input-format", "auto", "input format: auto, json, or yaml (auto-detects from extension)")
 	gaugeCmd.Flags().StringVarP(&gaugeOutput, "output", "o", "-", "output file path, or - for stdout (default: stdout)")
-	gaugeCmd.Flags().StringVarP(&gaugeFormat, "format", "f", "svg", "output format: svg, json, text, markdown, or github-comment")
+	gaugeCmd.Flags().StringVarP(&gaugeFormat, "format", "f", "", "output format: svg, json, text, markdown, or github-comment (default: text for stdout, svg for files)")
 	// Note: defaults are set to 0/"" here; actual defaults come from config.go getters
 	gaugeCmd.Flags().IntVar(&gaugeWidth, "width", 0, "gauge width in pixels (svg only)")
 	gaugeCmd.Flags().IntVar(&gaugeHeight, "height", 0, "gauge height in pixels (svg only)")
@@ -180,6 +180,15 @@ func runGauge(_ *cobra.Command, _ []string) error {
 }
 
 func gaugeImpl(deps *GaugeDeps) error {
+	// Resolve format default: text for stdout, svg for files
+	if deps.Format == "" {
+		if deps.Output == "-" {
+			deps.Format = "text"
+		} else {
+			deps.Format = "svg"
+		}
+	}
+
 	if err := validateGaugeInputs(deps); err != nil {
 		return err
 	}
