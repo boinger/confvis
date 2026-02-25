@@ -7,7 +7,6 @@ on:
 
 permissions:
   contents: write
-  workflows: write # needed to push tags that include workflow files
 
 jobs:
   release:
@@ -36,21 +35,20 @@ jobs:
       - name: Update major version tag
         env:
           GH_REF: ${{ github.ref }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="${GH_REF#refs/tags/}"
           MAJOR_VERSION=$(echo "$TAG" | cut -d. -f1)
+          SHA=$(git rev-parse HEAD)
 
-          echo "Updating $MAJOR_VERSION to point to $TAG"
+          echo "Updating $MAJOR_VERSION to point to $TAG ($SHA)"
 
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Delete the old major version tag (local and remote)
-          git tag -d "$MAJOR_VERSION" 2>/dev/null || true
-          git push origin ":refs/tags/$MAJOR_VERSION" 2>/dev/null || true
-
-          # Create new major version tag pointing to current commit
-          git tag "$MAJOR_VERSION"
-          git push origin "$MAJOR_VERSION"
+          # Try to update existing tag ref via API (avoids workflows scope requirement)
+          if ! gh api "repos/${GITHUB_REPOSITORY}/git/refs/tags/${MAJOR_VERSION}" \
+            -X PATCH -f sha="$SHA" -f force=true 2>/dev/null; then
+            # Tag doesn't exist yet, create it
+            gh api "repos/${GITHUB_REPOSITORY}/git/refs" \
+              -X POST -f ref="refs/tags/${MAJOR_VERSION}" -f sha="$SHA"
+          fi
 
           echo "Updated $MAJOR_VERSION tag to point to $TAG"
