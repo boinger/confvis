@@ -257,11 +257,11 @@ Stop with `docker-compose down`. Data persists in Docker volumes.
 
 Releases are automated via [GoReleaser](https://goreleaser.com/). The process:
 
-1. **Tag a release:** `git tag v1.2.3 && git push --tags`
-2. **Automatic build:** The `release.yml` workflow triggers on `v*` tags
+1. **Tag a release:** `git tag v1.2.3 && git push origin v1.2.3`
+2. **Automatic build:** The `release.yml` workflow triggers on semver tags (`v*.*.*`)
 3. **Artifacts:** GoReleaser builds binaries for Linux/macOS/Windows (amd64/arm64)
 4. **GitHub Release:** Created automatically with changelog from conventional commits
-5. **Action tag:** Major version tag (e.g., `v1`) is updated to point to the new release
+5. **Action tag:** Major version tag (e.g., `v1`) is updated automatically via the GitHub API to point to the new release
 
 Only maintainers can push tags to trigger releases.
 

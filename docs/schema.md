@@ -161,7 +161,7 @@ With these thresholds, score 85 displays in yellow (warning) instead of green.
   "title": "CI Pipeline Report",
   "score": 92,
   "threshold": 80,
-  "version": "1.2.0",
+  "version": "1.2.2",
   "generatedAt": "2024-01-15T10:30:00Z",
   "source": "github-actions"
 }
