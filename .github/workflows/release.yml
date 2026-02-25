@@ -45,7 +45,7 @@ jobs:
 
           # Try to update existing tag ref via API (avoids workflows scope requirement)
           if ! gh api "repos/${GITHUB_REPOSITORY}/git/refs/tags/${MAJOR_VERSION}" \
-            -X PATCH -f sha="$SHA" -f force=true 2>/dev/null; then
+            -X PATCH -f sha="$SHA" -F force=true 2>/dev/null; then
             # Tag doesn't exist yet, create it
             gh api "repos/${GITHUB_REPOSITORY}/git/refs" \
               -X POST -f ref="refs/tags/${MAJOR_VERSION}" -f sha="$SHA"
