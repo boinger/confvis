@@ -62,6 +62,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           file: coverage.out
           format: golang
+          fail-on-error: false
 
   lint:
     runs-on: ubuntu-latest
