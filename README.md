@@ -139,7 +139,7 @@ See [CLI Reference](docs/cli-reference.md#configuration-file) for full documenta
 
 ## CI/CD Integration
 
-Use `confvis gate` for CI-only pass/fail gating (no badge generation needed), or `confvis gauge` when you also want badge output:
+Use `confvis gate` for CI-only pass/fail gating (no badge generation needed), or `confvis gauge` when you also want badge output. Both commands are available through the [GitHub Action](docs/github-action.md) via `command: gate` or `command: gauge`:
 
 ```bash
 # CI gate: fail the build if score drops below 75
@@ -158,7 +158,7 @@ confvis gauge -c confidence.json --compare-baseline --fail-on-regression -o badg
 confvis gate -c confidence.json --fail-under 75 -q
 ```
 
-In GitHub Actions, `gate` automatically writes `gate_result=pass|fail` and `gate_score=<N>` to `$GITHUB_OUTPUT`, making results available to downstream steps without `continue-on-error`.
+In GitHub Actions, `gate` automatically writes `gate_result=pass|fail` and `gate_score=<N>` to `$GITHUB_OUTPUT`, making results available to downstream steps without `continue-on-error`. The [GitHub Action](docs/github-action.md) also exposes these as action outputs (`gate_result`, `gate_score`) plus generic `score`/`passed` mappings.
 
 Supports stdin/stdout for pipeline workflows:
 

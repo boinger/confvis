@@ -33,7 +33,23 @@ jobs:
           file_pattern: "badges/*"
 ```
 
-See [GitHub Action Documentation](github-action.md) for all options including baseline comparison, check creation, and sparkline badges.
+#### Quality Gate via Action
+
+The action also supports `gate` for CI pass/fail gating without badge output:
+
+```yaml
+- uses: boinger/confvis@v1
+  id: gate
+  with:
+    config: confidence.json
+    command: gate
+    fail-under: 75
+
+- name: Check gate result
+  run: echo "Gate ${{ steps.gate.outputs.gate_result }} (score: ${{ steps.gate.outputs.gate_score }})"
+```
+
+See [GitHub Action Documentation](github-action.md) for all options including gate, baseline comparison, check creation, and sparkline badges.
 
 ### Using CLI Installation
 

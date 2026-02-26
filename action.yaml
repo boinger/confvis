@@ -11,10 +11,10 @@ inputs:
     description: 'Path to confidence report (JSON/YAML)'
     required: true
   output:
-    description: 'Output path for badge/report'
-    required: true
+    description: 'Output path for badge/report (required except for gate command)'
+    required: false
   command:
-    description: 'Command to run: gauge, generate, or aggregate'
+    description: 'Command to run: gauge, gate, generate, or aggregate'
     default: 'gauge'
   format:
     description: 'Output format: svg, json, text, markdown, github-comment'
@@ -55,6 +55,24 @@ inputs:
   history-auto:
     description: 'Auto-manage sparkline history (for sparkline badge-type)'
     default: 'false'
+  factor-threshold:
+    description: 'Per-factor thresholds, comma-separated Name:threshold (gate command)'
+    default: ''
+  compare:
+    description: 'Explicit baseline file path for comparison (gate command)'
+    default: ''
+  baseline-ref:
+    description: 'Git ref for baseline (gate command)'
+    default: ''
+  baseline-file:
+    description: 'File path for baseline (gate command)'
+    default: ''
+  input-format:
+    description: 'Input format: auto, json, or yaml (gate command)'
+    default: 'auto'
+  quiet:
+    description: 'Suppress non-error output (gate command)'
+    default: 'false'
   version:
     description: 'confvis version to use (default: latest)'
     default: 'latest'
@@ -69,6 +87,12 @@ outputs:
   delta:
     description: 'Score change from baseline (if compare-baseline enabled)'
     value: ${{ steps.confvis.outputs.delta }}
+  gate_result:
+    description: 'Gate result: pass or fail (gate command only)'
+    value: ${{ steps.confvis.outputs.gate_result }}
+  gate_score:
+    description: 'Gate score (gate command only)'
+    value: ${{ steps.confvis.outputs.gate_score }}
 
 runs:
   using: 'composite'
@@ -148,11 +172,25 @@ runs:
         INPUT_COMPARE_BASELINE: ${{ inputs.compare-baseline }}
         INPUT_FAIL_ON_REGRESSION: ${{ inputs.fail-on-regression }}
         INPUT_HISTORY_AUTO: ${{ inputs.history-auto }}
+        INPUT_FACTOR_THRESHOLD: ${{ inputs.factor-threshold }}
+        INPUT_COMPARE: ${{ inputs.compare }}
+        INPUT_BASELINE_REF: ${{ inputs.baseline-ref }}
+        INPUT_BASELINE_FILE: ${{ inputs.baseline-file }}
+        INPUT_INPUT_FORMAT: ${{ inputs.input-format }}
+        INPUT_QUIET: ${{ inputs.quiet }}
       run: |
         # Build command arguments
         ARGS=()
         ARGS+=("-c" "$INPUT_CONFIG")
-        ARGS+=("-o" "$INPUT_OUTPUT")
+
+        # Output path is required for all commands except gate
+        if [ "$INPUT_COMMAND" != "gate" ]; then
+          if [ -z "$INPUT_OUTPUT" ]; then
+            echo "::error::output is required for '$INPUT_COMMAND' command"
+            exit 1
+          fi
+          ARGS+=("-o" "$INPUT_OUTPUT")
+        fi
 
         # Add format for gauge command
         if [ "$INPUT_COMMAND" = "gauge" ]; then
@@ -179,6 +217,51 @@ runs:
           if [ "$INPUT_HISTORY_AUTO" = "true" ]; then
             ARGS+=("--history-auto")
           fi
+
+        elif [ "$INPUT_COMMAND" = "gate" ]; then
+          if [ "$INPUT_INPUT_FORMAT" != "auto" ]; then
+            ARGS+=("--input-format" "$INPUT_INPUT_FORMAT")
+          fi
+
+          if [ "$INPUT_FAIL_UNDER" != "0" ]; then
+            ARGS+=("--fail-under" "$INPUT_FAIL_UNDER")
+          fi
+
+          if [ "$INPUT_COMPARE_BASELINE" = "true" ]; then
+            ARGS+=("--compare-baseline")
+          fi
+
+          if [ "$INPUT_FAIL_ON_REGRESSION" = "true" ]; then
+            ARGS+=("--fail-on-regression")
+          fi
+
+          if [ -n "$INPUT_COMPARE" ]; then
+            ARGS+=("--compare" "$INPUT_COMPARE")
+          fi
+
+          if [ -n "$INPUT_BASELINE_REF" ]; then
+            ARGS+=("--baseline-ref" "$INPUT_BASELINE_REF")
+          fi
+
+          if [ -n "$INPUT_BASELINE_FILE" ]; then
+            ARGS+=("--baseline-file" "$INPUT_BASELINE_FILE")
+          fi
+
+          # Split comma-separated factor thresholds into individual flags
+          if [ -n "$INPUT_FACTOR_THRESHOLD" ]; then
+            IFS=',' read -ra THRESHOLDS <<< "$INPUT_FACTOR_THRESHOLD"
+            for t in "${THRESHOLDS[@]}"; do
+              # Trim whitespace
+              t="$(echo "$t" | xargs)"
+              if [ -n "$t" ]; then
+                ARGS+=("--factor-threshold" "$t")
+              fi
+            done
+          fi
+
+          if [ "$INPUT_QUIET" = "true" ]; then
+            ARGS+=("--quiet")
+          fi
         fi
 
         # Run the command and emit JSON metadata for outputs
@@ -190,24 +273,48 @@ runs:
         fi
 
         echo "Running: confvis $INPUT_COMMAND ${ARGS[*]}"
-        confvis "$INPUT_COMMAND" "${ARGS[@]}"
 
-        # Extract outputs from emitted JSON
-        if [ -f "$EMIT_JSON" ]; then
-          SCORE=$(jq -r '.score // empty' "$EMIT_JSON")
-          PASSED=$(jq -r '.passed // empty' "$EMIT_JSON")
-          DELTA=$(jq -r '.delta // empty' "$EMIT_JSON")
+        # Capture exit code so we can extract outputs even on failure
+        EXIT_CODE=0
+        confvis "$INPUT_COMMAND" "${ARGS[@]}" || EXIT_CODE=$?
+
+        # Extract outputs based on command type
+        if [ "$INPUT_COMMAND" = "gate" ]; then
+          # Gate writes gate_result/gate_score directly to $GITHUB_OUTPUT.
+          # Read them back to also populate the generic score/passed outputs.
+          GATE_RESULT=$(grep -m1 '^gate_result=' "$GITHUB_OUTPUT" | cut -d= -f2 || true)
+          GATE_SCORE=$(grep -m1 '^gate_score=' "$GITHUB_OUTPUT" | cut -d= -f2 || true)
+
+          # Map gate outputs to generic outputs for downstream compatibility
+          echo "score=${GATE_SCORE}" >> $GITHUB_OUTPUT
+          if [ "$GATE_RESULT" = "pass" ]; then
+            echo "passed=true" >> $GITHUB_OUTPUT
+          else
+            echo "passed=false" >> $GITHUB_OUTPUT
+          fi
+          echo "delta=" >> $GITHUB_OUTPUT
+
+          echo "::notice::Gate Result: ${GATE_RESULT} (score: ${GATE_SCORE}%)"
         else
-          SCORE=""
-          PASSED=""
-          DELTA=""
+          # Extract outputs from emitted JSON (gauge command)
+          if [ -f "$EMIT_JSON" ]; then
+            SCORE=$(jq -r '.score // empty' "$EMIT_JSON")
+            PASSED=$(jq -r '.passed // empty' "$EMIT_JSON")
+            DELTA=$(jq -r '.delta // empty' "$EMIT_JSON")
+          else
+            SCORE=""
+            PASSED=""
+            DELTA=""
+          fi
+
+          echo "score=${SCORE}" >> $GITHUB_OUTPUT
+          echo "passed=${PASSED}" >> $GITHUB_OUTPUT
+          echo "delta=${DELTA}" >> $GITHUB_OUTPUT
+
+          echo "::notice::Confidence Score: ${SCORE}% (passed: ${PASSED})"
         fi
 
-        echo "score=${SCORE}" >> $GITHUB_OUTPUT
-        echo "passed=${PASSED}" >> $GITHUB_OUTPUT
-        echo "delta=${DELTA}" >> $GITHUB_OUTPUT
-
-        echo "::notice::Confidence Score: ${SCORE}% (passed: ${PASSED})"
+        exit $EXIT_CODE
 
     - name: Save baseline
       if: inputs.save-baseline == 'true'

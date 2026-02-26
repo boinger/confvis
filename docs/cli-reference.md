@@ -492,7 +492,7 @@ Threshold: 85 ✗
 
 `--quiet`: No output, just exit code.
 
-**GitHub Actions Output:** When `$GITHUB_OUTPUT` is set (automatic in GitHub Actions), gate writes `gate_result=pass|fail` and `gate_score=<N>` to the output file. Downstream steps can read these as `steps.<id>.outputs.gate_result` and `steps.<id>.outputs.gate_score`.
+**GitHub Actions Output:** When `$GITHUB_OUTPUT` is set (automatic in GitHub Actions), gate writes `gate_result=pass|fail` and `gate_score=<N>` to the output file. Downstream steps can read these as `steps.<id>.outputs.gate_result` and `steps.<id>.outputs.gate_score`. The [native GitHub Action](github-action.md) exposes these as action outputs and also maps them to the generic `score`/`passed` outputs for downstream compatibility.
 
 `--verbose`: Adds per-factor breakdown:
 ```

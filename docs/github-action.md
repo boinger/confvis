@@ -18,8 +18,8 @@ confvis provides a native GitHub Action for zero-install usage in your workflows
 | Input | Description | Default | Required |
 |-------|-------------|---------|----------|
 | `config` | Path to confidence report (JSON/YAML) | - | Yes |
-| `output` | Output path for badge/report | - | Yes |
-| `command` | Command: `gauge`, `generate`, or `aggregate` | `gauge` | No |
+| `output` | Output path for badge/report | - | No (required except for `gate`) |
+| `command` | Command: `gauge`, `gate`, `generate`, or `aggregate` | `gauge` | No |
 | `format` | Output format: `svg`, `json`, `text`, `markdown`, `github-comment` | `svg` | No |
 | `badge-type` | Badge type: `gauge`, `flat`, or `sparkline` | `gauge` | No |
 | `style` | Color style: `github`, `minimal`, `corporate`, `high-contrast` | `github` | No |
@@ -33,6 +33,12 @@ confvis provides a native GitHub Action for zero-install usage in your workflows
 | `post-comment` | Post confidence report as PR comment | `false` | No |
 | `comment-mode` | Comment mode: `create`, `update`, or `replace` | `update` | No |
 | `history-auto` | Auto-manage sparkline history | `false` | No |
+| `factor-threshold` | Per-factor thresholds, comma-separated `Name:threshold` (gate) | `''` | No |
+| `compare` | Explicit baseline file path for comparison (gate) | `''` | No |
+| `baseline-ref` | Git ref for baseline (gate) | `''` | No |
+| `baseline-file` | File path for baseline (gate) | `''` | No |
+| `input-format` | Input format: `auto`, `json`, or `yaml` (gate) | `auto` | No |
+| `quiet` | Suppress non-error output (gate) | `false` | No |
 | `version` | confvis version to use | `latest` | No |
 
 ## Outputs
@@ -42,6 +48,8 @@ confvis provides a native GitHub Action for zero-install usage in your workflows
 | `score` | The confidence score (0-100) |
 | `passed` | Whether the score met the threshold (`true`/`false`) |
 | `delta` | Score change from baseline (if `compare-baseline` enabled) |
+| `gate_result` | Gate result: `pass` or `fail` (gate command only) |
+| `gate_score` | Gate score (gate command only) |
 
 ## Examples
 
@@ -72,9 +80,7 @@ jobs:
           file_pattern: "badges/*"
 ```
 
-### With Threshold Enforcement
-
-> **Tip:** If you only need CI pass/fail gating without badge output, use `confvis gate` directly instead of the action. See [CLI Reference](cli-reference.md#confvis-gate).
+### With Threshold Enforcement (gauge)
 
 ```yaml
 - uses: boinger/confvis@v1
@@ -82,6 +88,46 @@ jobs:
     config: confidence.json
     output: badge.svg
     fail-under: 75
+```
+
+### Quality Gate
+
+Use the `gate` command for CI pass/fail gating without badge output:
+
+```yaml
+- uses: boinger/confvis@v1
+  id: gate
+  with:
+    config: confidence.json
+    command: gate
+    fail-under: 75
+
+- name: Use gate results
+  run: |
+    echo "Result: ${{ steps.gate.outputs.gate_result }}"
+    echo "Score: ${{ steps.gate.outputs.gate_score }}"
+```
+
+### Gate with Regression Detection
+
+```yaml
+- uses: boinger/confvis@v1
+  with:
+    config: confidence.json
+    command: gate
+    compare-baseline: true
+    fail-on-regression: true
+```
+
+### Gate with Per-Factor Thresholds
+
+```yaml
+- uses: boinger/confvis@v1
+  with:
+    config: confidence.json
+    command: gate
+    fail-under: 70
+    factor-threshold: "Coverage:80,Security:90"
 ```
 
 ### Baseline Comparison and Regression Detection
@@ -236,6 +282,8 @@ Combine with external sources:
 
 ### Complete CI/CD Pipeline
 
+This example uses `gate` for fast CI pass/fail checking on PRs, and `gauge` for badge generation on main — complementary steps:
+
 ```yaml
 name: Quality Pipeline
 
@@ -268,16 +316,34 @@ jobs:
         with:
           fetch-depth: 0
 
+      # Quality gate: fast pass/fail check (PRs and main)
       - uses: boinger/confvis@v1
-        id: confidence
+        id: gate
+        with:
+          config: confidence.json
+          command: gate
+          fail-under: 75
+          compare-baseline: true
+          fail-on-regression: ${{ github.event_name == 'pull_request' }}
+
+      # Badge generation (main only, after gate passes)
+      - uses: boinger/confvis@v1
+        if: github.ref == 'refs/heads/main'
+        id: badge
         with:
           config: confidence.json
           output: badges/badge.svg
           compare-baseline: true
-          fail-on-regression: ${{ github.event_name == 'pull_request' }}
-          save-baseline: ${{ github.ref == 'refs/heads/main' }}
+          save-baseline: true
           create-check: true
-          post-comment: ${{ github.event_name == 'pull_request' }}
+
+      # PR feedback
+      - uses: boinger/confvis@v1
+        if: github.event_name == 'pull_request'
+        with:
+          config: confidence.json
+          output: badge.svg
+          post-comment: true
 
       - name: Commit badge (main only)
         if: github.ref == 'refs/heads/main'
