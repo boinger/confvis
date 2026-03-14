@@ -39,9 +39,10 @@ func (m *mockWriteCloser) Close() error {
 
 // mockReadCloser wraps a bytes.Reader and tracks whether it was closed.
 type mockReadCloser struct {
-	reader *bytes.Reader
-	closed bool
-	mu     sync.Mutex
+	reader   *bytes.Reader
+	closed   bool
+	closeErr error
+	mu       sync.Mutex
 }
 
 func (m *mockReadCloser) Read(p []byte) (n int, err error) {
@@ -57,7 +58,7 @@ func (m *mockReadCloser) Close() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.closed = true
-	return nil
+	return m.closeErr
 }
 
 // MockFileSystem is an in-memory implementation of FileSystem for testing.
@@ -139,7 +140,13 @@ func (m *MockFileSystem) Open(name string) (io.ReadCloser, error) {
 		return nil, &os.PathError{Op: "open", Path: name, Err: os.ErrNotExist}
 	}
 
-	return &mockReadCloser{reader: bytes.NewReader([]byte(content))}, nil
+	// Check for close error
+	var closeErr error
+	if err, ok := m.Errors["close:"+name]; ok {
+		closeErr = err
+	}
+
+	return &mockReadCloser{reader: bytes.NewReader([]byte(content)), closeErr: closeErr}, nil
 }
 
 func (m *MockFileSystem) ReadFile(name string) ([]byte, error) {

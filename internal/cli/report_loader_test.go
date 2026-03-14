@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -9,13 +10,14 @@ import (
 
 func TestReportLoader_LoadReport(t *testing.T) {
 	tests := []struct {
-		name       string
-		config     string
+		name        string
+		config      string
 		fileContent map[string]string
-		stdin      string
-		wantTitle  string
-		wantScore  int
-		wantErr    bool
+		fsErrors    map[string]error
+		stdin       string
+		wantTitle   string
+		wantScore   int
+		wantErr     bool
 	}{
 		{
 			name:      "from stdin",
@@ -49,6 +51,13 @@ func TestReportLoader_LoadReport(t *testing.T) {
 			stdin:   "not valid json",
 			wantErr: true,
 		},
+		{
+			name:        "file close error",
+			config:      "report.json",
+			fileContent: map[string]string{"report.json": `{"title": "Test", "score": 85, "threshold": 75}`},
+			fsErrors:    map[string]error{"close:report.json": fmt.Errorf("disk I/O error on close")},
+			wantErr:     true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -56,6 +65,9 @@ func TestReportLoader_LoadReport(t *testing.T) {
 			mockFS := NewMockFileSystem()
 			for path, content := range tt.fileContent {
 				mockFS.SetFileContent(path, content)
+			}
+			for key, err := range tt.fsErrors {
+				mockFS.SetError(key, err)
 			}
 
 			loader := &ReportLoader{

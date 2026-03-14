@@ -140,7 +140,9 @@ func openConfigFile(fs FileSystem, path string, format confidence.Format) (io.Re
 	// Read all content into memory so we can return it as a reader
 	// The file handle will be closed but the content is available
 	content, err := io.ReadAll(f)
-	_ = f.Close()
+	if cerr := f.Close(); cerr != nil && err == nil {
+		err = cerr
+	}
 	if err != nil {
 		return nil, format, fmt.Errorf("reading file: %w", err)
 	}

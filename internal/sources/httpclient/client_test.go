@@ -641,6 +641,59 @@ func TestClient_Get_ResponseHook_NotCalledOnError(t *testing.T) {
 	}
 }
 
+// failingReader is an io.ReadCloser whose Read always returns an error.
+type failingReader struct {
+	err error
+}
+
+func (f *failingReader) Read([]byte) (int, error) { return 0, f.err }
+func (f *failingReader) Close() error             { return nil }
+
+// failingBodyTransport returns a fixed HTTP response with a failing body reader.
+type failingBodyTransport struct {
+	statusCode int
+	bodyErr    error
+}
+
+func (t *failingBodyTransport) RoundTrip(*http.Request) (*http.Response, error) {
+	return &http.Response{
+		StatusCode: t.statusCode,
+		Header:     http.Header{},
+		Body:       &failingReader{err: t.bodyErr},
+	}, nil
+}
+
+func TestDoGet_HTTPError_BodyReadFails(t *testing.T) {
+	bodyErr := fmt.Errorf("connection reset during read")
+	client := New(Config{
+		BaseURL:    "http://fake.test",
+		MaxRetries: -1,
+	})
+	client.httpClient = &http.Client{
+		Transport: &failingBodyTransport{
+			statusCode: http.StatusInternalServerError,
+			bodyErr:    bodyErr,
+		},
+	}
+
+	var result map[string]interface{}
+	err := client.doGet(context.Background(), "http://fake.test/api", &result)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+
+	errMsg := err.Error()
+	if !strings.Contains(errMsg, "500") {
+		t.Errorf("error should contain status code 500: %v", err)
+	}
+	if !strings.Contains(errMsg, "body read error") {
+		t.Errorf("error should mention body read error: %v", err)
+	}
+	if !strings.Contains(errMsg, "connection reset during read") {
+		t.Errorf("error should contain the underlying read error: %v", err)
+	}
+}
+
 func TestIsRetryable(t *testing.T) {
 	tests := []struct {
 		name string

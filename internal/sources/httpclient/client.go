@@ -192,8 +192,13 @@ func (c *Client) doGet(ctx context.Context, endpoint string, result any) (err er
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		apiErr := fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(body))
+		body, readErr := io.ReadAll(resp.Body)
+		var apiErr error
+		if readErr != nil {
+			apiErr = fmt.Errorf("API returned status %d (body read error: %w)", resp.StatusCode, readErr)
+		} else {
+			apiErr = fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(body))
+		}
 		if retryableStatusCodes[resp.StatusCode] {
 			retryAfter := resp.Header.Get("Retry-After")
 			return &retryableError{err: apiErr, retryAfter: retryAfter}
