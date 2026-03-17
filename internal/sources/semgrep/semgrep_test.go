@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -247,7 +248,7 @@ func newExitState(code int) *os.ProcessState {
 	if code == 0 {
 		cmd = exec.Command("true")
 	} else {
-		cmd = exec.Command("sh", "-c", "exit "+string(rune('0'+code)))
+		cmd = exec.Command("sh", "-c", "exit "+strconv.Itoa(code))
 	}
 	_ = cmd.Run()
 	return cmd.ProcessState

@@ -1,7 +1,6 @@
 package history
 
 import (
-	"os"
 	"os/exec"
 	"testing"
 	"time"
@@ -41,17 +40,7 @@ func setupGitRepo(t *testing.T) string {
 
 func TestIsGitRepo_InRepo(t *testing.T) {
 	repoDir := setupGitRepo(t)
-
-	// Change to repo directory
-	oldWd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("getting working directory: %v", err)
-	}
-	defer func() { _ = os.Chdir(oldWd) }()
-
-	if err := os.Chdir(repoDir); err != nil {
-		t.Fatalf("changing to repo directory: %v", err)
-	}
+	t.Chdir(repoDir)
 
 	if !gitutil.IsGitRepo() {
 		t.Error("IsGitRepo() = false, want true in git repo")
@@ -61,16 +50,7 @@ func TestIsGitRepo_InRepo(t *testing.T) {
 func TestIsGitRepo_NotInRepo(t *testing.T) {
 	// Use a temp directory that's definitely not a git repo
 	tmpDir := t.TempDir()
-
-	oldWd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("getting working directory: %v", err)
-	}
-	defer func() { _ = os.Chdir(oldWd) }()
-
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("changing to temp directory: %v", err)
-	}
+	t.Chdir(tmpDir)
 
 	if gitutil.IsGitRepo() {
 		t.Error("IsGitRepo() = true, want false outside git repo")
@@ -79,16 +59,7 @@ func TestIsGitRepo_NotInRepo(t *testing.T) {
 
 func TestGitRefStorage_ReadFromRef_NotExists(t *testing.T) {
 	repoDir := setupGitRepo(t)
-
-	oldWd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("getting working directory: %v", err)
-	}
-	defer func() { _ = os.Chdir(oldWd) }()
-
-	if err := os.Chdir(repoDir); err != nil {
-		t.Fatalf("changing to repo directory: %v", err)
-	}
+	t.Chdir(repoDir)
 
 	storage := newGitRefStorage()
 	hist, err := storage.ReadFromRef("refs/confvis/nonexistent")
@@ -103,16 +74,7 @@ func TestGitRefStorage_ReadFromRef_NotExists(t *testing.T) {
 
 func TestGitRefStorage_WriteAndRead(t *testing.T) {
 	repoDir := setupGitRepo(t)
-
-	oldWd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("getting working directory: %v", err)
-	}
-	defer func() { _ = os.Chdir(oldWd) }()
-
-	if err := os.Chdir(repoDir); err != nil {
-		t.Fatalf("changing to repo directory: %v", err)
-	}
+	t.Chdir(repoDir)
 
 	storage := newGitRefStorage()
 
@@ -158,16 +120,7 @@ func TestGitRefStorage_WriteAndRead(t *testing.T) {
 
 func TestGitRefStorage_AppendToRef(t *testing.T) {
 	repoDir := setupGitRepo(t)
-
-	oldWd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("getting working directory: %v", err)
-	}
-	defer func() { _ = os.Chdir(oldWd) }()
-
-	if err := os.Chdir(repoDir); err != nil {
-		t.Fatalf("changing to repo directory: %v", err)
-	}
+	t.Chdir(repoDir)
 
 	storage := newGitRefStorage()
 	ref := "refs/confvis/append-test"
@@ -210,16 +163,7 @@ func TestGitRefStorage_DefaultRef(t *testing.T) {
 
 func TestGitRefStorage_WriteEmptyHistory(t *testing.T) {
 	repoDir := setupGitRepo(t)
-
-	oldWd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("getting working directory: %v", err)
-	}
-	defer func() { _ = os.Chdir(oldWd) }()
-
-	if err := os.Chdir(repoDir); err != nil {
-		t.Fatalf("changing to repo directory: %v", err)
-	}
+	t.Chdir(repoDir)
 
 	storage := newGitRefStorage()
 	ref := "refs/confvis/empty-test"
@@ -317,16 +261,7 @@ func TestSerializeHistory(t *testing.T) {
 
 func TestPackageLevelFunctions(t *testing.T) {
 	repoDir := setupGitRepo(t)
-
-	oldWd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("getting working directory: %v", err)
-	}
-	defer func() { _ = os.Chdir(oldWd) }()
-
-	if err := os.Chdir(repoDir); err != nil {
-		t.Fatalf("changing to repo directory: %v", err)
-	}
+	t.Chdir(repoDir)
 
 	ref := "refs/confvis/pkg-level-test"
 
@@ -367,16 +302,7 @@ func TestPackageLevelFunctions(t *testing.T) {
 
 func TestGitRefStorage_VerifyWithGitCatFile(t *testing.T) {
 	repoDir := setupGitRepo(t)
-
-	oldWd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("getting working directory: %v", err)
-	}
-	defer func() { _ = os.Chdir(oldWd) }()
-
-	if err := os.Chdir(repoDir); err != nil {
-		t.Fatalf("changing to repo directory: %v", err)
-	}
+	t.Chdir(repoDir)
 
 	storage := newGitRefStorage()
 	ref := "refs/confvis/verify-test"

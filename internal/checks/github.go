@@ -225,7 +225,7 @@ func buildCheckOutput(report *confidence.Report) *CheckRunOutput {
 
 	// Build summary with score and threshold
 	var summary strings.Builder
-	summary.WriteString(fmt.Sprintf("**Score:** %d%% | **Threshold:** %d%%\n\n", report.ScoreValue(), report.Threshold))
+	fmt.Fprintf(&summary, "**Score:** %d%% | **Threshold:** %d%%\n\n", report.ScoreValue(), report.Threshold)
 
 	if report.Description != "" {
 		summary.WriteString(report.Description)
@@ -238,7 +238,7 @@ func buildCheckOutput(report *confidence.Report) *CheckRunOutput {
 		summary.WriteString("| Factor | Score | Weight |\n")
 		summary.WriteString("|--------|------:|-------:|\n")
 		for _, f := range report.Factors {
-			summary.WriteString(fmt.Sprintf("| %s | %d%% | %d%% |\n", f.Name, f.Score, f.Weight))
+			fmt.Fprintf(&summary, "| %s | %d%% | %d%% |\n", f.Name, f.Score, f.Weight)
 		}
 	}
 
@@ -444,7 +444,7 @@ func LoadGitHubEnvWithPR() (*GitHubEnv, int, error) {
 
 // parsePRNumberFromEvent extracts the PR number from the GitHub event JSON file.
 func parsePRNumberFromEvent(eventPath string) (int, error) {
-	data, err := os.ReadFile(eventPath) //#nosec G304 -- path from GITHUB_EVENT_PATH env var set by GitHub Actions
+	data, err := os.ReadFile(eventPath) //#nosec G304,G703 -- path from GITHUB_EVENT_PATH env var set by GitHub Actions
 	if err != nil {
 		return 0, err
 	}

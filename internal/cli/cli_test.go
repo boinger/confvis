@@ -1569,7 +1569,7 @@ func TestBaseline_Save_GitRef(t *testing.T) {
 		t.Fatalf("reading sample.json: %v", err)
 	}
 	reportPath := filepath.Join(tmpDir, "report.json")
-	if err := os.WriteFile(reportPath, sampleData, 0o644); err != nil {
+	if err := os.WriteFile(reportPath, sampleData, 0o644); err != nil { //nolint:gosec // G703: path from t.TempDir()
 		t.Fatalf("writing report: %v", err)
 	}
 
@@ -1716,7 +1716,7 @@ func TestGauge_CompareBaseline_GitRef(t *testing.T) {
 		if err != nil {
 			t.Fatalf("reading %s: %v", name, err)
 		}
-		if err := os.WriteFile(filepath.Join(tmpDir, name), data, 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(tmpDir, name), data, 0o644); err != nil { //nolint:gosec // G703: path from t.TempDir()
 			t.Fatalf("writing %s: %v", name, err)
 		}
 	}

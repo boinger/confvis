@@ -37,15 +37,7 @@ func setupGitRepo(t *testing.T) string {
 // withDir changes to the given directory for the duration of the test.
 func withDir(t *testing.T, dir string) {
 	t.Helper()
-	oldWd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("getting working directory: %v", err)
-	}
-	t.Cleanup(func() { _ = os.Chdir(oldWd) })
-
-	if err := os.Chdir(dir); err != nil {
-		t.Fatalf("changing to directory %s: %v", dir, err)
-	}
+	t.Chdir(dir)
 }
 
 func TestWriteRef_Simple(t *testing.T) {

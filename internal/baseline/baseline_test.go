@@ -143,11 +143,7 @@ func TestGitRefStorage_ReadWrite(t *testing.T) {
 	}
 
 	// Change to temp dir for git operations
-	oldDir, _ := os.Getwd()
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("failed to change to temp dir: %v", err)
-	}
-	defer func() { _ = os.Chdir(oldDir) }()
+	t.Chdir(tmpDir)
 
 	storage := newGitRefStorage()
 	ref := "refs/confvis/test-baseline"
@@ -208,10 +204,7 @@ func TestIsGitRepo(t *testing.T) {
 		t.Fatalf("git init failed: %v", err)
 	}
 
-	oldDir, _ := os.Getwd()
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("failed to change to temp dir: %v", err)
-	}
+	t.Chdir(tmpDir)
 
 	if !gitutil.IsGitRepo() {
 		t.Error("expected IsGitRepo to return true in a git repo")
@@ -219,15 +212,11 @@ func TestIsGitRepo(t *testing.T) {
 
 	// Test outside a git repo
 	nonGitDir := t.TempDir()
-	if err := os.Chdir(nonGitDir); err != nil {
-		t.Fatalf("failed to change to non-git dir: %v", err)
-	}
+	t.Chdir(nonGitDir)
 
 	if gitutil.IsGitRepo() {
 		t.Error("expected IsGitRepo to return false outside a git repo")
 	}
-
-	_ = os.Chdir(oldDir)
 }
 
 func TestBaselineJSONSerialization(t *testing.T) {
@@ -292,11 +281,7 @@ func TestReadFromGitRef_Convenience(t *testing.T) {
 		t.Fatalf("git init failed: %v", err)
 	}
 
-	oldDir, _ := os.Getwd()
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("failed to change to temp dir: %v", err)
-	}
-	defer func() { _ = os.Chdir(oldDir) }()
+	t.Chdir(tmpDir)
 
 	// Non-existent ref
 	b, err := ReadFromGitRef("refs/confvis/nonexistent")
@@ -366,11 +351,7 @@ func TestWriteToGitRef_Convenience(t *testing.T) {
 		t.Fatalf("git config name failed: %v", err)
 	}
 
-	oldDir, _ := os.Getwd()
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("failed to change to temp dir: %v", err)
-	}
-	defer func() { _ = os.Chdir(oldDir) }()
+	t.Chdir(tmpDir)
 
 	ref := "refs/confvis/write-test"
 	report := &confidence.Report{
