@@ -444,7 +444,7 @@ func LoadGitHubEnvWithPR() (*GitHubEnv, int, error) {
 
 // parsePRNumberFromEvent extracts the PR number from the GitHub event JSON file.
 func parsePRNumberFromEvent(eventPath string) (int, error) {
-	data, err := os.ReadFile(eventPath) //#nosec G304,G703 -- path from GITHUB_EVENT_PATH env var set by GitHub Actions
+	data, err := os.ReadFile(eventPath) //#nosec G304 -- path from GITHUB_EVENT_PATH env var set by GitHub Actions
 	if err != nil {
 		return 0, err
 	}
