@@ -70,8 +70,8 @@ linters:
         - G204  # Subprocess with variable - test code and trivy integration
         - G302  # File permissions - 0644 is appropriate for history files
         - G304  # File inclusion via variable - core file operations
-        - G703  # Taint analysis - false positives on t.TempDir() and trusted env vars
         - G306  # WriteFile permissions - test file creation
+        - G703  # Taint analysis - false positives on t.TempDir() and trusted env vars
 
   exclusions:
     # Test files can be longer and have more complexity
