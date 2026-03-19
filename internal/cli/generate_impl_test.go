@@ -414,3 +414,33 @@ func TestWriteToFileWithFS_CreateError(t *testing.T) {
 	}
 }
 
+func TestWriteToFileWithFS_FnError(t *testing.T) {
+	fs := NewMockFileSystem()
+
+	err := writeToFileWithFS(fs, "/output/test.txt", false, "test", func(w io.Writer) error {
+		return errors.New("generator failed")
+	})
+	if err == nil {
+		t.Fatal("expected error when fn fails")
+	}
+	if !strings.Contains(err.Error(), "generating test") {
+		t.Errorf("error = %q, want to contain 'generating test'", err.Error())
+	}
+}
+
+func TestWriteToFileWithFS_CloseError(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetError("close:/output/test.txt", errors.New("close failed"))
+
+	err := writeToFileWithFS(fs, "/output/test.txt", false, "test", func(w io.Writer) error {
+		_, err := w.Write([]byte("data"))
+		return err
+	})
+	if err == nil {
+		t.Fatal("expected error when close fails")
+	}
+	if !strings.Contains(err.Error(), "closing test file") {
+		t.Errorf("error = %q, want to contain 'closing test file'", err.Error())
+	}
+}
+

@@ -2299,6 +2299,169 @@ func TestWriteJSON_WriteError(t *testing.T) {
 
 
 // ============================================================================
+// writeGateWarning — no-regression branch
+// ============================================================================
+
+func TestWriteGateWarning_RegressionEnabled_NoRegression(t *testing.T) {
+	// Score improved — gateFailOnRegression is set but delta >= 0, so no warning.
+	report := &confidence.Report{Score: intPtrH(90), Threshold: 75}
+	bl := &confidence.Report{Score: intPtrH(80), Threshold: 75}
+
+	var buf bytes.Buffer
+	err := writeGateWarning(&buf, report, bl, 0, true)
+	if err != nil {
+		t.Fatalf("writeGateWarning() error = %v", err)
+	}
+	if buf.Len() != 0 {
+		t.Errorf("expected no output when score improved, got: %s", buf.String())
+	}
+}
+
+func TestWriteGateWarning_FailUnder_WriteError(t *testing.T) {
+	report := &confidence.Report{Score: intPtrH(50), Threshold: 75}
+	w := &errWriter{n: 0, err: errors.New("write failed")}
+
+	err := writeGateWarning(w, report, nil, 80, false)
+	if err == nil {
+		t.Error("expected error for write failure in fail-under warning")
+	}
+}
+
+func TestWriteGateWarning_Regression_WriteError(t *testing.T) {
+	report := &confidence.Report{Score: intPtrH(70), Threshold: 75}
+	bl := &confidence.Report{Score: intPtrH(80), Threshold: 75}
+	w := &errWriter{n: 0, err: errors.New("write failed")}
+
+	err := writeGateWarning(w, report, bl, 0, true)
+	if err == nil {
+		t.Error("expected error for write failure in regression warning")
+	}
+}
+
+// ============================================================================
+// writeGitHubComment — rootCmd.Version branch
+// ============================================================================
+
+func TestWriteGitHubComment_UsesRootCmdVersion(t *testing.T) {
+	// Save and restore rootCmd.Version to avoid cross-test pollution.
+	saved := rootCmd.Version
+	defer func() { rootCmd.Version = saved }()
+	rootCmd.Version = "2.0.0"
+
+	report := &confidence.Report{
+		Title:     "Test",
+		Score:     intPtrH(85),
+		Threshold: 75,
+		Version:   "1.0.0",
+	}
+
+	var buf bytes.Buffer
+	err := writeGitHubComment(&buf, report, nil, 0, false)
+	if err != nil {
+		t.Fatalf("writeGitHubComment() error = %v", err)
+	}
+	if !strings.Contains(buf.String(), "v2.0.0") {
+		t.Errorf("output should use rootCmd.Version, got: %s", buf.String())
+	}
+}
+
+func TestWriteGitHubComment_FallsBackToReportVersion(t *testing.T) {
+	saved := rootCmd.Version
+	defer func() { rootCmd.Version = saved }()
+	rootCmd.Version = ""
+
+	report := &confidence.Report{
+		Title:     "Test",
+		Score:     intPtrH(85),
+		Threshold: 75,
+		Version:   "3.5.0",
+	}
+
+	var buf bytes.Buffer
+	err := writeGitHubComment(&buf, report, nil, 0, false)
+	if err != nil {
+		t.Fatalf("writeGitHubComment() error = %v", err)
+	}
+	if !strings.Contains(buf.String(), "v3.5.0") {
+		t.Errorf("output should fall back to report.Version, got: %s", buf.String())
+	}
+}
+
+func TestWriteGitHubComment_WithGateWarning(t *testing.T) {
+	saved := rootCmd.Version
+	defer func() { rootCmd.Version = saved }()
+	rootCmd.Version = "1.0.0"
+
+	report := &confidence.Report{
+		Title:     "Test",
+		Score:     intPtrH(50),
+		Threshold: 75,
+	}
+
+	var buf bytes.Buffer
+	err := writeGitHubComment(&buf, report, nil, 80, false)
+	if err != nil {
+		t.Fatalf("writeGitHubComment() error = %v", err)
+	}
+	if !strings.Contains(buf.String(), "gate will fail") {
+		t.Errorf("output should contain gate warning, got: %s", buf.String())
+	}
+}
+
+func TestWriteGitHubComment_GateWarningWriteError(t *testing.T) {
+	// Gate warning tries to write, but writer fails → writeGitHubComment propagates error.
+	report := &confidence.Report{
+		Title:     "Test",
+		Score:     intPtrH(50),
+		Threshold: 75,
+	}
+	w := &errWriter{n: 0, err: errors.New("write failed")}
+	err := writeGitHubComment(w, report, nil, 80, false)
+	if err == nil {
+		t.Error("expected error when gate warning write fails")
+	}
+}
+
+func TestWriteGitHubComment_BaselineWriteError(t *testing.T) {
+	// Baseline write fails → writeGitHubComment propagates error.
+	report := &confidence.Report{
+		Title:     "Test",
+		Score:     intPtrH(85),
+		Threshold: 75,
+		Version:   "1.0.0",
+	}
+	bl := &confidence.Report{Score: intPtrH(80)}
+
+	// writeGitHubCommentHeader has 6 writes; the baseline write is #7.
+	w := &errWriter{n: 6, err: errors.New("write failed")}
+	err := writeGitHubComment(w, report, bl, 0, false)
+	if err == nil {
+		t.Error("expected error when baseline write fails")
+	}
+}
+
+// ============================================================================
+// writeFormatOutput — default/unknown format branch
+// ============================================================================
+
+func TestWriteFormatOutput_UnknownFormat(t *testing.T) {
+	report := &confidence.Report{
+		Title:     "Test",
+		Score:     intPtrH(85),
+		Threshold: 75,
+	}
+
+	var buf bytes.Buffer
+	err := writeFormatOutput(&buf, "nonexistent-format", report, nil, 0, defaultGaugeDeps(NewMockFileSystem()))
+	if err != nil {
+		t.Fatalf("writeFormatOutput() error = %v", err)
+	}
+	if buf.Len() != 0 {
+		t.Errorf("unknown format should produce no output, got: %s", buf.String())
+	}
+}
+
+// ============================================================================
 // resolveHistoryStorage Tests
 // ============================================================================
 
