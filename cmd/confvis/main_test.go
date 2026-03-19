@@ -38,3 +38,15 @@ func TestResolveVersion_Dev_EmptyVersion(t *testing.T) {
 		t.Errorf("resolveVersion(dev) = %q, want %q", got, "dev")
 	}
 }
+
+func TestDefaultBuildInfo(t *testing.T) {
+	// debug.ReadBuildInfo() succeeds in test binaries, returning
+	// the test binary's module info.
+	ver, ok := defaultBuildInfo()
+	if !ok {
+		t.Fatal("defaultBuildInfo() returned ok=false; expected true in test binary")
+	}
+	// In test binaries the version is typically empty or "(devel)".
+	// We just verify the function runs without error and returns ok=true.
+	_ = ver
+}
