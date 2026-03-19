@@ -337,3 +337,32 @@ func TestCheckGitHubImpl_ConfigFileNotFound(t *testing.T) {
 	}
 }
 
+func TestCheckGitHubImpl_DryRun(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Test", "score": 85, "threshold": 75, "factors": [{"name": "Coverage", "score": 90, "weight": 50}]}`)
+
+	var stdout bytes.Buffer
+	deps := defaultCheckGitHubDeps(fs)
+	deps.Stdout = &stdout
+	deps.DryRun = true
+
+	err := checkGitHubImpl(deps)
+	if err != nil {
+		t.Fatalf("checkGitHubImpl() error = %v", err)
+	}
+
+	output := stdout.String()
+	if !strings.Contains(output, "DRY RUN") {
+		t.Error("expected DRY RUN header")
+	}
+	if !strings.Contains(output, "testowner/testrepo") {
+		t.Error("expected repo in output")
+	}
+	if !strings.Contains(output, "abc123") {
+		t.Error("expected SHA in output")
+	}
+	if !strings.Contains(output, "No changes made") {
+		t.Error("expected no-changes message")
+	}
+}
+

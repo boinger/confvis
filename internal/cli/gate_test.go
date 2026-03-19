@@ -617,3 +617,25 @@ func TestGateImpl_GitHubOutput_Unset(t *testing.T) {
 	}
 	// No assertion on file — just verify no panic or error
 }
+
+func TestGateImpl_GitHubOutput_InvalidPath(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Test", "score": 85, "threshold": 75}`)
+
+	var stderr bytes.Buffer
+	deps := defaultGateDeps(fs)
+	deps.Stderr = &stderr
+	deps.Config = "config.json"
+	deps.FailUnder = 80
+	// Point at a path that cannot be opened
+	deps.GitHubOutputFile = filepath.Join(t.TempDir(), "no-such-dir", "nested", "output")
+
+	err := gateImpl(deps)
+	if err != nil {
+		t.Fatalf("gateImpl() error = %v (writeGitHubOutput should not propagate errors)", err)
+	}
+	// Should produce a warning on stderr
+	if !strings.Contains(stderr.String(), "could not write to GITHUB_OUTPUT") {
+		t.Errorf("stderr = %q, want warning about GITHUB_OUTPUT", stderr.String())
+	}
+}

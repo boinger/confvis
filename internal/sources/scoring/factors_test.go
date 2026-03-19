@@ -178,3 +178,46 @@ func TestExtractSeverity(t *testing.T) {
 		})
 	}
 }
+
+func TestExtractSeverity_AdditionalCases(t *testing.T) {
+	tests := []struct {
+		name string
+		want string
+	}{
+		{"High Severity", "high"},
+		{"Medium Severity", "medium"},
+		{"Low Severity", "low"},
+		{"Verified Secrets", "verified secrets"},
+		{"Unverified Secrets", "unverified secrets"},
+		{"Leaked Secrets", "secrets detected"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractSeverity(tt.name)
+			if got != tt.want {
+				t.Errorf("extractSeverity(%q) = %q, want %q", tt.name, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFormatDescription(t *testing.T) {
+	tests := []struct {
+		name  string
+		count int
+		want  string
+	}{
+		{"Critical Vulnerabilities", 3, "3 critical"},
+		{"Unknown", 0, "0 issues"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := formatDescription(tt.name, tt.count)
+			if got != tt.want {
+				t.Errorf("formatDescription(%q, %d) = %q, want %q", tt.name, tt.count, got, tt.want)
+			}
+		})
+	}
+}

@@ -2025,6 +2025,47 @@ func (e *errWriter) Write(p []byte) (int, error) {
 // Write Error Path Tests - writeGitHubComment and related functions
 // ============================================================================
 
+func TestWriteGateWarning_NoGate(t *testing.T) {
+	report := &confidence.Report{Score: intPtrH(85), Threshold: 75}
+
+	// No gate thresholds configured — should produce no output.
+	var buf bytes.Buffer
+	err := writeGateWarning(&buf, report, nil, 0, false)
+	if err != nil {
+		t.Fatalf("writeGateWarning() error = %v", err)
+	}
+	if buf.Len() != 0 {
+		t.Errorf("expected no output when gate is disabled, got: %s", buf.String())
+	}
+}
+
+func TestWriteGateWarning_FailUnder(t *testing.T) {
+	report := &confidence.Report{Score: intPtrH(70), Threshold: 75}
+
+	var buf bytes.Buffer
+	err := writeGateWarning(&buf, report, nil, 80, false)
+	if err != nil {
+		t.Fatalf("writeGateWarning() error = %v", err)
+	}
+	if !strings.Contains(buf.String(), "gate will fail") {
+		t.Errorf("expected warning, got: %s", buf.String())
+	}
+}
+
+func TestWriteGateWarning_Regression(t *testing.T) {
+	report := &confidence.Report{Score: intPtrH(70), Threshold: 75}
+	bl := &confidence.Report{Score: intPtrH(80), Threshold: 75}
+
+	var buf bytes.Buffer
+	err := writeGateWarning(&buf, report, bl, 0, true)
+	if err != nil {
+		t.Fatalf("writeGateWarning() error = %v", err)
+	}
+	if !strings.Contains(buf.String(), "regressed") {
+		t.Errorf("expected regression warning, got: %s", buf.String())
+	}
+}
+
 func TestWriteGitHubComment_WriteErrors(t *testing.T) {
 	report := &confidence.Report{
 		Title:     "Test Report",

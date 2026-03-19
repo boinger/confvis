@@ -714,3 +714,15 @@ func TestIsRetryable(t *testing.T) {
 		})
 	}
 }
+
+func TestRetryableError_Unwrap(t *testing.T) {
+	inner := fmt.Errorf("connection refused")
+	re := &retryableError{err: inner}
+
+	if got := re.Unwrap(); got != inner {
+		t.Errorf("Unwrap() = %v, want %v", got, inner)
+	}
+	if got := re.Error(); got != "connection refused" {
+		t.Errorf("Error() = %q, want %q", got, "connection refused")
+	}
+}

@@ -221,3 +221,78 @@ func TestOptions_Extra(t *testing.T) {
 		t.Errorf("Extra[event] = %q, want %q", opts.Extra["event"], "push")
 	}
 }
+
+func TestDeriveTitleFromPath_ExplicitTitle(t *testing.T) {
+	got := DeriveTitleFromPath("/some/path", "My Title")
+	if got != "My Title" {
+		t.Errorf("DeriveTitleFromPath() = %q, want %q", got, "My Title")
+	}
+}
+
+func TestDeriveTitleFromPath_DerivedFromPath(t *testing.T) {
+	got := DeriveTitleFromPath("/path/to/myproject", "")
+	if got != "myproject" {
+		t.Errorf("DeriveTitleFromPath() = %q, want %q", got, "myproject")
+	}
+}
+
+func TestDeriveTitleFromPath_RelativePath(t *testing.T) {
+	got := DeriveTitleFromPath("./...", "")
+	// filepath.Abs resolves relative paths; Base returns the last element
+	if got == "" {
+		t.Error("DeriveTitleFromPath() returned empty string for relative path")
+	}
+	// "./..." resolves to cwd/... so Base should be "..."
+	if got != "..." {
+		t.Errorf("DeriveTitleFromPath() = %q, want %q", got, "...")
+	}
+}
+
+func TestResolveTitle_FirstNonEmpty(t *testing.T) {
+	got := ResolveTitle("", "fallback", "last")
+	if got != "fallback" {
+		t.Errorf("ResolveTitle() = %q, want %q", got, "fallback")
+	}
+}
+
+func TestResolveTitle_AllEmpty(t *testing.T) {
+	got := ResolveTitle("", "")
+	if got != "" {
+		t.Errorf("ResolveTitle() = %q, want %q", got, "")
+	}
+}
+
+func TestResolveTitle_FirstNonEmptyUsed(t *testing.T) {
+	got := ResolveTitle("first", "second")
+	if got != "first" {
+		t.Errorf("ResolveTitle() = %q, want %q", got, "first")
+	}
+}
+
+func TestGetExtra_Found(t *testing.T) {
+	opts := Options{
+		Extra: map[string]string{"key": "value"},
+	}
+	got := GetExtra(opts, "key", "default")
+	if got != "value" {
+		t.Errorf("GetExtra() = %q, want %q", got, "value")
+	}
+}
+
+func TestGetExtra_Missing(t *testing.T) {
+	opts := Options{}
+	got := GetExtra(opts, "key", "default")
+	if got != "default" {
+		t.Errorf("GetExtra() = %q, want %q", got, "default")
+	}
+}
+
+func TestGetExtra_EmptyValue(t *testing.T) {
+	opts := Options{
+		Extra: map[string]string{"key": ""},
+	}
+	got := GetExtra(opts, "key", "default")
+	if got != "default" {
+		t.Errorf("GetExtra() = %q, want %q", got, "default")
+	}
+}

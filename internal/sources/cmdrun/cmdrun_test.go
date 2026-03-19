@@ -2,6 +2,7 @@ package cmdrun
 
 import (
 	"context"
+	"os/exec"
 	"testing"
 )
 
@@ -128,6 +129,90 @@ func TestFormatError(t *testing.T) {
 				t.Errorf("FormatError() = %q, want %q", got.Error(), tt.want)
 			}
 		})
+	}
+}
+
+func TestCheckAcceptableExitCode_Accepted(t *testing.T) {
+	// Run a command that exits with code 1 to get an *exec.ExitError
+	err := exec.Command("sh", "-c", "exit 1").Run()
+	if err == nil {
+		t.Fatal("expected error from exit 1 command")
+	}
+
+	got := CheckAcceptableExitCode(err, []int{1}, nil, "tool", "scan")
+	if got != nil {
+		t.Errorf("CheckAcceptableExitCode() = %v, want nil for accepted code", got)
+	}
+}
+
+func TestCheckAcceptableExitCode_Rejected(t *testing.T) {
+	err := exec.Command("sh", "-c", "exit 2").Run()
+	if err == nil {
+		t.Fatal("expected error from exit 2 command")
+	}
+
+	got := CheckAcceptableExitCode(err, []int{1}, nil, "tool", "scan")
+	if got == nil {
+		t.Fatal("CheckAcceptableExitCode() = nil, want error for rejected code")
+	}
+	if !containsString(got.Error(), "tool scan failed") {
+		t.Errorf("CheckAcceptableExitCode() = %q, want error containing %q", got.Error(), "tool scan failed")
+	}
+}
+
+func TestCheckAcceptableExitCode_NotExitError(t *testing.T) {
+	got := CheckAcceptableExitCode(context.DeadlineExceeded, []int{1}, nil, "tool", "scan")
+	if got == nil {
+		t.Fatal("CheckAcceptableExitCode() = nil, want error for non-ExitError")
+	}
+	if !containsString(got.Error(), "tool scan failed") {
+		t.Errorf("CheckAcceptableExitCode() = %q, want error containing %q", got.Error(), "tool scan failed")
+	}
+	if !containsString(got.Error(), "context deadline exceeded") {
+		t.Errorf("CheckAcceptableExitCode() = %q, want error containing %q", got.Error(), "context deadline exceeded")
+	}
+}
+
+func TestParseJSONOutput_Valid(t *testing.T) {
+	type testStruct struct {
+		Name  string `json:"name"`
+		Value int    `json:"value"`
+	}
+
+	input := []byte(`{"name":"test","value":42}`)
+	got, err := ParseJSONOutput[testStruct](input, "tool")
+	if err != nil {
+		t.Fatalf("ParseJSONOutput() error = %v", err)
+	}
+	if got.Name != "test" {
+		t.Errorf("ParseJSONOutput().Name = %q, want %q", got.Name, "test")
+	}
+	if got.Value != 42 {
+		t.Errorf("ParseJSONOutput().Value = %d, want %d", got.Value, 42)
+	}
+}
+
+func TestParseJSONOutput_Empty(t *testing.T) {
+	type testStruct struct{}
+
+	_, err := ParseJSONOutput[testStruct]([]byte("   "), "tool")
+	if err == nil {
+		t.Fatal("ParseJSONOutput() = nil, want error for empty input")
+	}
+	if !containsString(err.Error(), "produced no output") {
+		t.Errorf("ParseJSONOutput() error = %q, want error containing %q", err.Error(), "produced no output")
+	}
+}
+
+func TestParseJSONOutput_Invalid(t *testing.T) {
+	type testStruct struct{}
+
+	_, err := ParseJSONOutput[testStruct]([]byte("not json"), "tool")
+	if err == nil {
+		t.Fatal("ParseJSONOutput() = nil, want error for invalid JSON")
+	}
+	if !containsString(err.Error(), "parsing") {
+		t.Errorf("ParseJSONOutput() error = %q, want error containing %q", err.Error(), "parsing")
 	}
 }
 

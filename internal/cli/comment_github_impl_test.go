@@ -817,3 +817,90 @@ func TestCommentGitHubImpl_GateWarning_NoFlags(t *testing.T) {
 	}
 }
 
+// ============================================================================
+// commentModeReplace edge-case tests
+// ============================================================================
+
+func TestCommentGitHubImpl_ReplaceMode_FindAllCommentsError(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Test", "score": 85, "threshold": 75}`)
+
+	deps := defaultCommentGitHubDeps(fs)
+	deps.Mode = "replace"
+	deps.FindAllComments = func(_ context.Context, _ *checks.GitHubClient, _ checks.CommentOptions) ([]checks.CommentResponse, error) {
+		return nil, errors.New("API error: forbidden")
+	}
+
+	err := commentGitHubImpl(deps)
+	if err == nil {
+		t.Fatal("expected error when FindAllComments fails")
+	}
+	if !strings.Contains(err.Error(), "finding existing comments") {
+		t.Errorf("error = %q, want to contain 'finding existing comments'", err.Error())
+	}
+}
+
+func TestCommentGitHubImpl_ReplaceMode_DeleteAndPost(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Test", "score": 85, "threshold": 75}`)
+
+	var stdout bytes.Buffer
+	deps := defaultCommentGitHubDeps(fs)
+	deps.Stdout = &stdout
+	deps.Mode = "replace"
+
+	deletedIDs := []int64{}
+	deps.FindAllComments = func(_ context.Context, _ *checks.GitHubClient, _ checks.CommentOptions) ([]checks.CommentResponse, error) {
+		return []checks.CommentResponse{
+			{ID: 100, HTMLURL: "https://github.com/owner/repo/pull/123#comment-100"},
+			{ID: 200, HTMLURL: "https://github.com/owner/repo/pull/123#comment-200"},
+		}, nil
+	}
+	deps.DeleteComment = func(_ context.Context, _ *checks.GitHubClient, _ checks.CommentOptions, commentID int64) error {
+		deletedIDs = append(deletedIDs, commentID)
+		return nil
+	}
+
+	posted := false
+	deps.PostComment = func(_ context.Context, _ *checks.GitHubClient, _ checks.CommentOptions, _ string) (*checks.CommentResponse, error) {
+		posted = true
+		return &checks.CommentResponse{ID: 300, HTMLURL: "https://github.com/owner/repo/pull/123#comment-300"}, nil
+	}
+
+	err := commentGitHubImpl(deps)
+	if err != nil {
+		t.Fatalf("commentGitHubImpl() error = %v", err)
+	}
+
+	if len(deletedIDs) != 2 || deletedIDs[0] != 100 || deletedIDs[1] != 200 {
+		t.Errorf("expected deletions of [100 200], got %v", deletedIDs)
+	}
+	if !posted {
+		t.Error("PostComment should have been called after deleting old comments")
+	}
+}
+
+func TestCommentGitHubImpl_ReplaceMode_DeleteError(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetFileContent("config.json", `{"title": "Test", "score": 85, "threshold": 75}`)
+
+	deps := defaultCommentGitHubDeps(fs)
+	deps.Mode = "replace"
+	deps.FindAllComments = func(_ context.Context, _ *checks.GitHubClient, _ checks.CommentOptions) ([]checks.CommentResponse, error) {
+		return []checks.CommentResponse{
+			{ID: 10, HTMLURL: "https://github.com/owner/repo/pull/123#comment-10"},
+		}, nil
+	}
+	deps.DeleteComment = func(_ context.Context, _ *checks.GitHubClient, _ checks.CommentOptions, _ int64) error {
+		return errors.New("API error: server error")
+	}
+
+	err := commentGitHubImpl(deps)
+	if err == nil {
+		t.Fatal("expected error when DeleteComment fails in replace mode")
+	}
+	if !strings.Contains(err.Error(), "deleting comment") {
+		t.Errorf("error = %q, want to contain 'deleting comment'", err.Error())
+	}
+}
+

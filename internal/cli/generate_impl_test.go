@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"errors"
+	"io"
 	"strings"
 	"testing"
 )
@@ -395,6 +396,21 @@ threshold: 75`)
 	badge := fs.GetFileContent("/output/badge.svg")
 	if !strings.Contains(badge, "92") {
 		t.Error("badge should contain score from YAML")
+	}
+}
+
+func TestWriteToFileWithFS_CreateError(t *testing.T) {
+	fs := NewMockFileSystem()
+	fs.SetError("create:/bad/path.txt", errors.New("permission denied"))
+
+	err := writeToFileWithFS(fs, "/bad/path.txt", false, "test", func(w io.Writer) error {
+		return nil
+	})
+	if err == nil {
+		t.Fatal("expected error for create failure")
+	}
+	if !strings.Contains(err.Error(), "creating test file") {
+		t.Errorf("error = %q, want to contain 'creating test file'", err.Error())
 	}
 }
 

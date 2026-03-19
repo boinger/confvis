@@ -10,11 +10,26 @@ import (
 var version = "dev"
 
 func main() {
-	if version == "dev" {
-		if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "" {
-			version = info.Main.Version
+	cli.SetVersion(resolveVersion(version, defaultBuildInfo))
+	cli.Execute()
+}
+
+// resolveVersion returns v unchanged unless it is "dev", in which case it
+// attempts to read a version from Go module build info via buildInfoFn.
+func resolveVersion(v string, buildInfoFn func() (string, bool)) string {
+	if v == "dev" {
+		if ver, ok := buildInfoFn(); ok && ver != "" {
+			return ver
 		}
 	}
-	cli.SetVersion(version)
-	cli.Execute()
+	return v
+}
+
+// defaultBuildInfo reads the version from runtime/debug build info.
+func defaultBuildInfo() (string, bool) {
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return "", false
+	}
+	return info.Main.Version, true
 }

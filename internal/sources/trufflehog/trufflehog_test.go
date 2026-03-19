@@ -2,6 +2,7 @@ package trufflehog
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/boinger/confvis/internal/sources"
@@ -203,6 +204,19 @@ func Test_parseJSONLines(t *testing.T) {
 	}
 	if !findings[0].Verified {
 		t.Error("findings[0].Verified = false, want true")
+	}
+}
+
+func Test_parseJSONLines_InvalidLine(t *testing.T) {
+	input := []byte(`{"DetectorName":"AWS","Verified":true}
+not valid json
+`)
+	_, err := parseJSONLines(input)
+	if err == nil {
+		t.Fatal("expected error for invalid JSON line")
+	}
+	if !strings.Contains(err.Error(), "parsing trufflehog finding") {
+		t.Errorf("error = %q, want to contain 'parsing trufflehog finding'", err.Error())
 	}
 }
 

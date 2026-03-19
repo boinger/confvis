@@ -81,3 +81,30 @@ func TestBuildReport_PerfectScore(t *testing.T) {
 		t.Errorf("Score = %d, want 100", report.Score)
 	}
 }
+
+func TestBuildReport_ScoreCalculation(t *testing.T) {
+	factors := []confidence.Factor{
+		{Name: "Critical", Score: 34, Weight: 40},
+		{Name: "High", Score: 60, Weight: 30},
+		{Name: "Medium", Score: 80, Weight: 20},
+		{Name: "Low", Score: 95, Weight: 10},
+	}
+
+	report := BuildReport("Score Test", "testsource", 80, factors)
+
+	// Expected weighted score: (34*40 + 60*30 + 80*20 + 95*10) = 1360 + 1800 + 1600 + 950 = 5710
+	// With rounding: (5710 + 50) / 100 = 57
+	expectedScore := 57
+	if report.ScoreValue() != expectedScore {
+		t.Errorf("Score = %d, want %d", report.ScoreValue(), expectedScore)
+	}
+	if report.Threshold != 80 {
+		t.Errorf("Threshold = %d, want 80", report.Threshold)
+	}
+	if report.Source != "testsource" {
+		t.Errorf("Source = %q, want %q", report.Source, "testsource")
+	}
+	if len(report.Factors) != 4 {
+		t.Errorf("len(Factors) = %d, want 4", len(report.Factors))
+	}
+}
