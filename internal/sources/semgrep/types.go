@@ -90,6 +90,10 @@ func countFromResults(results []Result) FindingCounts {
 }
 
 // Severity penalties (points deducted per issue).
+// Semgrep uses ERROR/WARNING/INFO rather than the standard 4-tier severity.
+// ERROR ≈ HIGH (same penalty 20), WARNING ≈ MEDIUM (same penalty 10),
+// INFO is softer than LOW (2 vs 5) because semgrep INFO findings are
+// typically style suggestions, not security-relevant.
 const (
 	penaltyError   = 20
 	penaltyWarning = 10
@@ -97,6 +101,9 @@ const (
 )
 
 // Factor weights.
+// Three tiers must sum to 100. INFO gets more relative weight (25) than the
+// default LOW (10) because semgrep rules are curated — even INFO-level rules
+// are intentionally authored and worth tracking, unlike scanner noise.
 const (
 	weightError   = 40
 	weightWarning = 35

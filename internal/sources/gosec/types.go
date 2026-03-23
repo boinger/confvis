@@ -74,6 +74,9 @@ func countFromIssues(issues []Issue) FindingCounts {
 }
 
 // Severity penalties (points deducted per issue).
+// Gosec reports only HIGH/MEDIUM/LOW (no CRITICAL tier). Penalties match the
+// default HIGH/MEDIUM values but LOW is softer (3 vs 5) because gosec LOW
+// findings are often informational style issues rather than exploitable flaws.
 const (
 	penaltyHigh   = 20
 	penaltyMedium = 10
@@ -81,6 +84,10 @@ const (
 )
 
 // Factor weights.
+// Weights are shifted upward (50/35/15) compared to the default 4-tier split
+// (40/30/20/10) because three tiers must sum to 100. HIGH gets the most weight
+// since gosec HIGH findings (e.g. hardcoded credentials, SQL injection) are
+// the closest equivalent to CRITICAL in other scanners.
 const (
 	weightHigh   = 50
 	weightMedium = 35

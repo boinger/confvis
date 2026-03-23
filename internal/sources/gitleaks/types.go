@@ -36,12 +36,17 @@ type FindingCounts struct {
 }
 
 // Severity penalties for secret detection.
-// Leaked secrets are critical security issues.
+// GitLeaks doesn't distinguish severity or verification status — every match
+// is a potential leaked credential. Penalty of 25 (between default HIGH 20 and
+// CRITICAL 33) reflects that: not all matches are confirmed live secrets (unlike
+// TruffleHog verified), but any match warrants attention.
 const (
-	penaltyPerSecret = 25 // Each secret is a critical issue
+	penaltyPerSecret = 25
 )
 
 // Factor weights.
+// Single factor gets full weight — GitLeaks produces one dimension of output
+// (secret count), so there's nothing to weight against.
 const (
-	weightSecrets = 100 // Secrets are the only factor and get full weight
+	weightSecrets = 100
 )

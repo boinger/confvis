@@ -16,7 +16,13 @@ type SeverityCounts struct {
 
 // Default severity penalties (points deducted per issue).
 // Used by strict vulnerability scanners: grype, trivy, snyk.
-// Dependabot uses softer penalties due to advisory-based alerting.
+// Sources with different severity models define their own penalties with
+// rationale in their respective types.go files:
+//   - githubalerts/base.go: softer penalties for advisory-based alerting
+//   - gosec/types.go:       3-tier (no CRITICAL), LOW is informational
+//   - semgrep/types.go:     ERROR/WARNING/INFO mapping
+//   - trufflehog/types.go:  verified vs unverified secret detection
+//   - gitleaks/types.go:    flat penalty, single factor
 const (
 	DefaultPenaltyCritical = 33
 	DefaultPenaltyHigh     = 20

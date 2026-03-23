@@ -13,7 +13,12 @@ import (
 	"github.com/boinger/confvis/internal/sources/httpclient"
 )
 
-// Default severity penalties for GitHub security alerts.
+// Severity penalties for GitHub security alerts (Dependabot, CodeQL).
+// Softer than the default strict-scanner penalties (33/20/10/5) because GitHub
+// advisory-based alerts have a higher false-positive rate and often flag
+// transitive dependencies the project doesn't directly exercise. The ~25-60%
+// reduction reflects that an advisory "critical" is less certain than a scanner
+// like Grype confirming a vulnerable call path.
 const (
 	PenaltyCritical = 25
 	PenaltyHigh     = 15
@@ -21,7 +26,9 @@ const (
 	PenaltyLow      = 2
 )
 
-// Default factor weights for GitHub security alerts.
+// Factor weights for GitHub security alerts.
+// Weights match the defaults — the relative importance of severity tiers is the
+// same; only the per-issue penalties are softer.
 const (
 	WeightCritical = 40
 	WeightHigh     = 30

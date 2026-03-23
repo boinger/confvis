@@ -75,14 +75,20 @@ type FindingCounts struct {
 }
 
 // Severity penalties for secret detection.
-// Verified secrets are more severe than unverified ones.
+// TruffleHog's key differentiator is verification: it tests whether a detected
+// secret is actually valid (e.g. by authenticating with it). Verified secrets
+// are near-critical (penalty 30, close to default critical 33) because they
+// represent confirmed live credentials. Unverified secrets get a moderate
+// penalty (10) — they may be rotated, test fixtures, or false positives.
 const (
-	penaltyVerified   = 30 // Verified secrets are critical
-	penaltyUnverified = 10 // Unverified secrets are warnings
+	penaltyVerified   = 30
+	penaltyUnverified = 10
 )
 
 // Factor weights.
+// Verified secrets get 60% weight because a single confirmed live credential
+// is a more urgent finding than multiple unverified pattern matches.
 const (
-	weightVerified   = 60 // Verified secrets are weighted more heavily
+	weightVerified   = 60
 	weightUnverified = 40
 )
