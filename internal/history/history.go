@@ -59,12 +59,16 @@ func ReadFile(path string) (*History, error) {
 
 // AppendToFile appends a new entry to the history file.
 // Creates the file if it doesn't exist.
-func AppendToFile(path string, entry Entry) error {
+func AppendToFile(path string, entry Entry) (err error) {
 	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644) // #nosec G302 G304 -- history log file, world-readable is appropriate, path from CLI argument
 	if err != nil {
 		return fmt.Errorf("opening history file for append: %w", err)
 	}
-	defer func() { _ = f.Close() }()
+	defer func() {
+		if cerr := f.Close(); cerr != nil && err == nil {
+			err = fmt.Errorf("closing history file: %w", cerr)
+		}
+	}()
 
 	data, err := json.Marshal(entry)
 	if err != nil {

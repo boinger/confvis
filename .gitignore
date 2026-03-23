@@ -4,6 +4,11 @@
 # Test coverage
 coverage.out
 coverage.html
+*_cov*.out
+*coverage*.out
+
+# Claude Code worktrees
+.claude/worktrees/
 
 # Vendor directory (if used)
 vendor/
