@@ -83,7 +83,7 @@ func (s *CoverageSource) Fetch(ctx context.Context, opts sources.Options) (*conf
 	title := sources.ResolveTitle(opts.Title, opts.Project)
 	reportURL := s.config.BuildWebURL(service, owner, repo)
 
-	return BuildReport(title, s.config.Name, opts.Threshold, coverage, reportURL), nil
+	return BuildReport(title, s.config.Name, opts.Threshold, coverage, reportURL)
 }
 
 // createClient creates an HTTP client for the coverage API.
@@ -138,5 +138,5 @@ func (s *CoverageSource) FetchWithTestClient(ctx context.Context, opts sources.O
 	title := sources.ResolveTitle(opts.Title, opts.Project)
 	reportURL := s.config.BuildWebURL(service, owner, repo)
 
-	return BuildReport(title, s.config.Name, opts.Threshold, coverage, reportURL), nil
+	return BuildReport(title, s.config.Name, opts.Threshold, coverage, reportURL)
 }

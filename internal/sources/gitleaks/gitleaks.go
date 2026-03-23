@@ -70,5 +70,5 @@ func (s *Source) FetchWithClient(ctx context.Context, fetcher Fetcher, opts sour
 		{Name: "Leaked Secrets", Count: counts.Secrets, Penalty: penaltyPerSecret, Weight: weightSecrets},
 	}, "")
 
-	return scoring.BuildReport(title, sourceName, opts.Threshold, factors), nil
+	return scoring.BuildReport(title, sourceName, opts.Threshold, factors)
 }

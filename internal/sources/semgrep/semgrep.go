@@ -100,5 +100,5 @@ func (s *Source) buildReport(report *Report, opts sources.Options, path string) 
 		{Name: "Info Findings", Count: counts.Info, Penalty: penaltyInfo, Weight: weightInfo},
 	}, "")
 
-	return scoring.BuildReport(title, sourceName, opts.Threshold, factors), nil
+	return scoring.BuildReport(title, sourceName, opts.Threshold, factors)
 }

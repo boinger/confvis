@@ -97,5 +97,5 @@ func (s *Source) FetchWithClient(ctx context.Context, fetcher Fetcher, opts sour
 		fetcher.ProjectURL(orgID, projectID),
 	)
 
-	return scoring.BuildReport(title, sourceName, opts.Threshold, factors), nil
+	return scoring.BuildReport(title, sourceName, opts.Threshold, factors)
 }

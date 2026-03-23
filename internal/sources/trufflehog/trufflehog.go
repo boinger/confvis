@@ -82,7 +82,7 @@ func (s *Source) FetchWithClient(ctx context.Context, fetcher Fetcher, opts sour
 		{Name: "Unverified Secrets", Count: counts.Unverified, Penalty: penaltyUnverified, Weight: weightUnverified},
 	}, "")
 
-	return scoring.BuildReport(title, sourceName, opts.Threshold, factors), nil
+	return scoring.BuildReport(title, sourceName, opts.Threshold, factors)
 }
 
 // deriveTitleWithOpts extracts a title from the target path or URL.

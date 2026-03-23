@@ -63,7 +63,7 @@ func (s *Source) Fetch(ctx context.Context, opts sources.Options) (*confidence.R
 		"",
 	)
 
-	return scoring.BuildReport(title, sourceName, opts.Threshold, factors), nil
+	return scoring.BuildReport(title, sourceName, opts.Threshold, factors)
 }
 
 // deriveTitleWithOpts creates a title from the target path or image name.

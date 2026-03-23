@@ -98,7 +98,7 @@ func (s *AlertsSource) Fetch(ctx context.Context, opts sources.Options) (*confid
 	title := ResolveTitle(opts.Title, owner, repo)
 	factors := scoring.BuildVulnFactors(counts, Penalties(), Weights(), client.AlertsURL(owner, repo))
 
-	return scoring.BuildReport(title, s.config.Name, opts.Threshold, factors), nil
+	return scoring.BuildReport(title, s.config.Name, opts.Threshold, factors)
 }
 
 // fetchAllAlerts retrieves all open alerts with pagination.

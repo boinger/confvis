@@ -68,7 +68,7 @@ func (s *Source) Fetch(ctx context.Context, opts sources.Options) (*confidence.R
 		title = opts.Project
 	}
 
-	return scoring.BuildReport(title, sourceName, opts.Threshold, factors), nil
+	return scoring.BuildReport(title, sourceName, opts.Threshold, factors)
 }
 
 // metricKind indicates how to convert a SonarQube metric value to a score.

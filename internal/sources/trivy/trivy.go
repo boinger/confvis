@@ -61,5 +61,5 @@ func (s *Source) Fetch(ctx context.Context, opts sources.Options) (*confidence.R
 		"",
 	)
 
-	return scoring.BuildReport(title, sourceName, opts.Threshold, factors), nil
+	return scoring.BuildReport(title, sourceName, opts.Threshold, factors)
 }

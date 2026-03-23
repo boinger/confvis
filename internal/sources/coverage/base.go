@@ -11,7 +11,7 @@ import (
 
 // BuildReport creates a coverage confidence report with a single coverage factor.
 // This consolidates the common pattern used by coverage providers (coveralls, codecov).
-func BuildReport(title, sourceName string, threshold int, coveragePercent float64, reportURL string) *confidence.Report {
+func BuildReport(title, sourceName string, threshold int, coveragePercent float64, reportURL string) (*confidence.Report, error) {
 	factors := []confidence.Factor{
 		{
 			Name:   "Code Coverage",
