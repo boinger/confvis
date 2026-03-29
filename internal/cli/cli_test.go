@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -9,19 +10,38 @@ import (
 	"testing"
 )
 
-// buildBinary builds the confvis binary for testing.
-func buildBinary(t *testing.T) string {
-	t.Helper()
+// testBinary is the path to a confvis binary built once by TestMain.
+// All integration tests that exec the binary use this instead of
+// rebuilding per-test.
+var testBinary string
 
-	tmpDir := t.TempDir()
-	binPath := filepath.Join(tmpDir, "confvis")
+func TestMain(m *testing.M) {
+	// Build the binary once for all integration tests in this package.
+	tmpDir, err := os.MkdirTemp("", "confvis-test-*")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to create temp dir: %v\n", err)
+		os.Exit(1)
+	}
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
-	cmd := exec.Command("go", "build", "-o", binPath, "../../cmd/confvis")
+	testBinary = filepath.Join(tmpDir, "confvis")
+	cmd := exec.Command("go", "build", "-o", testBinary, "../../cmd/confvis")
 	if output, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("failed to build binary: %v\n%s", err, output)
+		fmt.Fprintf(os.Stderr, "failed to build binary: %v\n%s", err, output)
+		os.Exit(1)
 	}
 
-	return binPath
+	os.Exit(m.Run())
+}
+
+// buildBinary returns the pre-built test binary path.
+// Kept as a function to minimize the diff — callers don't change.
+func buildBinary(t *testing.T) string {
+	t.Helper()
+	if testBinary == "" {
+		t.Fatal("testBinary not set — TestMain did not run")
+	}
+	return testBinary
 }
 
 func TestGauge_StdinSupport(t *testing.T) {
