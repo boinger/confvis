@@ -10,8 +10,9 @@ import (
 	"math"
 	"math/rand/v2"
 	"net/http"
-	"strconv"
 	"time"
+
+	"github.com/boinger/confvis/internal/httputil"
 )
 
 // AuthType defines how authentication is performed.
@@ -134,7 +135,7 @@ func (c *Client) get(ctx context.Context, endpoint string, result any) error {
 	for attempt := range c.maxRetries + 1 {
 		if attempt > 0 {
 			delay := c.retryDelay(attempt, lastErr)
-			if err := sleepWithContext(ctx, delay); err != nil {
+			if err := httputil.SleepWithContext(ctx, delay); err != nil {
 				return lastErr
 			}
 		}
@@ -239,7 +240,7 @@ func (c *Client) retryDelay(attempt int, lastErr error) time.Duration {
 	// Check if previous error had a Retry-After hint
 	var re *retryableError
 	if errors.As(lastErr, &re) && re.retryAfter != "" {
-		if d := parseRetryAfter(re.retryAfter); d > 0 {
+		if d := httputil.ParseRetryAfter(re.retryAfter); d > 0 {
 			return d
 		}
 	}
@@ -250,35 +251,6 @@ func (c *Client) retryDelay(attempt int, lastErr error) time.Duration {
 	return time.Duration(backoff + jitter)
 }
 
-// parseRetryAfter parses a Retry-After header value (seconds or HTTP-date).
-func parseRetryAfter(value string) time.Duration {
-	// Try parsing as seconds first
-	if seconds, err := strconv.Atoi(value); err == nil && seconds > 0 {
-		return time.Duration(seconds) * time.Second
-	}
-
-	// Try parsing as HTTP-date
-	if t, err := http.ParseTime(value); err == nil {
-		if delay := time.Until(t); delay > 0 {
-			return delay
-		}
-	}
-
-	return 0
-}
-
-// sleepWithContext sleeps for the given duration, returning early if the
-// context is canceled.
-func sleepWithContext(ctx context.Context, d time.Duration) error {
-	timer := time.NewTimer(d)
-	defer timer.Stop()
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-timer.C:
-		return nil
-	}
-}
 
 // BaseURL returns the configured base URL.
 func (c *Client) BaseURL() string {

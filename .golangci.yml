@@ -72,6 +72,7 @@ linters:
         - G304  # File inclusion via variable - core file operations
         - G306  # WriteFile permissions - test file creation
         - G703  # Taint analysis - false positives on t.TempDir() and trusted env vars
+        - G704  # Taint analysis - false positives on httpClient.Do() with constructed URLs
 
   exclusions:
     # Test files can be longer and have more complexity

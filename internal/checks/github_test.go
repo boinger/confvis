@@ -6,7 +6,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/boinger/confvis/internal/confidence"
 )
@@ -855,6 +857,283 @@ func TestLoadGitHubEnvWithPR(t *testing.T) {
 
 func writeFile(path, content string) error {
 	return os.WriteFile(path, []byte(content), 0644)
+}
+
+// --- Retry tests ---
+
+func TestDoRequest_RetriesGETOn502ThenSucceeds(t *testing.T) {
+	var requestCount int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requestCount++
+		if requestCount == 1 {
+			w.WriteHeader(http.StatusBadGateway)
+			_, _ = w.Write([]byte("bad gateway"))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok": true}`))
+	}))
+	defer server.Close()
+
+	client := NewGitHubClientWithHTTP(GitHubClientConfig{
+		BaseURL: server.URL,
+		Token:   "test-token",
+	}, server.Client())
+
+	body, err := client.doRequest(context.Background(), http.MethodGet, server.URL+"/test", nil, http.StatusOK)
+	if err != nil {
+		t.Fatalf("expected success after retry, got error: %v", err)
+	}
+	if string(body) != `{"ok": true}` {
+		t.Errorf("unexpected body: %s", string(body))
+	}
+	if requestCount != 2 {
+		t.Errorf("expected 2 requests (1 fail + 1 success), got %d", requestCount)
+	}
+}
+
+func TestDoRequest_MaxRetriesExceeded(t *testing.T) {
+	var requestCount int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requestCount++
+		w.WriteHeader(http.StatusBadGateway)
+		_, _ = w.Write([]byte("bad gateway"))
+	}))
+	defer server.Close()
+
+	client := NewGitHubClientWithHTTP(GitHubClientConfig{
+		BaseURL: server.URL,
+		Token:   "test-token",
+	}, server.Client())
+
+	_, err := client.doRequest(context.Background(), http.MethodGet, server.URL+"/test", nil, http.StatusOK)
+	if err == nil {
+		t.Fatal("expected error after max retries, got nil")
+	}
+	// maxRetries = 3, so 4 total attempts (1 initial + 3 retries).
+	if requestCount != maxRetries+1 {
+		t.Errorf("expected %d requests, got %d", maxRetries+1, requestCount)
+	}
+}
+
+func TestDoRequest_RespectsRetryAfterHeader(t *testing.T) {
+	var requestCount int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requestCount++
+		if requestCount == 1 {
+			w.Header().Set("Retry-After", "1")
+			w.WriteHeader(http.StatusTooManyRequests)
+			_, _ = w.Write([]byte("rate limited"))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer server.Close()
+
+	client := NewGitHubClientWithHTTP(GitHubClientConfig{
+		BaseURL: server.URL,
+		Token:   "test-token",
+	}, server.Client())
+
+	_, err := client.doRequest(context.Background(), http.MethodGet, server.URL+"/test", nil, http.StatusOK)
+	if err != nil {
+		t.Fatalf("expected success, got: %v", err)
+	}
+	if requestCount != 2 {
+		t.Errorf("expected 2 requests, got %d", requestCount)
+	}
+}
+
+func TestDoRequest_ContextCancelledDuringBackoff(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadGateway)
+		_, _ = w.Write([]byte("bad gateway"))
+	}))
+	defer server.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+
+	client := NewGitHubClientWithHTTP(GitHubClientConfig{
+		BaseURL: server.URL,
+		Token:   "test-token",
+	}, server.Client())
+
+	_, err := client.doRequest(ctx, http.MethodGet, server.URL+"/test", nil, http.StatusOK)
+	if err == nil {
+		t.Fatal("expected error from context cancellation")
+	}
+	// Should return quickly, not wait for all retries.
+}
+
+func TestDoRequest_DoesNotRetryPOST(t *testing.T) {
+	var requestCount int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requestCount++
+		w.WriteHeader(http.StatusBadGateway)
+		_, _ = w.Write([]byte("bad gateway"))
+	}))
+	defer server.Close()
+
+	client := NewGitHubClientWithHTTP(GitHubClientConfig{
+		BaseURL: server.URL,
+		Token:   "test-token",
+	}, server.Client())
+
+	_, err := client.doRequest(context.Background(), http.MethodPost, server.URL+"/test", nil, http.StatusCreated)
+	if err == nil {
+		t.Fatal("expected error on POST 502")
+	}
+	if requestCount != 1 {
+		t.Errorf("POST should NOT be retried: expected 1 request, got %d", requestCount)
+	}
+}
+
+func TestDoRequest_DoesNotRetryNonRetryableStatus(t *testing.T) {
+	var requestCount int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requestCount++
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte("unauthorized"))
+	}))
+	defer server.Close()
+
+	client := NewGitHubClientWithHTTP(GitHubClientConfig{
+		BaseURL: server.URL,
+		Token:   "test-token",
+	}, server.Client())
+
+	_, err := client.doRequest(context.Background(), http.MethodGet, server.URL+"/test", nil, http.StatusOK)
+	if err == nil {
+		t.Fatal("expected error on 401")
+	}
+	if requestCount != 1 {
+		t.Errorf("401 should NOT be retried: expected 1 request, got %d", requestCount)
+	}
+}
+
+func TestDoRequest_RetriesNetworkError(t *testing.T) {
+	var requestCount int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requestCount++
+		if requestCount == 1 {
+			// Force a connection reset by hijacking and closing.
+			hijacker, ok := w.(http.Hijacker)
+			if !ok {
+				t.Fatal("server doesn't support hijacking")
+			}
+			conn, _, err := hijacker.Hijack()
+			if err != nil {
+				t.Fatalf("hijack failed: %v", err)
+			}
+			_ = conn.Close()
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer server.Close()
+
+	client := NewGitHubClientWithHTTP(GitHubClientConfig{
+		BaseURL: server.URL,
+		Token:   "test-token",
+	}, server.Client())
+
+	body, err := client.doRequest(context.Background(), http.MethodGet, server.URL+"/test", nil, http.StatusOK)
+	if err != nil {
+		t.Fatalf("expected success after network error retry, got: %v", err)
+	}
+	if string(body) != `{}` {
+		t.Errorf("unexpected body: %s", string(body))
+	}
+	if requestCount != 2 {
+		t.Errorf("expected 2 requests (1 network error + 1 success), got %d", requestCount)
+	}
+}
+
+// --- Pagination cap tests ---
+
+func newFullPageServer(t *testing.T) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		comments := make([]struct {
+			ID   int64  `json:"id"`
+			Body string `json:"body"`
+		}, commentsPerPage)
+		for i := range comments {
+			comments[i].ID = int64(i + 1)
+			comments[i].Body = "some comment"
+		}
+		// Put a confvis comment on page 1.
+		if r.URL.Query().Get("page") == "1" {
+			comments[0].Body = CommentMarker + " confvis result"
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(comments)
+	}))
+}
+
+func TestFindAllConfvisComments_PaginationCap(t *testing.T) {
+	server := newFullPageServer(t)
+	defer server.Close()
+
+	client := NewGitHubClientWithHTTP(GitHubClientConfig{
+		BaseURL: server.URL,
+		Token:   "test-token",
+	}, server.Client())
+
+	result, err := client.FindAllConfvisComments(context.Background(), CommentOptions{
+		Owner: "owner",
+		Repo:  "repo",
+		PR:    1,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(result) != 1 {
+		t.Errorf("expected 1 confvis comment, got %d", len(result))
+	}
+}
+
+func TestFindAllConfvisComments_PaginationCapWarning(t *testing.T) {
+	server := newFullPageServer(t)
+	defer server.Close()
+
+	client := NewGitHubClientWithHTTP(GitHubClientConfig{
+		BaseURL: server.URL,
+		Token:   "test-token",
+	}, server.Client())
+
+	// Capture stderr to check for warning.
+	oldStderr := os.Stderr
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("failed to create pipe: %v", err)
+	}
+	os.Stderr = w
+
+	_, findErr := client.FindAllConfvisComments(context.Background(), CommentOptions{
+		Owner: "owner",
+		Repo:  "repo",
+		PR:    1,
+	})
+
+	_ = w.Close()
+	os.Stderr = oldStderr
+
+	if findErr != nil {
+		t.Fatalf("unexpected error: %v", findErr)
+	}
+
+	var buf [4096]byte
+	n, _ := r.Read(buf[:])
+	_ = r.Close()
+	output := string(buf[:n])
+
+	if !strings.Contains(output, "pagination capped") {
+		t.Errorf("expected pagination cap warning on stderr, got: %q", output)
+	}
 }
 
 // Helper functions

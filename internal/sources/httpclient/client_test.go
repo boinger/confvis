@@ -564,26 +564,7 @@ func TestClient_Get_Retry_DefaultConfig(t *testing.T) {
 	}
 }
 
-func TestParseRetryAfter_Seconds(t *testing.T) {
-	d := parseRetryAfter("5")
-	if d != 5*time.Second {
-		t.Errorf("parseRetryAfter(\"5\") = %v, want 5s", d)
-	}
-}
-
-func TestParseRetryAfter_Zero(t *testing.T) {
-	d := parseRetryAfter("0")
-	if d != 0 {
-		t.Errorf("parseRetryAfter(\"0\") = %v, want 0", d)
-	}
-}
-
-func TestParseRetryAfter_Invalid(t *testing.T) {
-	d := parseRetryAfter("not-a-number")
-	if d != 0 {
-		t.Errorf("parseRetryAfter(\"not-a-number\") = %v, want 0", d)
-	}
-}
+// ParseRetryAfter tests are in internal/httputil/httputil_test.go (shared implementation).
 
 func TestClient_Get_ResponseHook(t *testing.T) {
 	var hookCalled bool

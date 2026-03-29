@@ -8,12 +8,15 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
+	"math/rand/v2"
 	"net/http"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/boinger/confvis/internal/confidence"
+	"github.com/boinger/confvis/internal/httputil"
 	"github.com/boinger/confvis/internal/sources/httpclient"
 )
 
@@ -34,7 +37,13 @@ const (
 	gitHubAPIVersion = "2022-11-28"
 
 	// Pagination.
-	commentsPerPage = 100
+	commentsPerPage  = 100
+	maxCommentPages  = 20
+
+	// Retry configuration for GET requests.
+	maxRetries        = 3
+	initialBackoff    = 1 * time.Second
+	maxJitterFraction = 0.5
 
 	// Endpoint format strings.
 	issueCommentsEndpoint = "%s/repos/%s/%s/issues/%d/comments"
@@ -54,6 +63,14 @@ var (
 	errPRRequired        = errors.New("PR number is required")
 	errNoPRInEvent       = errors.New("no PR number found in event")
 )
+
+// retryableStatusCodes are HTTP status codes that indicate a transient failure.
+var retryableStatusCodes = map[int]bool{
+	http.StatusTooManyRequests:    true, // 429
+	http.StatusBadGateway:         true, // 502
+	http.StatusServiceUnavailable: true, // 503
+	http.StatusGatewayTimeout:     true, // 504
+}
 
 // GitHubClient is an HTTP client for the GitHub Checks API.
 type GitHubClient struct {
@@ -161,6 +178,12 @@ func (c *GitHubClient) CreateCheck(ctx context.Context, report *confidence.Repor
 // doRequest executes an HTTP request with standard GitHub API headers.
 // It returns the response body bytes on success, or an error if the request
 // fails or the status code doesn't match expectedStatus.
+//
+// GET requests are automatically retried on transient failures (429, 502, 503,
+// 504, and network errors) with exponential backoff. Non-GET requests (POST,
+// PATCH, DELETE) are NOT retried because they are not idempotent — retrying a
+// POST that the server already processed would create duplicate check runs or
+// comments.
 func (c *GitHubClient) doRequest(ctx context.Context, method, endpoint string, body io.Reader, expectedStatus int) ([]byte, error) {
 	httpReq, err := http.NewRequestWithContext(ctx, method, endpoint, body)
 	if err != nil {
@@ -174,9 +197,42 @@ func (c *GitHubClient) doRequest(ctx context.Context, method, endpoint string, b
 	}
 	httpReq.Header.Set(headerGitHubAPIVersion, gitHubAPIVersion)
 
+	// Non-GET requests: single attempt (not idempotent).
+	if method != http.MethodGet {
+		return c.doHTTP(httpReq, expectedStatus)
+	}
+
+	// GET requests: retry on transient failures. The request has a nil body,
+	// so it is safe to reuse across attempts without re-reading.
+	var lastErr error
+	for attempt := range maxRetries + 1 {
+		if attempt > 0 {
+			delay := c.retryDelay(attempt, lastErr)
+			if err := httputil.SleepWithContext(ctx, delay); err != nil {
+				return nil, lastErr
+			}
+		}
+
+		respBody, err := c.doHTTP(httpReq, expectedStatus)
+		if err == nil {
+			return respBody, nil
+		}
+		lastErr = err
+
+		if !isRetryableError(err) {
+			return nil, err
+		}
+	}
+
+	return nil, lastErr
+}
+
+// doHTTP performs a single HTTP request attempt and returns the response body.
+func (c *GitHubClient) doHTTP(httpReq *http.Request, expectedStatus int) ([]byte, error) {
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
-		return nil, fmt.Errorf(errMakingRequest, err)
+		// Network errors (no response) are retryable.
+		return nil, &retryableHTTPError{err: fmt.Errorf(errMakingRequest, err)}
 	}
 	defer func() { _ = resp.Body.Close() }()
 
@@ -186,10 +242,49 @@ func (c *GitHubClient) doRequest(ctx context.Context, method, endpoint string, b
 	}
 
 	if resp.StatusCode != expectedStatus {
-		return nil, fmt.Errorf(errAPIStatus, resp.StatusCode, string(respBody))
+		apiErr := fmt.Errorf(errAPIStatus, resp.StatusCode, string(respBody))
+		if retryableStatusCodes[resp.StatusCode] {
+			return nil, &retryableHTTPError{
+				err:        apiErr,
+				retryAfter: resp.Header.Get("Retry-After"),
+			}
+		}
+		return nil, apiErr
 	}
 
 	return respBody, nil
+}
+
+// retryableHTTPError wraps an error to indicate it can be retried.
+type retryableHTTPError struct {
+	err        error
+	retryAfter string // Retry-After header value, if present
+}
+
+func (e *retryableHTTPError) Error() string { return e.err.Error() }
+func (e *retryableHTTPError) Unwrap() error { return e.err }
+
+// isRetryableError reports whether an error should trigger a retry.
+func isRetryableError(err error) bool {
+	var re *retryableHTTPError
+	return errors.As(err, &re)
+}
+
+// retryDelay calculates the delay before a retry attempt. If the previous
+// error carried a Retry-After value, that takes precedence over exponential
+// backoff.
+func (c *GitHubClient) retryDelay(attempt int, lastErr error) time.Duration {
+	var re *retryableHTTPError
+	if errors.As(lastErr, &re) && re.retryAfter != "" {
+		if d := httputil.ParseRetryAfter(re.retryAfter); d > 0 {
+			return d
+		}
+	}
+
+	// Exponential backoff with jitter.
+	backoff := float64(initialBackoff) * math.Pow(2, float64(attempt-1))
+	jitter := backoff * maxJitterFraction * rand.Float64() //#nosec G404 -- jitter for retry backoff, not security-sensitive
+	return time.Duration(backoff + jitter)
 }
 
 // marshalAndDo marshals a request body and sends it via doRequest.
@@ -386,7 +481,7 @@ func (c *GitHubClient) FindAllConfvisComments(ctx context.Context, opts CommentO
 	baseEndpoint := fmt.Sprintf(issueCommentsEndpoint, c.baseURL, opts.Owner, opts.Repo, opts.PR)
 
 	var result []CommentResponse
-	for page := 1; ; page++ {
+	for page := 1; page <= maxCommentPages; page++ {
 		endpoint := fmt.Sprintf("%s?per_page=%d&page=%d", baseEndpoint, commentsPerPage, page)
 
 		respBody, err := c.doRequest(ctx, http.MethodGet, endpoint, nil, http.StatusOK)
@@ -410,6 +505,11 @@ func (c *GitHubClient) FindAllConfvisComments(ctx context.Context, opts CommentO
 
 		if len(comments) < commentsPerPage {
 			break
+		}
+
+		if page == maxCommentPages {
+			_, _ = fmt.Fprintf(os.Stderr, "Warning: comment pagination capped at %d pages (%d comments); results may be incomplete\n",
+				maxCommentPages, maxCommentPages*commentsPerPage)
 		}
 	}
 
