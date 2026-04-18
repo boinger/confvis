@@ -2,6 +2,10 @@ package gitleaks
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/boinger/confvis/internal/sources"
@@ -177,5 +181,105 @@ func TestFinding_Fields(t *testing.T) {
 	}
 	if finding.File != "config.yaml" {
 		t.Errorf("File = %q, want %q", finding.File, "config.yaml")
+	}
+}
+
+// writeMockScript creates an executable bash script that prints scriptOutput
+// to stdout and exits with the given code.
+func writeMockScript(t *testing.T, dir, name, scriptOutput string, exitCode int) string {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("mock-bash-script gitleaks tests rely on POSIX shell; skipping on Windows")
+	}
+	scriptPath := filepath.Join(dir, name)
+	body := fmt.Sprintf("#!/bin/bash\ncat <<'LEAKSEOF'\n%s\nLEAKSEOF\n", scriptOutput)
+	if exitCode != 0 {
+		body += fmt.Sprintf("exit %d\n", exitCode)
+	}
+	if err := os.WriteFile(scriptPath, []byte(body), 0o755); err != nil { //#nosec G306 -- test fixture must be executable
+		t.Fatalf("writing mock script: %v", err)
+	}
+	return scriptPath
+}
+
+func TestSource_Fetch_WithMockScript(t *testing.T) {
+	tmpDir := t.TempDir()
+	// Gitleaks JSON output: an array of findings. Exit code 1 = leaks found.
+	output := `[{"RuleID":"generic-api-key","File":"config.yaml","Secret":"***","StartLine":10},{"RuleID":"aws-access-key","File":".env","Secret":"***","StartLine":5}]`
+	script := writeMockScript(t, tmpDir, "mock-gitleaks", output, 1)
+
+	s := &Source{}
+	opts := sources.Options{
+		Project:   tmpDir,
+		Threshold: 75,
+		Extra:     map[string]string{"gitleaks-cmd": script},
+	}
+
+	report, err := s.Fetch(context.Background(), opts)
+	if err != nil {
+		t.Fatalf("Fetch() error = %v", err)
+	}
+	if report.Source != sourceName {
+		t.Errorf("Source = %q, want %q", report.Source, sourceName)
+	}
+	if report.Threshold != 75 {
+		t.Errorf("Threshold = %d, want 75", report.Threshold)
+	}
+	if len(report.Factors) != 1 {
+		t.Fatalf("len(Factors) = %d, want 1", len(report.Factors))
+	}
+}
+
+func TestSource_Fetch_NoLeaks(t *testing.T) {
+	tmpDir := t.TempDir()
+	// Empty output = no leaks. Exit code 0.
+	script := writeMockScript(t, tmpDir, "mock-gitleaks-clean", "", 0)
+
+	s := &Source{}
+	opts := sources.Options{
+		Project:   tmpDir,
+		Threshold: 75,
+		Extra:     map[string]string{"gitleaks-cmd": script},
+	}
+
+	report, err := s.Fetch(context.Background(), opts)
+	if err != nil {
+		t.Fatalf("Fetch() error = %v", err)
+	}
+	if report.ScoreValue() != 100 {
+		t.Errorf("Score = %d, want 100 (no leaks)", report.ScoreValue())
+	}
+}
+
+func TestSource_Fetch_DefaultTarget(t *testing.T) {
+	tmpDir := t.TempDir()
+	script := writeMockScript(t, tmpDir, "mock-gitleaks-default", "", 0)
+
+	s := &Source{}
+	opts := sources.Options{
+		// Project empty → Fetch defaults to "."
+		Threshold: 75,
+		Extra:     map[string]string{"gitleaks-cmd": script},
+	}
+
+	if _, err := s.Fetch(context.Background(), opts); err != nil {
+		t.Fatalf("Fetch() error = %v", err)
+	}
+}
+
+func TestSource_Fetch_EnvVarFallback(t *testing.T) {
+	tmpDir := t.TempDir()
+	script := writeMockScript(t, tmpDir, "mock-gitleaks-env", "", 0)
+
+	t.Setenv(EnvCommand, script)
+
+	s := &Source{}
+	opts := sources.Options{
+		Project:   tmpDir,
+		Threshold: 75,
+	}
+
+	if _, err := s.Fetch(context.Background(), opts); err != nil {
+		t.Fatalf("Fetch() error = %v", err)
 	}
 }
