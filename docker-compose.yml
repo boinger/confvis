@@ -4,7 +4,7 @@
 
 services:
   sonarqube:
-    image: sonarqube:lts-community
+    image: sonarqube:lts-community@sha256:f709975ab31d2d08f5a3ae2dc73a31ee011afc8cf28845082c17c55d45df9df5
     ports:
       - "9000:9000"
     environment:
