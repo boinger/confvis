@@ -34,16 +34,31 @@ func loadHistoryScores(deps *GaugeDeps, useGitRef bool, historyRef, historyFile 
 	return scores, nil
 }
 
-// appendToHistory writes a score entry to the appropriate history storage.
+// appendToHistory writes a score entry to the appropriate history storage
+// and then prunes to HistoryMaxEntries (if set) to bound file/ref growth.
+// Prune failures are non-fatal — the append has already succeeded and the
+// next run will try again. Failures are returned so callers can surface
+// them as warnings if desired.
 func appendToHistory(deps *GaugeDeps, useGitRef bool, historyRef, historyFile string, score int) error {
 	entry := history.NewEntry(score)
-	if useGitRef && historyRef != "" {
+	switch {
+	case useGitRef && historyRef != "":
 		if err := deps.GitRefAppender(historyRef, entry); err != nil {
 			return fmt.Errorf("appending to history git ref: %w", err)
 		}
-	} else if historyFile != "" {
+		if deps.GitRefPruner != nil && deps.HistoryMaxEntries > 0 {
+			if err := deps.GitRefPruner(historyRef, deps.HistoryMaxEntries); err != nil {
+				return fmt.Errorf("pruning history git ref: %w", err)
+			}
+		}
+	case historyFile != "":
 		if err := deps.HistoryAppender(historyFile, entry); err != nil {
 			return fmt.Errorf("appending to history: %w", err)
+		}
+		if deps.HistoryPruner != nil && deps.HistoryMaxEntries > 0 {
+			if err := deps.HistoryPruner(historyFile, deps.HistoryMaxEntries); err != nil {
+				return fmt.Errorf("pruning history file: %w", err)
+			}
 		}
 	}
 	return nil

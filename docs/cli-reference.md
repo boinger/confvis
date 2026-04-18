@@ -248,6 +248,7 @@ confvis gauge -c <config> [-o <output-file>] [flags]
 | `--history-ref` | | | Git ref for storing history (e.g., `refs/confvis/history`) |
 | `--history-auto` | | false | Auto-detect history storage: git ref if in repo, else file |
 | `--history-count` | | 10 | Number of historical points to show in sparkline |
+| `--history-max-entries` | | 5000 | Cap history at N most recent entries after append (0 or negative disables pruning) |
 | `--width` | | 200 | Gauge width in pixels (gauge badge only) |
 | `--height` | | 120 | Gauge height in pixels (gauge badge only) |
 | `--style` | | github | Color scheme style (svg only) |

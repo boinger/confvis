@@ -259,3 +259,114 @@ func TestReadFile_PermissionError(t *testing.T) {
 		t.Log("ReadFile() expected error for permission denied (may pass if running as root)")
 	}
 }
+
+func TestPrune_NoOpWhenUnderCap(t *testing.T) {
+	tmpDir := t.TempDir()
+	path := filepath.Join(tmpDir, "history.jsonl")
+
+	for i := 0; i < 5; i++ {
+		if err := AppendToFile(path, Entry{Score: i * 10, Timestamp: time.Now().UTC()}); err != nil {
+			t.Fatalf("AppendToFile() error = %v", err)
+		}
+	}
+
+	if err := Prune(path, 10); err != nil {
+		t.Fatalf("Prune() error = %v", err)
+	}
+
+	hist, err := ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile() error = %v", err)
+	}
+	if len(hist.Entries) != 5 {
+		t.Errorf("len(Entries) = %d, want 5 (unchanged)", len(hist.Entries))
+	}
+}
+
+func TestPrune_TrimsToLastN(t *testing.T) {
+	tmpDir := t.TempDir()
+	path := filepath.Join(tmpDir, "history.jsonl")
+
+	for i := 0; i < 20; i++ {
+		if err := AppendToFile(path, Entry{Score: i, Timestamp: time.Now().UTC()}); err != nil {
+			t.Fatalf("AppendToFile() error = %v", err)
+		}
+	}
+
+	if err := Prune(path, 7); err != nil {
+		t.Fatalf("Prune() error = %v", err)
+	}
+
+	hist, err := ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile() error = %v", err)
+	}
+	if len(hist.Entries) != 7 {
+		t.Fatalf("len(Entries) = %d, want 7", len(hist.Entries))
+	}
+	// The entries kept should be the last 7 written (scores 13..19).
+	if hist.Entries[0].Score != 13 {
+		t.Errorf("first kept entry score = %d, want 13", hist.Entries[0].Score)
+	}
+	if hist.Entries[6].Score != 19 {
+		t.Errorf("last kept entry score = %d, want 19", hist.Entries[6].Score)
+	}
+}
+
+func TestPrune_DisabledWhenMaxIsZeroOrNegative(t *testing.T) {
+	tmpDir := t.TempDir()
+	path := filepath.Join(tmpDir, "history.jsonl")
+
+	for i := 0; i < 10; i++ {
+		if err := AppendToFile(path, Entry{Score: i, Timestamp: time.Now().UTC()}); err != nil {
+			t.Fatalf("AppendToFile() error = %v", err)
+		}
+	}
+
+	for _, n := range []int{0, -1, -100} {
+		if err := Prune(path, n); err != nil {
+			t.Fatalf("Prune(%d) error = %v", n, err)
+		}
+	}
+
+	hist, err := ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile() error = %v", err)
+	}
+	if len(hist.Entries) != 10 {
+		t.Errorf("len(Entries) = %d, want 10 (untouched)", len(hist.Entries))
+	}
+}
+
+func TestPrune_MissingFileNoOp(t *testing.T) {
+	// Pruning a nonexistent file is a no-op (ReadFile returns empty history).
+	if err := Prune(filepath.Join(t.TempDir(), "no-such-file.jsonl"), 10); err != nil {
+		t.Fatalf("Prune() error on missing file = %v", err)
+	}
+}
+
+func TestPrune_PreservesOrder(t *testing.T) {
+	tmpDir := t.TempDir()
+	path := filepath.Join(tmpDir, "history.jsonl")
+
+	base := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	for i := 0; i < 5; i++ {
+		if err := AppendToFile(path, Entry{Score: i, Timestamp: base.Add(time.Duration(i) * time.Hour)}); err != nil {
+			t.Fatalf("AppendToFile() error = %v", err)
+		}
+	}
+
+	if err := Prune(path, 3); err != nil {
+		t.Fatalf("Prune() error = %v", err)
+	}
+
+	hist, err := ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile() error = %v", err)
+	}
+	for i := 0; i < len(hist.Entries)-1; i++ {
+		if hist.Entries[i].Timestamp.After(hist.Entries[i+1].Timestamp) {
+			t.Errorf("entries out of order after prune at index %d", i)
+		}
+	}
+}

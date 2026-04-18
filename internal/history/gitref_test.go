@@ -340,3 +340,128 @@ func TestGitRefStorage_VerifyWithGitCatFile(t *testing.T) {
 		t.Errorf("git cat-file content mismatch: got %v", parsed.Entries)
 	}
 }
+
+func TestGitRefStorage_PruneRef_TrimsToLastN(t *testing.T) {
+	repoDir := setupGitRepo(t)
+	t.Chdir(repoDir)
+
+	storage := newGitRefStorage()
+	ref := "refs/confvis/prune-test"
+
+	base := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+	for i := 0; i < 15; i++ {
+		entry := Entry{Score: i, Timestamp: base.Add(time.Duration(i) * time.Hour)}
+		if err := storage.AppendToRef(ref, entry); err != nil {
+			t.Fatalf("AppendToRef() error = %v", err)
+		}
+	}
+
+	if err := storage.PruneRef(ref, 5); err != nil {
+		t.Fatalf("PruneRef() error = %v", err)
+	}
+
+	hist, err := storage.ReadFromRef(ref)
+	if err != nil {
+		t.Fatalf("ReadFromRef() error = %v", err)
+	}
+	if len(hist.Entries) != 5 {
+		t.Fatalf("len(Entries) = %d, want 5", len(hist.Entries))
+	}
+	// Last 5 entries: scores 10..14
+	if hist.Entries[0].Score != 10 {
+		t.Errorf("first kept score = %d, want 10", hist.Entries[0].Score)
+	}
+	if hist.Entries[4].Score != 14 {
+		t.Errorf("last kept score = %d, want 14", hist.Entries[4].Score)
+	}
+}
+
+func TestGitRefStorage_PruneRef_NoOpWhenUnderCap(t *testing.T) {
+	repoDir := setupGitRepo(t)
+	t.Chdir(repoDir)
+
+	storage := newGitRefStorage()
+	ref := "refs/confvis/prune-noop"
+
+	for i := 0; i < 3; i++ {
+		if err := storage.AppendToRef(ref, Entry{Score: i, Timestamp: time.Now().UTC()}); err != nil {
+			t.Fatalf("AppendToRef() error = %v", err)
+		}
+	}
+
+	if err := storage.PruneRef(ref, 10); err != nil {
+		t.Fatalf("PruneRef() error = %v", err)
+	}
+
+	hist, err := storage.ReadFromRef(ref)
+	if err != nil {
+		t.Fatalf("ReadFromRef() error = %v", err)
+	}
+	if len(hist.Entries) != 3 {
+		t.Errorf("len(Entries) = %d, want 3 (unchanged)", len(hist.Entries))
+	}
+}
+
+func TestGitRefStorage_PruneRef_Disabled(t *testing.T) {
+	repoDir := setupGitRepo(t)
+	t.Chdir(repoDir)
+
+	storage := newGitRefStorage()
+	ref := "refs/confvis/prune-disabled"
+
+	for i := 0; i < 5; i++ {
+		if err := storage.AppendToRef(ref, Entry{Score: i, Timestamp: time.Now().UTC()}); err != nil {
+			t.Fatalf("AppendToRef() error = %v", err)
+		}
+	}
+
+	for _, n := range []int{0, -1} {
+		if err := storage.PruneRef(ref, n); err != nil {
+			t.Fatalf("PruneRef(%d) error = %v", n, err)
+		}
+	}
+
+	hist, err := storage.ReadFromRef(ref)
+	if err != nil {
+		t.Fatalf("ReadFromRef() error = %v", err)
+	}
+	if len(hist.Entries) != 5 {
+		t.Errorf("len(Entries) = %d, want 5 (untouched)", len(hist.Entries))
+	}
+}
+
+func TestGitRefStorage_PruneRef_MissingRefNoOp(t *testing.T) {
+	repoDir := setupGitRepo(t)
+	t.Chdir(repoDir)
+
+	storage := newGitRefStorage()
+	// Reading a non-existent ref returns empty history, so prune has nothing to do.
+	if err := storage.PruneRef("refs/confvis/does-not-exist", 10); err != nil {
+		t.Fatalf("PruneRef() error on missing ref = %v", err)
+	}
+}
+
+func TestPruneGitRef_PackageLevel(t *testing.T) {
+	repoDir := setupGitRepo(t)
+	t.Chdir(repoDir)
+
+	ref := "refs/confvis/prune-package-level"
+	for i := 0; i < 8; i++ {
+		if err := AppendToGitRef(ref, Entry{Score: i, Timestamp: time.Now().UTC()}); err != nil {
+			t.Fatalf("AppendToGitRef() error = %v", err)
+		}
+	}
+
+	// Use the package-level helper, mirroring how CLI orchestration will call it.
+	if err := PruneGitRef(ref, 3); err != nil {
+		t.Fatalf("PruneGitRef() error = %v", err)
+	}
+
+	hist, err := ReadFromGitRef(ref)
+	if err != nil {
+		t.Fatalf("ReadFromGitRef() error = %v", err)
+	}
+	if len(hist.Entries) != 3 {
+		t.Errorf("len(Entries) = %d, want 3", len(hist.Entries))
+	}
+}

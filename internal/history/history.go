@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -109,4 +110,61 @@ func NewEntry(score int) Entry {
 		Score:     score,
 		Timestamp: time.Now().UTC(),
 	}
+}
+
+// Prune rewrites the history file at path to keep only the last
+// maxEntries rows. A maxEntries of 0 or less disables pruning (no-op).
+// If the file contains fewer than maxEntries rows, Prune is a no-op.
+// Missing files are not an error; pruning skips gracefully.
+//
+// Prune is intended to be called from CLI orchestration after a successful
+// AppendToFile. It is not called from AppendToFile itself to keep the hot
+// write path simple and to let callers control rotation cadence.
+func Prune(path string, maxEntries int) error {
+	if maxEntries <= 0 {
+		return nil
+	}
+
+	hist, err := ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("reading history for prune: %w", err)
+	}
+	if len(hist.Entries) <= maxEntries {
+		return nil
+	}
+
+	kept := hist.Entries[len(hist.Entries)-maxEntries:]
+
+	// Write to a sibling temp file, then rename for atomicity. Rename is
+	// atomic on POSIX within the same directory, so readers never see a
+	// partially-written file.
+	tmp, err := os.CreateTemp(filepath.Dir(path), filepath.Base(path)+".tmp-*")
+	if err != nil {
+		return fmt.Errorf("creating temp file for prune: %w", err)
+	}
+	tmpName := tmp.Name()
+	// Best-effort cleanup on any error path.
+	defer func() {
+		if tmp != nil {
+			_ = tmp.Close()
+		}
+		// If rename succeeded, tmpName no longer exists; Remove errors are ignored.
+		_ = os.Remove(tmpName)
+	}()
+
+	enc := json.NewEncoder(tmp)
+	for _, e := range kept {
+		if err := enc.Encode(e); err != nil {
+			return fmt.Errorf("writing pruned entry: %w", err)
+		}
+	}
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("closing pruned history: %w", err)
+	}
+	tmp = nil // closed; skip defer's Close
+
+	if err := os.Rename(tmpName, path); err != nil {
+		return fmt.Errorf("replacing history file: %w", err)
+	}
+	return nil
 }

@@ -125,6 +125,27 @@ func serializeHistory(h *History) (string, error) {
 	return buf.String(), nil
 }
 
+// PruneRef rewrites the history stored at ref to keep only the last
+// maxEntries entries. A maxEntries of 0 or less disables pruning (no-op).
+// If the ref doesn't exist or contains fewer entries than maxEntries,
+// PruneRef is a no-op.
+func (g *GitRefStorage) PruneRef(ref string, maxEntries int) error {
+	if maxEntries <= 0 {
+		return nil
+	}
+
+	h, err := g.ReadFromRef(ref)
+	if err != nil {
+		return fmt.Errorf("reading history for prune: %w", err)
+	}
+	if len(h.Entries) <= maxEntries {
+		return nil
+	}
+
+	h.Entries = h.Entries[len(h.Entries)-maxEntries:]
+	return g.WriteToRef(ref, h)
+}
+
 // Package-level functions for convenience
 
 // ReadFromGitRef reads history from a git ref using the default storage.
@@ -140,4 +161,9 @@ func WriteToGitRef(ref string, h *History) error {
 // AppendToGitRef appends an entry to history stored in a git ref.
 func AppendToGitRef(ref string, entry Entry) error {
 	return newGitRefStorage().AppendToRef(ref, entry)
+}
+
+// PruneGitRef trims history stored in a git ref to the last maxEntries entries.
+func PruneGitRef(ref string, maxEntries int) error {
+	return newGitRefStorage().PruneRef(ref, maxEntries)
 }

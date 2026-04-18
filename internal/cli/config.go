@@ -59,6 +59,7 @@ func bindGaugeFlags(cmd *cobra.Command) {
 	must(viper.BindPFlag("gauge.history_count", cmd.Flags().Lookup("history-count")))
 	must(viper.BindPFlag("gauge.history_ref", cmd.Flags().Lookup("history-ref")))
 	must(viper.BindPFlag("gauge.history_auto", cmd.Flags().Lookup("history-auto")))
+	must(viper.BindPFlag("gauge.history_max_entries", cmd.Flags().Lookup("history-max-entries")))
 	must(viper.BindPFlag("gauge.green_above", cmd.Flags().Lookup("green-above")))
 	must(viper.BindPFlag("gauge.yellow_above", cmd.Flags().Lookup("yellow-above")))
 	must(viper.BindPFlag("gauge.compare_baseline", cmd.Flags().Lookup("compare-baseline")))
@@ -198,6 +199,20 @@ func getGaugeHistoryRef() string {
 // getGaugeHistoryAuto returns the history auto-detect setting from config/env/flag.
 func getGaugeHistoryAuto() bool {
 	return viper.GetBool("gauge.history_auto")
+}
+
+// getGaugeHistoryMaxEntries returns the history retention cap from config/env/flag.
+// Returns 5000 as the default when unset. A value of -1 disables pruning for
+// users who explicitly opt into unbounded history.
+func getGaugeHistoryMaxEntries() int {
+	if !viper.IsSet("gauge.history_max_entries") {
+		return 5000
+	}
+	v := viper.GetInt("gauge.history_max_entries")
+	if v < 0 {
+		return 0 // negative => disable pruning
+	}
+	return v
 }
 
 // getGaugeGreenAbove returns the green threshold from config/env/flag.

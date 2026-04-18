@@ -30,10 +30,11 @@ var (
 	gaugeLabel            string
 	gaugeIcon             string
 	gaugeInputFormat      string
-	gaugeHistoryFile      string
-	gaugeHistoryCount     int
-	gaugeHistoryRef       string
-	gaugeHistoryAuto      bool
+	gaugeHistoryFile       string
+	gaugeHistoryCount      int
+	gaugeHistoryRef        string
+	gaugeHistoryAuto       bool
+	gaugeHistoryMaxEntries int
 	gaugeCompareBaseline  bool
 	gaugeBaselineRef      string
 	gaugeBaselineFile     string
@@ -73,6 +74,7 @@ func init() {
 	gaugeCmd.Flags().IntVar(&gaugeHistoryCount, "history-count", 0, "number of historical points to show in sparkline")
 	gaugeCmd.Flags().StringVar(&gaugeHistoryRef, "history-ref", "", "git ref for storing history (default: refs/confvis/history)")
 	gaugeCmd.Flags().BoolVar(&gaugeHistoryAuto, "history-auto", false, "auto-detect history storage: use git ref if in repo, else file")
+	gaugeCmd.Flags().IntVar(&gaugeHistoryMaxEntries, "history-max-entries", 0, "cap history at N most recent entries after append (0 = unlimited; default 5000)")
 	gaugeCmd.Flags().StringSliceVar(&gaugeFactorThresholds, "factor-threshold", nil, "per-factor threshold in 'Name:threshold' format (can be repeated)")
 	gaugeCmd.Flags().StringVar(&gaugeEmitJSON, "emit-json", "", "also write JSON metadata to this path")
 
@@ -96,8 +98,10 @@ type GaugeDeps struct {
 	ExitFunc              func(int)
 	HistoryReader         func(string) (*history.History, error)
 	HistoryAppender       func(string, history.Entry) error
+	HistoryPruner         func(string, int) error
 	GitRefReader          func(string) (*history.History, error)
 	GitRefAppender        func(string, history.Entry) error
+	GitRefPruner          func(string, int) error
 	BaselineGitRefReader  func(string) (*baseline.Baseline, error)
 	BaselineFileReader    func(string) (*baseline.Baseline, error)
 	IsGitRepo             func() bool
@@ -121,6 +125,7 @@ type GaugeDeps struct {
 	GreenAbove            int
 	YellowAbove           int
 	HistoryCount          int
+	HistoryMaxEntries     int
 	Dark                  bool
 	FailOnRegression      bool
 	HistoryAuto           bool
@@ -146,8 +151,10 @@ func runGauge(_ *cobra.Command, _ []string) error {
 		ExitFunc:             os.Exit,
 		HistoryReader:        history.ReadFile,
 		HistoryAppender:      history.AppendToFile,
+		HistoryPruner:        history.Prune,
 		GitRefReader:         history.ReadFromGitRef,
 		GitRefAppender:       history.AppendToGitRef,
+		GitRefPruner:         history.PruneGitRef,
 		BaselineGitRefReader: baseline.ReadFromGitRef,
 		BaselineFileReader:   baseline.ReadFromFile,
 		IsGitRepo:            gitutil.IsGitRepo,
@@ -171,6 +178,7 @@ func runGauge(_ *cobra.Command, _ []string) error {
 		GreenAbove:           getGaugeGreenAbove(),
 		YellowAbove:          getGaugeYellowAbove(),
 		HistoryCount:         getGaugeHistoryCount(),
+		HistoryMaxEntries:    getGaugeHistoryMaxEntries(),
 		Dark:                 getGaugeDark(),
 		FailOnRegression:     gaugeFailOnRegression,
 		HistoryAuto:          getGaugeHistoryAuto(),
