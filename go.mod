@@ -2,7 +2,7 @@ module github.com/boinger/confvis
 
 go 1.25.0
 
-toolchain go1.25.7
+toolchain go1.26.2
 
 require (
 	github.com/ajstarks/svgo v0.0.0-20211024235047-1546f124cd8b
