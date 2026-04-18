@@ -787,3 +787,47 @@ func TestReport_ScoreValue(t *testing.T) {
 		})
 	}
 }
+
+func TestParseWithFormat_UnknownFieldJSON(t *testing.T) {
+	// A typo in "threshold" should surface as a decode error rather than
+	// silently parse to Threshold: 0 (which would make the gate a no-op).
+	input := `{"title": "Test", "score": 85, "thresholdd": 75}`
+
+	_, err := ParseWithFormat(strings.NewReader(input), FormatJSON)
+	if err == nil {
+		t.Fatal("expected error for unknown field, got nil")
+	}
+	if !strings.Contains(err.Error(), "thresholdd") {
+		t.Errorf("error should mention the unknown field name; got: %v", err)
+	}
+}
+
+func TestParseWithFormat_UnknownFieldYAML(t *testing.T) {
+	input := "title: Test\nscore: 85\nthresholdd: 75\n"
+
+	_, err := ParseWithFormat(strings.NewReader(input), FormatYAML)
+	if err == nil {
+		t.Fatal("expected error for unknown field, got nil")
+	}
+	if !strings.Contains(err.Error(), "thresholdd") {
+		t.Errorf("error should mention the unknown field name; got: %v", err)
+	}
+}
+
+func TestParseWithFormat_UnknownFactorField(t *testing.T) {
+	// Unknown fields inside nested factor objects are also rejected.
+	input := `{
+		"title": "Test",
+		"score": 85,
+		"threshold": 75,
+		"factors": [{"name": "F1", "score": 90, "weight": 50, "weigth": 60}]
+	}`
+
+	_, err := ParseWithFormat(strings.NewReader(input), FormatJSON)
+	if err == nil {
+		t.Fatal("expected error for unknown factor field, got nil")
+	}
+	if !strings.Contains(err.Error(), "weigth") {
+		t.Errorf("error should mention the unknown field name; got: %v", err)
+	}
+}

@@ -71,19 +71,24 @@ func IsKnownFormatExtension(path string) bool {
 }
 
 // ParseWithFormat reads and parses a confidence report from an io.Reader
-// using the specified format.
+// using the specified format. Unknown fields are rejected so typos in
+// user configs surface as errors instead of silently becoming zero values.
 func ParseWithFormat(r io.Reader, format Format) (*Report, error) {
 	var report Report
 	var err error
 
 	switch format {
 	case FormatYAML:
-		err = yaml.NewDecoder(r).Decode(&report)
+		dec := yaml.NewDecoder(r)
+		dec.KnownFields(true)
+		err = dec.Decode(&report)
 		if err != nil {
 			return nil, fmt.Errorf("decoding YAML: %w", err)
 		}
 	default: // JSON
-		err = json.NewDecoder(r).Decode(&report)
+		dec := json.NewDecoder(r)
+		dec.DisallowUnknownFields()
+		err = dec.Decode(&report)
 		if err != nil {
 			return nil, fmt.Errorf("decoding JSON: %w", err)
 		}
