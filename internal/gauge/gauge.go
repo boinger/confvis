@@ -108,7 +108,7 @@ func Generate(w io.Writer, report *confidence.Report, opts Options) error {
 	// Pass/fail indicator with custom labels
 	statusText := report.EffectivePassLabel()
 	statusColor := scheme.Success
-	if !report.Passed() {
+	if !report.IsPass() {
 		statusText = report.EffectiveFailLabel()
 		statusColor = scheme.Danger
 	}

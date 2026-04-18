@@ -172,7 +172,7 @@ func checkGitHubImpl(deps *CheckGitHubDeps) error {
 
 	if !deps.Quiet {
 		status := "passed"
-		if !report.Passed() {
+		if !report.IsPass() {
 			status = "failed"
 		}
 		_, _ = fmt.Fprintf(deps.Stdout, "Created check run: %s (%s)\n", resp.HTMLURL, status)
@@ -184,7 +184,7 @@ func checkGitHubImpl(deps *CheckGitHubDeps) error {
 func outputCheckDryRun(deps *CheckGitHubDeps, opts checks.CreateCheckOptions, report *confidence.Report) {
 	status := "passed"
 	conclusion := "success"
-	if !report.Passed() {
+	if !report.IsPass() {
 		status = "failed"
 		conclusion = "failure"
 	}

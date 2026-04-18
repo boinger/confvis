@@ -358,7 +358,7 @@ func writeAggregateJSON(fs FileSystem, path string, report *confidence.Report, v
 		Title:     report.Title,
 		Score:     report.ScoreValue(),
 		Threshold: report.Threshold,
-		Passed:    report.Passed(),
+		Passed:    report.IsPass(),
 	}
 
 	return writeToFileWithFS(fs, path, verbose, "JSON", func(w io.Writer) error {

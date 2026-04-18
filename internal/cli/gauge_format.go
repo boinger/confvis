@@ -40,7 +40,7 @@ func writeJSON(w io.Writer, report *confidence.Report, baselineReport *confidenc
 		Title:       report.Title,
 		Score:       report.ScoreValue(),
 		Threshold:   report.Threshold,
-		Passed:      report.Passed(),
+		Passed:      report.IsPass(),
 		Version:     report.Version,
 		GeneratedAt: report.GeneratedAt,
 		Source:      report.Source,
@@ -74,7 +74,7 @@ func writeText(w io.Writer, score int, baselineReport *confidence.Report, delta 
 // writeMarkdown generates markdown output for the report.
 func writeMarkdown(w io.Writer, report *confidence.Report, baselineReport *confidence.Report, delta int) error {
 	status := report.EffectivePassLabel()
-	if !report.Passed() {
+	if !report.IsPass() {
 		status = report.EffectiveFailLabel()
 	}
 
@@ -150,7 +150,7 @@ func writeGitHubComment(w io.Writer, report *confidence.Report, baselineReport *
 func writeGitHubCommentHeader(w io.Writer, report *confidence.Report) error {
 	statusEmoji := ":white_check_mark:"
 	statusText := "Passed"
-	if !report.Passed() {
+	if !report.IsPass() {
 		statusEmoji = ":x:"
 		statusText = "Failed"
 	}

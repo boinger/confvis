@@ -249,7 +249,7 @@ func commentGitHubImpl(deps *CommentGitHubDeps) error {
 
 	if !deps.Quiet && resp != nil {
 		status := "passed"
-		if !report.Passed() {
+		if !report.IsPass() {
 			status = "failed"
 		}
 		_, _ = fmt.Fprintf(deps.Stdout, "Posted comment: %s (%s)\n", resp.HTMLURL, status)
@@ -358,7 +358,7 @@ func generateCommentBody(report *confidence.Report, baselineReport *confidence.R
 
 func outputCommentDryRun(deps *CommentGitHubDeps, opts checks.CommentOptions, report *confidence.Report, baselineReport *confidence.Report, body string) {
 	status := "passed"
-	if !report.Passed() {
+	if !report.IsPass() {
 		status = "failed"
 	}
 

@@ -141,8 +141,8 @@ func TestReport_Passed(t *testing.T) {
 	for _, tt := range tests {
 		score := tt.score
 		r := &Report{Score: &score, Threshold: tt.threshold}
-		if got := r.Passed(); got != tt.want {
-			t.Errorf("Report{Score: %d, Threshold: %d}.Passed() = %v, want %v",
+		if got := r.IsPass(); got != tt.want {
+			t.Errorf("Report{Score: %d, Threshold: %d}.IsPass() = %v, want %v",
 				tt.score, tt.threshold, got, tt.want)
 		}
 	}

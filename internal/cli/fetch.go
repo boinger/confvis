@@ -334,7 +334,7 @@ func writeFetchOutput(deps *FetchDeps, report *confidence.Report, outputToStdout
 
 func printFetchVerbose(deps *FetchDeps, report *confidence.Report, outputToStdout bool) {
 	status := "PASS"
-	if !report.Passed() {
+	if !report.IsPass() {
 		status = "FAIL"
 	}
 	_, _ = fmt.Fprintf(deps.Stderr, "Score: %d/%d (%s)\n", report.ScoreValue(), report.Threshold, status)

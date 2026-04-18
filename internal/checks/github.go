@@ -156,7 +156,7 @@ func (c *GitHubClient) CreateCheck(ctx context.Context, report *confidence.Repor
 
 	// Determine conclusion based on threshold
 	conclusion := "success"
-	if !report.Passed() {
+	if !report.IsPass() {
 		conclusion = "failure"
 	}
 
@@ -323,7 +323,7 @@ func escapeMDCell(s string) string {
 
 func buildCheckOutput(report *confidence.Report) *CheckRunOutput {
 	status := "Passed"
-	if !report.Passed() {
+	if !report.IsPass() {
 		status = "Failed"
 	}
 

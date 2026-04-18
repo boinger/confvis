@@ -37,7 +37,7 @@ func GenerateFlat(w io.Writer, report *confidence.Report, opts FlatOptions) erro
 	// Score and status text
 	scoreText := fmt.Sprintf("%d%%", report.ScoreValue())
 	statusText := report.EffectivePassLabel()
-	if !report.Passed() {
+	if !report.IsPass() {
 		statusText = report.EffectiveFailLabel()
 	}
 

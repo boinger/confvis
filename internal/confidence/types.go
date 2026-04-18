@@ -45,10 +45,19 @@ type Report struct {
 	// Custom labels
 	PassLabel string `json:"passLabel,omitempty"`
 	FailLabel string `json:"failLabel,omitempty"`
+
+	// Serialization-only output fields. These are emitted by producers
+	// (aggregate, gauge) and accepted on round-trip input, but are not
+	// authoritative — IsPass() always computes pass/fail from Score and
+	// Threshold. They exist so that a round-trip through Report does
+	// not drop the documented emit-json shape (docs/cli-reference.md).
+	Passed   bool `json:"passed,omitempty"`
+	Baseline *int `json:"baseline,omitempty"`
+	Delta    *int `json:"delta,omitempty"`
 }
 
-// Passed returns true if the score meets or exceeds the threshold.
-func (r *Report) Passed() bool {
+// IsPass returns true if the score meets or exceeds the threshold.
+func (r *Report) IsPass() bool {
 	return r.ScoreValue() >= r.Threshold
 }
 
