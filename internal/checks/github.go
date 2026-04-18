@@ -310,13 +310,24 @@ func (c *GitHubClient) postCheckRun(ctx context.Context, endpoint string, req Ch
 	return &result, nil
 }
 
+// escapeMDCell escapes markdown metacharacters that would break a table
+// cell or the check title: pipes split cells, newlines split rows,
+// backticks open unintended code spans.
+func escapeMDCell(s string) string {
+	s = strings.ReplaceAll(s, "|", `\|`)
+	s = strings.ReplaceAll(s, "\n", " ")
+	s = strings.ReplaceAll(s, "\r", " ")
+	s = strings.ReplaceAll(s, "`", "\\`")
+	return s
+}
+
 func buildCheckOutput(report *confidence.Report) *CheckRunOutput {
 	status := "Passed"
 	if !report.Passed() {
 		status = "Failed"
 	}
 
-	title := fmt.Sprintf("%s: %d%% (%s)", report.Title, report.ScoreValue(), status)
+	title := fmt.Sprintf("%s: %d%% (%s)", escapeMDCell(report.Title), report.ScoreValue(), status)
 
 	// Build summary with score and threshold
 	var summary strings.Builder
@@ -333,7 +344,7 @@ func buildCheckOutput(report *confidence.Report) *CheckRunOutput {
 		summary.WriteString("| Factor | Score | Weight |\n")
 		summary.WriteString("|--------|------:|-------:|\n")
 		for _, f := range report.Factors {
-			fmt.Fprintf(&summary, "| %s | %d%% | %d%% |\n", f.Name, f.Score, f.Weight)
+			fmt.Fprintf(&summary, "| %s | %d%% | %d%% |\n", escapeMDCell(f.Name), f.Score, f.Weight)
 		}
 	}
 

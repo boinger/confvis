@@ -340,6 +340,25 @@ func TestBuildCheckOutput(t *testing.T) {
 			wantTitle:  "Code Quality: 85% (Passed)",
 			wantInSumm: []string{"Factor Breakdown", "Coverage", "90%", "50%", "Lint", "80%"},
 		},
+		{
+			name: "adversarial title and factor names get escaped",
+			report: &confidence.Report{
+				Title:     "Quality | Report",
+				Score:     intPtrT(85),
+				Threshold: 70,
+				Factors: []confidence.Factor{
+					{Name: "Line|Breaks", Score: 90, Weight: 50},
+					{Name: "Back`ticks", Score: 80, Weight: 50},
+					{Name: "Multi\nline", Score: 70, Weight: 50},
+				},
+			},
+			wantTitle: `Quality \| Report: 85% (Passed)`,
+			wantInSumm: []string{
+				`Line\|Breaks`,
+				"Back\\`ticks",
+				"Multi line",
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -354,6 +373,30 @@ func TestBuildCheckOutput(t *testing.T) {
 				if !contains(output.Summary, want) {
 					t.Errorf("Summary missing %q, got: %s", want, output.Summary)
 				}
+			}
+		})
+	}
+}
+
+func TestEscapeMDCell(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"plain", "hello world", "hello world"},
+		{"pipe", "a|b", `a\|b`},
+		{"newline", "line1\nline2", "line1 line2"},
+		{"carriage return", "line1\rline2", "line1 line2"},
+		{"backtick", "use `this`", "use \\`this\\`"},
+		{"all metacharacters", "a|b\nc`d", `a\|b c\` + "`d"},
+		{"empty", "", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := escapeMDCell(tt.in)
+			if got != tt.want {
+				t.Errorf("escapeMDCell(%q) = %q, want %q", tt.in, got, tt.want)
 			}
 		})
 	}
