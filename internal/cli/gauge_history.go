@@ -1,8 +1,10 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 
+	"github.com/boinger/confvis/internal/gitutil"
 	"github.com/boinger/confvis/internal/history"
 )
 
@@ -48,7 +50,11 @@ func appendToHistory(deps *GaugeDeps, useGitRef bool, historyRef, historyFile st
 		}
 		if deps.GitRefPruner != nil && deps.HistoryMaxEntries > 0 {
 			if err := deps.GitRefPruner(historyRef, deps.HistoryMaxEntries); err != nil {
-				return fmt.Errorf("pruning history git ref: %w", err)
+				// A concurrent writer moved the ref; the append already
+				// succeeded, and the next run will prune. Benign.
+				if !errors.Is(err, gitutil.ErrRefConflict) {
+					return fmt.Errorf("pruning history git ref: %w", err)
+				}
 			}
 		}
 	case historyFile != "":

@@ -129,9 +129,21 @@ func serializeHistory(h *History) (string, error) {
 // maxEntries entries. A maxEntries of 0 or less disables pruning (no-op).
 // If the ref doesn't exist or contains fewer entries than maxEntries,
 // PruneRef is a no-op.
+//
+// PruneRef uses compare-and-swap via gitutil.WriteRef, matching the
+// convention established by AppendToRef. If the ref moves between the
+// read and the write (a concurrent AppendToRef), PruneRef returns
+// gitutil.ErrRefConflict without losing the concurrent append. Callers
+// should treat ErrRefConflict as benign — the concurrent append
+// succeeded, and the next prune call will see the new state.
 func (g *GitRefStorage) PruneRef(ref string, maxEntries int) error {
 	if maxEntries <= 0 {
 		return nil
+	}
+
+	oldSHA, exists := gitutil.ReadRef(ref)
+	if !exists {
+		return nil // nothing to prune
 	}
 
 	h, err := g.ReadFromRef(ref)
@@ -143,7 +155,11 @@ func (g *GitRefStorage) PruneRef(ref string, maxEntries int) error {
 	}
 
 	h.Entries = h.Entries[len(h.Entries)-maxEntries:]
-	return g.WriteToRef(ref, h)
+	content, err := serializeHistory(h)
+	if err != nil {
+		return fmt.Errorf("serializing pruned history: %w", err)
+	}
+	return gitutil.WriteRef(ref, []byte(content), oldSHA)
 }
 
 // Package-level functions for convenience
