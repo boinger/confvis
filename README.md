@@ -1,10 +1,10 @@
 # confvis  [![GitHub Marketplace](https://img.shields.io/badge/Marketplace-confvis-blue?logo=github)](https://github.com/marketplace/actions/confvis) [![Go Reference](https://pkg.go.dev/badge/github.com/boinger/confvis.svg)](https://pkg.go.dev/github.com/boinger/confvis)
 
-Most repos surface code health as a wall of independent pass/fail badges — CI, coverage, security, complexity, debt — each reporting in isolation. Nothing expresses which signals matter most or how they relate. You're left mentally weighting a dozen indicators every time you look at a README or PR.
+Most projects show code health as a row of independent badges: CI, coverage, security, complexity, debt. Each one reports its own pass/fail. None of them say which signal matters more or how to weigh them against each other.
 
-confvis replaces that with explicit weighted aggregation. You declare the factors that matter — coverage, security score, complexity, whatever your tools already produce — assign each a weight and threshold, and confvis computes a single composite score. The weighting is intentional and version-controlled, not implicit.
+confvis aggregates them into a single weighted score. Declare the factors you care about, give each a weight and threshold, and get one composite. The scoring rule lives in your repo as config, reviewable like any other code.
 
-The outputs — gauge badges, flat badges, sparkline history, HTML dashboards, GitHub PR checks — are a consequence of that scoring. Use `--fail-under` to gate CI on a minimum score, or `--fail-on-regression` to catch quality drift against a stored baseline.
+Outputs include gauge badges, flat badges, sparkline history, HTML dashboards, and GitHub PR checks. Use `--fail-under` to gate CI on a minimum score, or `--fail-on-regression` to catch drift against a stored baseline.
 
 **One weighted assessment:**
 
@@ -84,7 +84,7 @@ confvis fetch sonarqube -p myproject -o quality.json
 confvis aggregate -c coverage.json:60 -c quality.json:40 -o ./output
 ```
 
-**Other integrations:** GitHub Actions, Snyk, Trivy—see [Sources](docs/sources.md).
+**Other integrations:** GitHub Actions, Snyk, Trivy. See [Sources](docs/sources.md).
 
 ### 2. Understand the output
 
@@ -103,12 +103,12 @@ Each fetched report contains:
 ```
 
 - **score**: The metric value (0-100), auto-calculated from weighted factors
-- **threshold**: Minimum acceptable score—badge shows pass/fail status
+- **threshold**: Minimum acceptable score; badge shows pass/fail status
 - **factors**: Breakdown of contributing metrics with weights
 
 The `aggregate` command (from Step 1) combines multiple reports into a weighted overall score. See [Schema Reference](docs/schema.md) for the full specification.
 
-**Custom metrics?** Create your own JSON/YAML for metrics confvis doesn't fetch directly.  Or write a new module (and send me the PR, please)!
+**Custom metrics?** Create your own JSON/YAML for metrics confvis doesn't fetch directly. Or write a new module (and send me the PR, please)!
 
 ### 3. Embed in your README
 
@@ -253,7 +253,7 @@ Color styles: `github` (default), `minimal`, `corporate`, `high-contrast`
 
 ### `confvis gate`
 
-CI gate: check thresholds and exit non-zero on failure. No badge generation — purpose-built for CI pass/fail gating.
+CI gate: check thresholds and exit non-zero on failure. No badge generation; pass/fail only.
 
 ```bash
 # Fail if score below threshold
