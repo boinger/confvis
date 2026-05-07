@@ -9,6 +9,14 @@ on:
     - cron: '0 8 * * *'  # Daily at 8 AM UTC
   workflow_dispatch:
 
+# Serialize Confidence Badge runs per branch ref. cancel-in-progress: true
+# cancels stale in-flight runs when a new push to main arrives, eliminating
+# the bulk of non-fast-forward push races. The retry loop in the Commit
+# badge step below catches the residual cooperative-cancellation window.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   dogfood:
     name: Generate Confidence Badge
@@ -121,7 +129,38 @@ jobs:
 
       - name: Commit badge
         if: github.ref == 'refs/heads/main'
-        uses: stefanzweifel/git-auto-commit-action@04702edda442b2e678b25b537cec683a1493fcb9 # v7
-        with:
-          commit_message: "chore: update confidence badge [skip ci]"
-          file_pattern: "badges/*"
+        # Replaces stefanzweifel/git-auto-commit-action with a retry loop that
+        # handles the cooperative-cancellation residual race: if a stale run
+        # lands its push during the cancellation window, ours fails with
+        # non-fast-forward; we re-fetch, rewrite the commit on the new main
+        # HEAD, and try again.
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if [[ -z "$(git status --porcelain badges/)" ]]; then
+            echo "No badge changes to commit."
+            exit 0
+          fi
+
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git reset --soft origin/main
+            git add badges/
+            # If --soft brought us to a tree that already matches, nothing to commit.
+            if git diff --cached --quiet; then
+              echo "Badges already up to date on origin/main (attempt $attempt)."
+              exit 0
+            fi
+            git commit -m "chore: update confidence badge [skip ci]"
+            if git push origin HEAD:main; then
+              echo "Push succeeded on attempt $attempt."
+              exit 0
+            fi
+            echo "Push attempt $attempt rejected; re-fetching and retrying."
+            # Jitter to avoid livelock if another run is also in retry.
+            sleep $((2 + RANDOM % 3))
+          done
+
+          echo "All push attempts exhausted." >&2
+          exit 1
