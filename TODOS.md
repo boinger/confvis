@@ -45,13 +45,3 @@
 **Why:** Transient, not caused by our code. A rerun of the failed job succeeds. Worth monitoring — if the pattern repeats, consider bumping to a newer `coverallsapp` tag or switching to installing the coveralls CLI at a known version inside the workflow.
 **Depends on:** Observation of repeat failures.
 **Effort:** S (upgrade pin) / M (switch strategy).
-
-### I3: Codecov fetch logs 401 Invalid token during Confidence Badge runs
-**Priority:** P3
-**Category:** Infrastructure / CI reliability (cosmetic)
-**Location:** `.github/workflows/dogfood.yml` — Codecov fetch step (`confvis fetch codecov`)
-**What:** The codecov fetch step occasionally logs `Error: fetching from codecov: API returned status 401: {"detail":"Invalid token."}` and exits 1. The step is guarded by `continue-on-error: true`, so the workflow continues without coverage data and the badge regenerates from the remaining sources — the 401 is log noise, not a workflow failure. Observed across four consecutive intermediate merge commits on 2026-05-06; recovered without intervention on subsequent commits.
-**Why:** Transient, not caused by our code. Either the `CODECOV_TOKEN` secret is rotated/limited and revalidates between runs, or codecov's auth backend rate-limits rapid token reuse. Distinct from I2 (Coveralls) — separate observability sink, separate failure mode.
-**Context:** Cosmetic only. The workflow's existing `continue-on-error: true` already prevents the 401 from breaking badge generation; the resulting badge just omits coverage data for that run. If the noise becomes correlated with sustained badge degradation, consider verifying the token's scope/expiry or adding a quick retry on 401.
-**Depends on:** Observation of repeat failures or correlation with token-rotation events.
-**Effort:** S (token scope check).
