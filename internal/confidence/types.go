@@ -9,6 +9,27 @@ type Factor struct {
 	Threshold   int    `json:"threshold,omitempty"`
 	Description string `json:"description,omitempty"`
 	URL         string `json:"url,omitempty"`
+
+	// Details is a producer-emitted short blurb for the factor. Some
+	// generators (e.g. KeepAfloat) send "details" rather than "description".
+	// Rendered via the Description fallback in the gauge factor-breakdown
+	// table; not authoritative for scoring.
+	Details string `json:"details,omitempty"`
+
+	// Breakdown is an optional, producer-defined decomposition of the
+	// factor's score, keyed by sub-component name (e.g. "direct",
+	// "transitive"). Tolerant of which keys appear so new categories do not
+	// require a struct change; each entry's shape stays strict. Not
+	// authoritative for scoring.
+	Breakdown map[string]FactorBreakdownEntry `json:"breakdown,omitempty"`
+}
+
+// FactorBreakdownEntry is one sub-component of a factor's score breakdown
+// (e.g. "direct" vs "transitive" dependencies). Producer-supplied and
+// informational; not authoritative for the overall score.
+type FactorBreakdownEntry struct {
+	Outdated int `json:"outdated"`
+	Score    int `json:"score"`
 }
 
 // ColorThresholds defines score boundaries for color coding.

@@ -208,6 +208,9 @@ func writeGitHubCommentFactors(w io.Writer, factors []confidence.Factor) error {
 	for _, f := range factors {
 		desc := f.Description
 		if desc == "" {
+			desc = f.Details
+		}
+		if desc == "" {
 			desc = "-"
 		}
 		if _, err := fmt.Fprintf(w, "| %s | %d | %d | %s |\n", f.Name, f.Score, f.Weight, desc); err != nil {

@@ -20,6 +20,8 @@ confvis reads confidence reports in JSON or YAML format. This document describes
       "score": "integer (required, 0-100)",
       "weight": "integer (required)",
       "description": "string (optional)",
+      "details": "string (optional)",
+      "breakdown": "object (optional, keyed by sub-component)",
       "url": "string (optional)"
     }
   ],
@@ -27,7 +29,10 @@ confvis reads confidence reports in JSON or YAML format. This document describes
   "generatedAt": "string (optional, ISO 8601 timestamp)",
   "source": "string (optional)",
   "passLabel": "string (optional, default 'PASS')",
-  "failLabel": "string (optional, default 'FAIL')"
+  "failLabel": "string (optional, default 'FAIL')",
+  "passed": "boolean (optional, serialization-only)",
+  "baseline": "integer (optional, serialization-only)",
+  "delta": "integer (optional, serialization-only)"
 }
 ```
 
@@ -48,6 +53,9 @@ confvis reads confidence reports in JSON or YAML format. This document describes
 | `source` | string | No | Origin of the report (e.g., "ci-pipeline", "manual") |
 | `passLabel` | string | No | Custom label for passing status (default: "PASS") |
 | `failLabel` | string | No | Custom label for failing status (default: "FAIL") |
+| `passed` | boolean | No | Serialization-only field emitted by producers (aggregate, gauge) on round-trip. Not authoritative; pass/fail is computed from `score` and `threshold` |
+| `baseline` | integer | No | Serialization-only field: baseline score this report was compared against, when applicable |
+| `delta` | integer | No | Serialization-only field: score change versus baseline, when applicable |
 
 *Score is auto-calculated as a weighted average if omitted and factors are present.
 
@@ -69,6 +77,8 @@ Note: `greenAbove` must be >= `yellowAbove`. Scores below `yellowAbove` display 
 | `weight` | integer | Yes | Relative weight in calculations |
 | `threshold` | integer | No | Minimum acceptable score for this factor (0-100). When set, `confvis gauge` fails if factor score is below this threshold |
 | `description` | string | No | Explanation of this factor |
+| `details` | string | No | Producer-emitted short blurb for this factor. Generators that send `details` instead of `description` (e.g. KeepAfloat) have it rendered via the description fallback in the gauge factor-breakdown table |
+| `breakdown` | object | No | Optional producer-defined score decomposition keyed by sub-component name (e.g. `direct`, `transitive`). Each entry is `{ "outdated": integer, "score": integer }`. Informational; not used in scoring |
 | `url` | string | No | Link to detailed report (clickable in dashboard and markdown output) |
 
 ## Examples

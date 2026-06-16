@@ -77,6 +77,18 @@
       "type": "string",
       "default": "FAIL",
       "description": "Custom label for failing status"
+    },
+    "passed": {
+      "type": "boolean",
+      "description": "Serialization-only field emitted by producers (aggregate, gauge) on round-trip. Not authoritative; pass/fail is computed from score and threshold"
+    },
+    "baseline": {
+      "type": "integer",
+      "description": "Serialization-only field: the baseline score this report was compared against, when applicable"
+    },
+    "delta": {
+      "type": "integer",
+      "description": "Serialization-only field: score change versus baseline, when applicable"
     }
   },
   "$defs": {
@@ -110,6 +122,31 @@
         "description": {
           "type": "string",
           "description": "Explanation of this factor"
+        },
+        "details": {
+          "type": "string",
+          "description": "Producer-emitted short blurb for this factor; rendered via the description fallback in the gauge factor-breakdown table"
+        },
+        "breakdown": {
+          "type": "object",
+          "description": "Optional producer-defined score decomposition keyed by sub-component name (e.g. 'direct', 'transitive'); informational, not authoritative",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["outdated", "score"],
+            "properties": {
+              "outdated": {
+                "type": "integer",
+                "description": "Count of outdated items in this sub-component"
+              },
+              "score": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100,
+                "description": "Sub-component score (0-100)"
+              }
+            },
+            "additionalProperties": false
+          }
         },
         "url": {
           "type": "string",

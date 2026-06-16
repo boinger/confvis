@@ -831,3 +831,109 @@ func TestParseWithFormat_UnknownFactorField(t *testing.T) {
 		t.Errorf("error should mention the unknown field name; got: %v", err)
 	}
 }
+
+// keepAfloatReportJSON mirrors the real artifact emitted by KeepAfloat's
+// .github/workflows/scripts/calculate-confidence.sh (integer weights summing
+// to 100; per-factor "details" on every factor; "breakdown" on the dependency
+// factor). It locks in acceptance of this producer's shape so strict decoding
+// cannot regress into rejecting it again.
+const keepAfloatReportJSON = `{
+  "title": "KeepAfloat Build Confidence",
+  "score": 92,
+  "threshold": 85,
+  "passed": true,
+  "factors": [
+    { "name": "Coverage",             "weight": 20, "score": 88,  "details": "78.4% (target 80%)" },
+    { "name": "Coverage Delta",       "weight": 15, "score": 100, "details": "+0.3% vs baseline" },
+    { "name": "Dependency Freshness", "weight": 15, "score": 90,  "details": "3 outdated",
+      "breakdown": {
+        "direct":     { "outdated": 1, "score": 95 },
+        "transitive": { "outdated": 2, "score": 85 }
+      }
+    },
+    { "name": "Test Freshness",  "weight": 20, "score": 95,  "details": "tests modified recently" },
+    { "name": "Test Stability", "weight": 15, "score": 100, "details": "no flakes" },
+    { "name": "SonarQube",      "weight": 15, "score": 80,  "details": "2 code smells" }
+  ]
+}`
+
+// keepAfloatReportYAML is a transliteration of the same report, asserting the
+// YAML path (KnownFields(true)) accepts details/breakdown symmetrically.
+const keepAfloatReportYAML = `title: KeepAfloat Build Confidence
+score: 92
+threshold: 85
+passed: true
+factors:
+  - name: Coverage
+    weight: 20
+    score: 88
+    details: "78.4% (target 80%)"
+  - name: Dependency Freshness
+    weight: 15
+    score: 90
+    details: "3 outdated"
+    breakdown:
+      direct:
+        outdated: 1
+        score: 95
+      transitive:
+        outdated: 2
+        score: 85
+`
+
+func assertKeepAfloatFactors(t *testing.T, report *Report) {
+	t.Helper()
+
+	// details must round-trip onto the new Factor.Details field.
+	if got := report.Factors[0].Details; got != "78.4% (target 80%)" {
+		t.Errorf("Factors[0].Details = %q, want %q", got, "78.4% (target 80%)")
+	}
+
+	// Locate the Dependency Freshness factor and assert its breakdown.
+	var dep *Factor
+	for i := range report.Factors {
+		if report.Factors[i].Name == "Dependency Freshness" {
+			dep = &report.Factors[i]
+			break
+		}
+	}
+	if dep == nil {
+		t.Fatal("Dependency Freshness factor not found")
+	}
+	if dep.Breakdown == nil {
+		t.Fatal("Dependency Freshness breakdown should not be nil")
+	}
+	direct, ok := dep.Breakdown["direct"]
+	if !ok {
+		t.Fatal(`breakdown missing "direct" entry`)
+	}
+	if direct.Outdated != 1 || direct.Score != 95 {
+		t.Errorf("breakdown[direct] = %+v, want {Outdated:1 Score:95}", direct)
+	}
+	transitive, ok := dep.Breakdown["transitive"]
+	if !ok {
+		t.Fatal(`breakdown missing "transitive" entry`)
+	}
+	if transitive.Outdated != 2 || transitive.Score != 85 {
+		t.Errorf("breakdown[transitive] = %+v, want {Outdated:2 Score:85}", transitive)
+	}
+}
+
+// TestParseWithFormat_KeepAfloatReportJSON is the regression guard: a real
+// downstream report carrying per-factor details/breakdown must parse without
+// error and round-trip those fields.
+func TestParseWithFormat_KeepAfloatReportJSON(t *testing.T) {
+	report, err := ParseWithFormat(strings.NewReader(keepAfloatReportJSON), FormatJSON)
+	if err != nil {
+		t.Fatalf("ParseWithFormat(JSON) error = %v; want nil (report must accept details/breakdown)", err)
+	}
+	assertKeepAfloatFactors(t, report)
+}
+
+func TestParseWithFormat_KeepAfloatReportYAML(t *testing.T) {
+	report, err := ParseWithFormat(strings.NewReader(keepAfloatReportYAML), FormatYAML)
+	if err != nil {
+		t.Fatalf("ParseWithFormat(YAML) error = %v; want nil (report must accept details/breakdown)", err)
+	}
+	assertKeepAfloatFactors(t, report)
+}
