@@ -310,7 +310,7 @@
         <section class="aggregate-section">
             <div class="aggregate-header">
                 <h2 class="aggregate-title">Overall Score</h2>
-                <span class="report-weight">4 reports</span>
+                <span class="report-weight">5 reports</span>
             </div>
             <div class="gauge-container">
                 <svg width="200" height="120"
@@ -318,15 +318,28 @@
      xmlns="http://www.w3.org/2000/svg"
      xmlns:xlink="http://www.w3.org/1999/xlink">
 <path d="M 20 100 A 80 80 0 0 1 180 100" style="fill:none;stroke:#e1e4e8;stroke-width:12;stroke-linecap:round" />
-<path d="M 20 100 A 80 80 0 0 1 180 100" style="fill:none;stroke:#1a7f37;stroke-width:12;stroke-linecap:round;stroke-dasharray:251.33 251.33" />
+<path d="M 20 100 A 80 80 0 0 1 180 100" style="fill:none;stroke:#1a7f37;stroke-width:12;stroke-linecap:round;stroke-dasharray:246.30 251.33" />
 <circle cx="156" cy="44" r="4" style="fill:#57606a" />
-<text x="100" y="74" style="text-anchor:middle;font-family:system-ui,-apple-system,sans-serif;font-size:40px;font-weight:bold;fill:#24292f" >100</text>
+<text x="100" y="74" style="text-anchor:middle;font-family:system-ui,-apple-system,sans-serif;font-size:40px;font-weight:bold;fill:#24292f" >98</text>
 <text x="100" y="95" style="text-anchor:middle;font-family:system-ui,-apple-system,sans-serif;font-size:12px;font-weight:600;fill:#1a7f37" >PASS</text>
 </svg>
 
             </div>
             
         <div class="component-breakdown">
+            
+            <div class="component-row">
+                <span class="component-name">
+                    confvis
+                    <span class="badge badge-sm badge-fail">
+                        Fail
+                    </span>
+                </span>
+                <span class="component-meta">
+                    <span>score: 94</span>
+                    <span>weight: 25</span>
+                </span>
+            </div>
             
             <div class="component-row">
                 <span class="component-name">
@@ -386,6 +399,81 @@
 
         <h2 class="section-title">Components</h2>
         <div class="reports-grid">
+            
+            
+<div class="report-card report-failed">
+    <div class="report-card-header">
+        <div>
+            <div class="report-title">
+                confvis
+                <span class="badge badge-sm badge-fail">
+                    Fail
+                </span>
+            </div>
+            <div class="report-path">quality.json</div>
+        </div>
+        <span class="report-weight">weight: 25</span>
+    </div>
+    <div class="report-gauge">
+        <svg width="200" height="120"
+     viewBox="0 0 200 120"
+     xmlns="http://www.w3.org/2000/svg"
+     xmlns:xlink="http://www.w3.org/1999/xlink">
+<path d="M 20 100 A 80 80 0 0 1 180 100" style="fill:none;stroke:#e1e4e8;stroke-width:12;stroke-linecap:round" />
+<path d="M 20 100 A 80 80 0 0 1 180 100" style="fill:none;stroke:#1a7f37;stroke-width:12;stroke-linecap:round;stroke-dasharray:236.25 251.33" />
+<circle cx="156" cy="44" r="4" style="fill:#57606a" />
+<text x="100" y="74" style="text-anchor:middle;font-family:system-ui,-apple-system,sans-serif;font-size:40px;font-weight:bold;fill:#24292f" >94</text>
+<text x="100" y="95" style="text-anchor:middle;font-family:system-ui,-apple-system,sans-serif;font-size:12px;font-weight:600;fill:#1a7f37" >PASS</text>
+</svg>
+
+    </div>
+    
+    <div class="factors-list">
+        
+        <div class="factor-row">
+            <span class="factor-name"><a href="https://sonarcloud.io/component_measures?id=boinger_confvis&amp;metric=coverage" class="factor-link" target="_blank" rel="noopener noreferrer">Test Coverage</a></span>
+            <span class="factor-score">87%</span>
+        </div>
+        
+        <div class="factor-row">
+            <span class="factor-name"><a href="https://sonarcloud.io/component_measures?id=boinger_confvis&amp;metric=reliability_rating" class="factor-link" target="_blank" rel="noopener noreferrer">Reliability</a></span>
+            <span class="factor-score">100%</span>
+        </div>
+        
+        <div class="factor-row">
+            <span class="factor-name"><a href="https://sonarcloud.io/component_measures?id=boinger_confvis&amp;metric=security_rating" class="factor-link" target="_blank" rel="noopener noreferrer">Security</a></span>
+            <span class="factor-score">100%</span>
+        </div>
+        
+        <div class="factor-row">
+            <span class="factor-name"><a href="https://sonarcloud.io/component_measures?id=boinger_confvis&amp;metric=sqale_rating" class="factor-link" target="_blank" rel="noopener noreferrer">Maintainability</a></span>
+            <span class="factor-score">100%</span>
+        </div>
+        
+        <div class="factor-row">
+            <span class="factor-name"><a href="https://sonarcloud.io/component_measures?id=boinger_confvis&amp;metric=vulnerabilities" class="factor-link" target="_blank" rel="noopener noreferrer">Vulnerabilities</a></span>
+            <span class="factor-score">100%</span>
+        </div>
+        
+        <div class="factor-row">
+            <span class="factor-name"><a href="https://sonarcloud.io/component_measures?id=boinger_confvis&amp;metric=bugs" class="factor-link" target="_blank" rel="noopener noreferrer">Bugs</a></span>
+            <span class="factor-score">100%</span>
+        </div>
+        
+        <div class="factor-row">
+            <span class="factor-name"><a href="https://sonarcloud.io/component_measures?id=boinger_confvis&amp;metric=code_smells" class="factor-link" target="_blank" rel="noopener noreferrer">Code Smells</a></span>
+            <span class="factor-score">20%</span>
+        </div>
+        
+        <div class="factor-row">
+            <span class="factor-name"><a href="https://sonarcloud.io/component_measures?id=boinger_confvis&amp;metric=duplicated_lines_density" class="factor-link" target="_blank" rel="noopener noreferrer">Duplication</a></span>
+            <span class="factor-score">99%</span>
+        </div>
+        
+    </div>
+    
+</div>
+
             
             
 <div class="report-card report-failed">
