@@ -145,9 +145,12 @@ jobs:
 
           for attempt in 1 2 3; do
             git fetch origin main
-            git reset --soft origin/main
+            # --mixed (not --soft): the index must come from origin/main so the
+            # commit carries only badges/. --soft keeps this run's checkout in
+            # the index and silently reverts anything that landed on main since.
+            git reset --mixed origin/main
             git add badges/
-            # If --soft brought us to a tree that already matches, nothing to commit.
+            # If the new badges already match origin/main, nothing to commit.
             if git diff --cached --quiet; then
               echo "Badges already up to date on origin/main (attempt $attempt)."
               exit 0
