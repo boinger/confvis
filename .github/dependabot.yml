@@ -13,3 +13,8 @@ updates:
       interval: weekly
     commit-message:
       prefix: "ci(deps)"
+    groups:
+      # init/autobuild/analyze/upload-sarif must move together; split PRs fail CodeQL
+      codeql:
+        patterns:
+          - "github/codeql-action*"
