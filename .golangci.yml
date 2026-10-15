@@ -14,6 +14,7 @@ linters:
   disable:
     # Too strict for this project
     - exhaustruct      # Requires all struct fields to be initialized
+    - exhaustruct_v5   # v2.14 renamed exhaustruct
     - varnamelen       # Variable name length restrictions
     - wrapcheck        # Requires wrapping errors from external packages
     - depguard         # Dependency guard (not needed for this project)
