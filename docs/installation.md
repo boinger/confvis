@@ -80,5 +80,5 @@ Use "confvis [command] --help" for more information about a command.
 
 ## Requirements
 
-- Go 1.23 or later (for building)
+- Go 1.25 or later (for building)
 - No runtime dependencies - the binary is self-contained

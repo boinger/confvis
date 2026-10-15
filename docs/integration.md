@@ -70,7 +70,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: '1.26'
 
       - name: Install confvis
         run: go install github.com/boinger/confvis/cmd/confvis@latest
@@ -111,7 +111,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: '1.26'
 
       - name: Install confvis
         run: go install github.com/boinger/confvis/cmd/confvis@latest
@@ -159,7 +159,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: '1.26'
 
       - name: Install confvis
         run: go install github.com/boinger/confvis/cmd/confvis@latest
@@ -225,7 +225,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: '1.26'
 
       - name: Install confvis
         run: go install github.com/boinger/confvis/cmd/confvis@latest
